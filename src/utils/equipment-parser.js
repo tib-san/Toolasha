@@ -44,18 +44,20 @@ function getSpeedFieldForActionType(actionTypeHrid) {
 
 /**
  * Calculate enhancement scaling for speed bonuses
- * Each enhancement level adds +0.1 to the base speed bonus
+ * Uses item-specific enhancement bonus from noncombatEnhancementBonuses
  * @param {number} baseSpeed - Base speed bonus from item (e.g., 0.15 for 15%)
- * @param {number} enhancementLevel - Enhancement level (0-5)
+ * @param {number} enhancementBonus - Enhancement bonus per level from item data (e.g., 0.003 for 0.3%)
+ * @param {number} enhancementLevel - Enhancement level (0-20)
  * @returns {number} Scaled speed bonus
  *
  * @example
- * calculateEnhancementScaling(0.15, 0) // 0.15 (15%)
- * calculateEnhancementScaling(0.15, 2) // 0.35 (35%)
+ * calculateEnhancementScaling(0.15, 0.003, 0) // 0.15 (15%)
+ * calculateEnhancementScaling(0.15, 0.003, 10) // 0.18 (18%)
+ * calculateEnhancementScaling(0.3, 0.006, 10) // 0.36 (36%)
  */
-function calculateEnhancementScaling(baseSpeed, enhancementLevel) {
-    // Each enhancement level adds 0.1 (10%) to the base
-    return baseSpeed + (enhancementLevel * 0.1);
+function calculateEnhancementScaling(baseSpeed, enhancementBonus, enhancementLevel) {
+    // Formula: base + (enhancementBonus × enhancementLevel)
+    return baseSpeed + (enhancementBonus * enhancementLevel);
 }
 
 /**
@@ -66,10 +68,10 @@ function calculateEnhancementScaling(baseSpeed, enhancementLevel) {
  * @returns {number} Total speed bonus as decimal (e.g., 0.15 for 15%)
  *
  * @example
- * parseEquipmentSpeedBonuses(equipment, "/action_types/cheesesmithing", items)
- * // Returns: 0.15 (if wearing Cheese Chisel +0)
- * // Returns: 0.35 (if wearing Cheese Chisel +2)
- * // Returns: 0.50 (if wearing two items with 15% and 35% bonuses)
+ * parseEquipmentSpeedBonuses(equipment, "/action_types/brewing", items)
+ * // Cheese Pot (base 0.15, bonus 0.003) +0: 0.15 (15%)
+ * // Cheese Pot (base 0.15, bonus 0.003) +10: 0.18 (18%)
+ * // Azure Pot (base 0.3, bonus 0.006) +10: 0.36 (36%)
  */
 export function parseEquipmentSpeedBonuses(characterEquipment, actionTypeHrid, itemDetailMap) {
     if (!characterEquipment || characterEquipment.size === 0) {
@@ -116,8 +118,12 @@ export function parseEquipmentSpeedBonuses(characterEquipment, actionTypeHrid, i
         // Get enhancement level from equipped item
         const enhancementLevel = equippedItem.enhancementLevel || 0;
 
+        // Get enhancement bonus from item data (how much each level adds)
+        const enhancementBonuses = itemDetails.equipmentDetail.noncombatEnhancementBonuses;
+        const enhancementBonus = (enhancementBonuses && enhancementBonuses[speedField]) || 0;
+
         // Calculate scaled speed bonus
-        const scaledSpeed = calculateEnhancementScaling(baseSpeed, enhancementLevel);
+        const scaledSpeed = calculateEnhancementScaling(baseSpeed, enhancementBonus, enhancementLevel);
 
         // Add to total
         totalSpeedBonus += scaledSpeed;
@@ -156,7 +162,12 @@ export function debugEquipmentSpeedBonuses(characterEquipment, itemDetailMap) {
         for (const [statName, value] of Object.entries(noncombatStats)) {
             if (statName.endsWith('Speed') && value > 0) {
                 const enhancementLevel = equippedItem.enhancementLevel || 0;
-                const scaledValue = calculateEnhancementScaling(value, enhancementLevel);
+
+                // Get enhancement bonus from item data
+                const enhancementBonuses = itemDetails.equipmentDetail.noncombatEnhancementBonuses;
+                const enhancementBonus = (enhancementBonuses && enhancementBonuses[statName]) || 0;
+
+                const scaledValue = calculateEnhancementScaling(value, enhancementBonus, enhancementLevel);
 
                 bonuses.push({
                     itemName: itemDetails.name,
@@ -164,6 +175,7 @@ export function debugEquipmentSpeedBonuses(characterEquipment, itemDetailMap) {
                     slot: slotHrid,
                     speedType: statName,
                     baseBonus: value,
+                    enhancementBonus,
                     enhancementLevel,
                     scaledBonus: scaledValue
                 });
