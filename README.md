@@ -72,6 +72,26 @@ MWI Tools/
   - `timeReadable(sec)` - Convert seconds to readable format
   - `formatWithSeparator(num)` - Add thousand separators
 
+- **dom.js** - DOM manipulation helpers ✅
+  - `waitForElement(selector)` - Wait for element to appear
+  - `waitForElements(selector, minCount)` - Wait for multiple elements
+  - `createStyledDiv/Span(styles, text, className)` - Create styled elements
+  - `createColoredText(text, colorType)` - Create colored text spans
+  - `insertBefore/After(newEl, refEl)` - Insert elements
+  - `removeElements(selector)` - Remove elements by selector
+  - `getOriginalText(element)` - Get text without injected content
+  - `addStyles/removeStyles(css, id)` - Inject/remove CSS
+
+- **efficiency.js** - Game mechanics calculators ✅
+  - `calculateEfficiency(percent)` - Floor + modulo system
+  - `calculateExpectedOutput(percent)` - Expected output with efficiency
+  - `calculateActionTime(baseTime, speedPercent)` - Action time with speed buffs
+  - `calculateTotalTime(actionTime, count, efficiency)` - Total time calculations
+  - `calculateActionsForTarget(target, efficiency)` - Actions needed for target
+  - `calculateXpPerHour(xpPerAction, actionTime)` - XP/hour calculation
+  - `calculateLevelProgress(currentXp, xpNeeded)` - Level progress percentage
+  - `stackAdditive/Multiplicative(...bonuses)` - Buff stacking
+
 ### Core Infrastructure
 - **websocket.js** - WebSocket message interceptor ✅
   - `webSocketHook.install()` - Install hook (call before game loads)
@@ -105,9 +125,11 @@ MWI Tools/
 
 **All core infrastructure is now in place!** Features can now access game data, settings, and real-time updates.
 
-### Phase 2: More Utilities
-- [ ] `dom.js` - DOM manipulation helpers
-- [ ] `efficiency.js` - Buff and efficiency calculators
+### Phase 2: Utilities ✅ COMPLETE!
+- [x] `dom.js` - DOM manipulation helpers ✅
+- [x] `efficiency.js` - Buff and efficiency calculators ✅
+
+**All utilities are now in place!** DOM helpers provide UI building blocks, and Efficiency calculators implement game mechanics.
 
 ### Phase 3: Feature Modules
 - [ ] Market system
