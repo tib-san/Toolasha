@@ -72,13 +72,22 @@ MWI Tools/
   - `timeReadable(sec)` - Convert seconds to readable format
   - `formatWithSeparator(num)` - Add thousand separators
 
+### Core Infrastructure
+- **websocket.js** - WebSocket message interceptor ✅
+  - `webSocketHook.install()` - Install hook (call before game loads)
+  - `webSocketHook.on(messageType, handler)` - Register message handler
+  - `webSocketHook.off(messageType, handler)` - Unregister handler
+  - Intercepts all WebSocket messages from MWI game server
+  - Event-driven architecture for message processing
+  - Non-invasive: Returns original messages unchanged
+
 ## 📋 Next Steps
 
 ### Phase C: Core Infrastructure (In Progress)
 - [x] `storage.js` - Storage wrapper ✅
 - [x] `config.js` - Settings and constants ✅
+- [x] `websocket.js` - WebSocket message hooking ✅
 - [ ] `data-manager.js` - Game data management
-- [ ] `websocket.js` - WebSocket message hooking
 
 **⚠️ CRITICAL for Data Manager:** Use `localStorageUtil.getInitClientData()` to access game data. This is the official API exposed by the game - do NOT manually access localStorage or decompress LZ-string!
 
