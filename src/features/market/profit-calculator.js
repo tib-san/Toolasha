@@ -168,12 +168,15 @@ class ProfitCalculator {
             // Use 'count' field (not 'amount')
             const amount = input.count || input.amount || 1;
 
+            // Validate that the price is positive (ignore invalid market data)
+            const askPrice = (price?.ask && price.ask > 0) ? price.ask : 0;
+
             costs.push({
                 itemHrid: input.itemHrid,
                 itemName: itemDetails.name,
                 amount: amount,
-                askPrice: price?.ask || 0,
-                totalCost: (price?.ask || 0) * amount
+                askPrice: askPrice,
+                totalCost: askPrice * amount
             });
         }
 

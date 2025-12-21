@@ -221,8 +221,8 @@ class TooltipPrices {
             return;
         }
 
-        // Don't show prices if both are zero (no market data)
-        if (price.ask === 0 && price.bid === 0) {
+        // Don't show prices if invalid (zero, negative, or both missing)
+        if (price.ask <= 0 || price.bid <= 0) {
             return;
         }
 
@@ -265,8 +265,8 @@ class TooltipPrices {
             return;
         }
 
-        // Don't show profit if item has no market price
-        if (profitData.itemPrice.bid === 0 && profitData.itemPrice.ask === 0) {
+        // Don't show profit if item has invalid market price
+        if (profitData.itemPrice.bid <= 0 || profitData.itemPrice.ask <= 0) {
             return;
         }
 
