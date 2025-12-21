@@ -79,9 +79,9 @@ class ProfitCalculator {
         );
 
         // Calculate efficiency components
-        // Action Level bonus reduces the effective requirement
+        // Action Level bonus increases the effective requirement
         const baseRequirement = actionDetails.levelRequirement?.level || 1;
-        const effectiveRequirement = Math.max(1, baseRequirement - actionLevelBonus);
+        const effectiveRequirement = baseRequirement + actionLevelBonus;
         const levelEfficiency = Math.max(0, skillLevel - effectiveRequirement);
         const houseEfficiency = calculateHouseEfficiency(actionDetails.type);
 
