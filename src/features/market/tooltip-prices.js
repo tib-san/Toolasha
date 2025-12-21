@@ -396,7 +396,7 @@ class TooltipPrices {
                     html += `<div style="margin-left: 8px;">  - Level Advantage: +${profitData.levelEfficiency.toFixed(1)}%</div>`;
                     // Show Action Level bonus if active (e.g., Artisan Tea)
                     if (profitData.actionLevelBonus > 0) {
-                        html += `<div style="margin-left: 16px; font-size: 0.9em; color: #aaa;">Skill Level: ${profitData.skillLevel.toFixed(1)} (base ${(profitData.skillLevel - profitData.actionLevelBonus).toFixed(0)} + ${profitData.actionLevelBonus.toFixed(1)} from tea)</div>`;
+                        html += `<div style="margin-left: 16px; font-size: 0.9em; color: #aaa;">Effective Requirement: ${profitData.effectiveRequirement.toFixed(1)} (base ${profitData.baseRequirement} - ${profitData.actionLevelBonus.toFixed(1)} from tea)</div>`;
                     }
                 }
                 if (profitData.houseEfficiency > 0) {

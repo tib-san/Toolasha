@@ -55,7 +55,7 @@ class ProfitCalculator {
         const baseTime = actionDetails.baseTimeCost / 1e9; // Convert nanoseconds to seconds
 
         // Get character level for the action's skill
-        const baseSkillLevel = this.getSkillLevel(skills, actionDetails.type);
+        const skillLevel = this.getSkillLevel(skills, actionDetails.type);
 
         // Get equipped items for efficiency bonus calculation
         const characterEquipment = dataManager.getEquipment();
@@ -71,17 +71,18 @@ class ProfitCalculator {
         const activeDrinks = dataManager.getActionDrinkSlots(actionDetails.type);
 
         // Calculate Action Level bonus from teas (e.g., Artisan Tea: +5 Action Level)
+        // This lowers the effective requirement, not increases skill level
         const actionLevelBonus = parseActionLevelBonus(
             activeDrinks,
             initData?.itemDetailMap || {},
             drinkConcentration
         );
 
-        // Apply Action Level bonus to skill level for efficiency calculation
-        const skillLevel = baseSkillLevel + actionLevelBonus;
-
         // Calculate efficiency components
-        const levelEfficiency = Math.max(0, skillLevel - (actionDetails.levelRequirement?.level || 1));
+        // Action Level bonus reduces the effective requirement
+        const baseRequirement = actionDetails.levelRequirement?.level || 1;
+        const effectiveRequirement = Math.max(1, baseRequirement - actionLevelBonus);
+        const levelEfficiency = Math.max(0, skillLevel - effectiveRequirement);
         const houseEfficiency = calculateHouseEfficiency(actionDetails.type);
 
         // Calculate equipment efficiency bonus
@@ -218,7 +219,9 @@ class ProfitCalculator {
             efficiencyMultiplier,
             equipmentSpeedBonus,
             skillLevel,
-            requiredLevel: actionDetails.levelRequirement?.level || 1,
+            baseRequirement,          // Base requirement level
+            effectiveRequirement,     // Requirement after Action Level bonus
+            requiredLevel: effectiveRequirement, // For backwards compatibility
             timeBreakdown
         };
     }
