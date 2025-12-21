@@ -84,10 +84,10 @@ class Config {
                 desc: "Item tooltip: Production cost and profit. [Depends on the previous selection]",
                 isTrue: true,
             },
-            profitCalc_optimisticPricing: {
-                id: "profitCalc_optimisticPricing",
-                desc: "Profit calculations: Use optimistic pricing (Bid for materials, Ask for output). When disabled, uses conservative pricing (Ask for materials, Bid for output).",
-                isTrue: false,
+            profitCalc_pricingMode: {
+                id: "profitCalc_pricingMode",
+                desc: "Profit calculation pricing mode: 'conservative' = instant trading (Ask/Bid), 'hybrid' = instant buy + sell orders (Ask/Ask), 'optimistic' = patient trading (Bid/Ask).",
+                value: "conservative",
             },
             showConsumTips: {
                 id: "showConsumTips",
@@ -236,6 +236,26 @@ class Config {
     }
 
     /**
+     * Get a setting value (for non-boolean settings)
+     * @param {string} key - Setting key
+     * @param {*} defaultValue - Default value if key doesn't exist
+     * @returns {*} Setting value
+     */
+    getSettingValue(key, defaultValue = null) {
+        const setting = this.settingsMap[key];
+        if (!setting) {
+            return defaultValue;
+        }
+        // Handle both boolean (isTrue) and value-based settings
+        if (setting.hasOwnProperty('value')) {
+            return setting.value;
+        } else if (setting.hasOwnProperty('isTrue')) {
+            return setting.isTrue;
+        }
+        return defaultValue;
+    }
+
+    /**
      * Set a setting value (auto-saves)
      * @param {string} key - Setting key
      * @param {boolean} value - Setting value
@@ -249,6 +269,18 @@ class Config {
             if (key === 'useOrangeAsMainColor') {
                 this.applyColorSettings();
             }
+        }
+    }
+
+    /**
+     * Set a setting value (for non-boolean settings, auto-saves)
+     * @param {string} key - Setting key
+     * @param {*} value - Setting value
+     */
+    setSettingValue(key, value) {
+        if (this.settingsMap[key]) {
+            this.settingsMap[key].value = value;
+            this.saveSettings();
         }
     }
 

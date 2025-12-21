@@ -182,16 +182,17 @@ class ProfitCalculator {
         }
 
         // Check pricing mode setting
-        const useOptimistic = config.getSetting('profitCalc_optimisticPricing');
+        const pricingMode = config.getSettingValue('profitCalc_pricingMode', 'conservative');
 
         // Get output price based on pricing mode
-        // Conservative (default): Bid price (you receive when selling instantly)
-        // Optimistic: Ask price (best case if you post sell orders and wait)
+        // conservative: Bid price (instant sell)
+        // hybrid/optimistic: Ask price (patient sell orders)
         let outputPrice = 0;
-        if (useOptimistic) {
-            outputPrice = itemPrice.ask;
-        } else {
+        if (pricingMode === 'conservative') {
             outputPrice = itemPrice.bid;
+        } else {
+            // hybrid or optimistic both use Ask for output
+            outputPrice = itemPrice.ask;
         }
 
         // Apply market tax (2% tax on sales)
@@ -278,7 +279,7 @@ class ProfitCalculator {
         const costs = [];
 
         // Check pricing mode setting
-        const useOptimistic = config.getSetting('profitCalc_optimisticPricing');
+        const pricingMode = config.getSettingValue('profitCalc_pricingMode', 'conservative');
 
         // Check for upgrade item (e.g., Crimson Bulwark → Rainbow Bulwark)
         if (actionDetails.upgradeItemHrid) {
@@ -286,13 +287,14 @@ class ProfitCalculator {
             const price = marketAPI.getPrice(actionDetails.upgradeItemHrid, 0);
 
             if (itemDetails) {
-                // Get market price based on pricing mode
-                // Conservative (default): Ask price (you pay when buying instantly)
-                // Optimistic: Bid price (best case if you post buy orders and wait)
+                // Get material price based on pricing mode
+                // conservative/hybrid: Ask price (instant buy)
+                // optimistic: Bid price (patient buy orders)
                 let materialPrice = 0;
-                if (useOptimistic) {
+                if (pricingMode === 'optimistic') {
                     materialPrice = (price?.bid && price.bid > 0) ? price.bid : 0;
                 } else {
+                    // conservative or hybrid both use Ask for materials
                     materialPrice = (price?.ask && price.ask > 0) ? price.ask : 0;
                 }
 
@@ -331,13 +333,14 @@ class ProfitCalculator {
                 // Apply artisan reduction
                 const reducedAmount = baseAmount * (1 - artisanBonus);
 
-                // Get market price based on pricing mode
-                // Conservative (default): Ask price (you pay when buying instantly)
-                // Optimistic: Bid price (best case if you post buy orders and wait)
+                // Get material price based on pricing mode
+                // conservative/hybrid: Ask price (instant buy)
+                // optimistic: Bid price (patient buy orders)
                 let materialPrice = 0;
-                if (useOptimistic) {
+                if (pricingMode === 'optimistic') {
                     materialPrice = (price?.bid && price.bid > 0) ? price.bid : 0;
                 } else {
+                    // conservative or hybrid both use Ask for materials
                     materialPrice = (price?.ask && price.ask > 0) ? price.ask : 0;
                 }
 
