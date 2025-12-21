@@ -5,9 +5,10 @@
  * PART OF EFFICIENCY SYSTEM (Phase 2):
  * - House rooms provide +1.5% efficiency per level to matching actions
  * - Formula: houseLevel × 1.5%
+ * - Data source: WebSocket (characterHouseRoomMap)
  */
 
-import config from '../core/config.js';
+import dataManager from '../core/data-manager.js';
 
 /**
  * Map action type HRID to house room HRID
@@ -48,8 +49,8 @@ export function calculateHouseEfficiency(actionTypeHrid) {
         return 0; // No house room for this action type
     }
 
-    // Get house room level from config
-    const roomLevel = config.getHouseRoomLevel(houseRoomHrid);
+    // Get house room level from game data (via dataManager)
+    const roomLevel = dataManager.getHouseRoomLevel(houseRoomHrid);
 
     // Formula: houseLevel × 1.5%
     // Returns as percentage (e.g., 12 for 12%)

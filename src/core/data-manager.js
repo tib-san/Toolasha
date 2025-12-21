@@ -21,6 +21,7 @@ class DataManager {
         this.characterItems = null;
         this.characterActions = [];
         this.characterEquipment = new Map();
+        this.characterHouseRooms = new Map();  // House room HRID -> {houseRoomHrid, level}
 
         // Event listeners
         this.eventListeners = new Map();
@@ -64,6 +65,9 @@ class DataManager {
 
             // Build equipment map
             this.updateEquipmentMap(data.characterItems);
+
+            // Build house room map
+            this.updateHouseRoomMap(data.characterHouseRoomMap);
 
             this.emit('character_initialized', data);
         });
@@ -127,6 +131,23 @@ class DataManager {
     }
 
     /**
+     * Update house room map from character house room data
+     * @param {Object} houseRoomMap - Character house room map
+     */
+    updateHouseRoomMap(houseRoomMap) {
+        if (!houseRoomMap) {
+            return;
+        }
+
+        this.characterHouseRooms.clear();
+        for (const [hrid, room] of Object.entries(houseRoomMap)) {
+            this.characterHouseRooms.set(room.houseRoomHrid, room);
+        }
+
+        console.log(`[Data Manager] House rooms loaded: ${this.characterHouseRooms.size} rooms`);
+    }
+
+    /**
      * Get static game data
      * @returns {Object} Init client data (items, actions, monsters, etc.)
      */
@@ -166,6 +187,24 @@ class DataManager {
      */
     getEquipment() {
         return new Map(this.characterEquipment);
+    }
+
+    /**
+     * Get player's house rooms
+     * @returns {Map} House room map (room HRID -> {houseRoomHrid, level})
+     */
+    getHouseRooms() {
+        return new Map(this.characterHouseRooms);
+    }
+
+    /**
+     * Get house room level
+     * @param {string} houseRoomHrid - House room HRID (e.g., "/house_rooms/brewery")
+     * @returns {number} Room level (0 if not found)
+     */
+    getHouseRoomLevel(houseRoomHrid) {
+        const room = this.characterHouseRooms.get(houseRoomHrid);
+        return room?.level || 0;
     }
 
     /**

@@ -43,6 +43,49 @@ All notable changes to the MWI Tools refactoring project.
 
 ### Added - December 21, 2024
 
+#### **House Room Efficiency (Phase 2 Efficiency System)**
+- **NEW MODULE:** `src/utils/house-efficiency.js`
+  - Calculates efficiency bonuses from house room levels
+  - Maps action types to house rooms (Brewery, Forge, Kitchen, etc.)
+  - Formula: `houseLevel × 1.5%` efficiency per level (0-8 levels)
+  - Provides room name helpers for display
+
+- **UPDATED:** `src/core/config.js`
+  - Added `houseRooms` configuration object (9 rooms)
+  - Auto-saves house room levels to storage
+  - API: `getHouseRoomLevel()`, `setHouseRoomLevel()`, `getAllHouseRooms()`
+  - Validates levels (0-8) on set
+  - Resets to 0 on `resetToDefaults()`
+
+- **UPDATED:** `src/features/market/profit-calculator.js`
+  - Integrates house efficiency into total efficiency calculation
+  - Separates level efficiency vs house efficiency components
+  - Returns breakdown for tooltip display
+
+- **UPDATED:** `src/features/market/tooltip-prices.js`
+  - Shows efficiency breakdown in profit tooltips
+  - Format: "Efficiency: +18.0% → Level Advantage: +10.0% → House Room: +12.0%"
+  - Only shows components that are > 0
+
+**Example Display:**
+```
+Efficiency: +18.0%
+  - Level Advantage: +10.0%
+  - House Room: +12.0%
+  Output: ×1.18 (71/hr)
+```
+
+**House Room Mapping:**
+- Brewery → Brewing
+- Forge → Cheesesmithing
+- Kitchen → Cooking
+- Workshop → Crafting
+- Garden → Foraging
+- Dairy Barn → Milking
+- Sewing Parlor → Tailoring
+- Log Shed → Woodcutting
+- Laboratory → Alchemy
+
 #### Action Time Calculation Breakdown
 - **NEW FEATURE:** `src/features/market/tooltip-prices.js`
   - Displays step-by-step calculation of action time in profit tooltips
