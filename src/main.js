@@ -13,6 +13,7 @@ import * as efficiency from './utils/efficiency.js';
 import marketAPI from './api/marketplace.js';
 import tooltipPrices from './features/market/tooltip-prices.js';
 import tooltipConsumables from './features/market/tooltip-consumables.js';
+import profitCalculator from './features/market/profit-calculator.js';
 
 console.log('MWI Tools (Refactored) - Initializing...');
 
@@ -154,3 +155,16 @@ console.log('✅ Utility modules working!');
 
 console.log('\n🎉 MWI Tools (Refactored) - Ready!');
 console.log('📊 Modules loaded: Formatters, Storage, Config, WebSocket Hook, Data Manager, DOM Utils, Efficiency Utils');
+
+// Expose modules to window for debugging/testing
+window.MWITools = {
+    dataManager,
+    profitCalculator,
+    marketAPI,
+    config,
+    storage,
+    version: '25.1-refactor'
+};
+
+console.log('🔧 Debug: Access modules via window.MWITools');
+console.log('   Example: MWITools.dataManager.getHouseRooms()');
