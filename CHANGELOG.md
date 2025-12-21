@@ -4,6 +4,28 @@ All notable changes to the MWI Tools refactoring project.
 
 ## [Unreleased]
 
+### Fixed - December 21, 2024
+
+#### **CRITICAL FIX: Efficiency Formula Correction**
+- **FIXED:** Removed efficiency from action time calculation (major bug)
+- **Correct Behavior:**
+  - Speed bonuses: Reduce action time (e.g., 15% speed → 60s becomes 52.17s)
+  - Efficiency bonuses: Increase output (e.g., 10% efficiency → 1.1× items per action)
+- **Previous (WRONG):** `actionTime = baseTime / (1 + efficiency% / 100 + speed)`
+- **Current (CORRECT):** `actionTime = baseTime / (1 + speed)`
+- **Efficiency now applied correctly:** `itemsPerHour = actionsPerHour × outputAmount × efficiencyMultiplier`
+
+**Efficiency Calculation:**
+- Guaranteed actions: `1 + floor(efficiency / 100)`
+- Chance for +1 more: `efficiency % 100`
+- Example: 150% efficiency = 2 guaranteed + 50% chance for 3rd = average 2.5 actions
+- Multiplier: `1 + floor(eff/100) + (eff % 100)/100`
+
+**Updated Display:**
+- Time breakdown now only shows speed modifiers
+- Efficiency shown separately as output multiplier
+- Format: "Efficiency: +10.0% → Output: ×1.10 (66/hr)"
+
 ### Added - December 21, 2024
 
 #### Action Time Calculation Breakdown

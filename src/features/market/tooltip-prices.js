@@ -380,7 +380,7 @@ class TooltipPrices {
         // Show base time
         html += `<div style="margin-top: 4px;">Base Time: ${breakdown.baseTime.toFixed(1)}s</div>`;
 
-        // Show each modifier step
+        // Show each speed modifier step
         if (breakdown.steps.length > 0) {
             for (const step of breakdown.steps) {
                 html += `<div style="margin-left: 8px;">`;
@@ -394,6 +394,12 @@ class TooltipPrices {
 
         // Final time
         html += `<div style="font-weight: bold;">Final Time: ${breakdown.finalTime.toFixed(1)}s (${numberFormatter(breakdown.actionsPerHour)}/hr)</div>`;
+
+        // Efficiency section (if > 0) - shows output multiplier
+        if (profitData.efficiencyBonus > 0) {
+            html += `<div style="margin-top: 8px;">Efficiency: +${profitData.efficiencyBonus.toFixed(1)}%</div>`;
+            html += `<div style="margin-left: 8px;">Output: ×${profitData.efficiencyMultiplier.toFixed(2)} (${numberFormatter(profitData.itemsPerHour)}/hr)</div>`;
+        }
 
         html += '</div>';
         html += '</div>';

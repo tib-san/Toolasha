@@ -72,27 +72,32 @@ class ProfitCalculator {
             initData?.itemDetailMap || {}
         );
 
-        // Calculate action time with efficiency AND speed bonuses
-        // Formula: baseTime / (1 + (efficiency%) / 100 + speedBonus)
-        // Example: 60s / (1 + 10/100 + 0.15) = 60 / 1.25 = 48s
-        const actionTime = baseTime / (1 + (efficiencyBonus / 100) + equipmentSpeedBonus);
+        // Calculate action time with ONLY speed bonuses
+        // Efficiency does NOT reduce time - it gives bonus actions
+        // Formula: baseTime / (1 + speedBonus)
+        // Example: 60s / (1 + 0.15) = 52.17s
+        const actionTime = baseTime / (1 + equipmentSpeedBonus);
 
         // Build time breakdown for display
         const timeBreakdown = this.calculateTimeBreakdown(
             baseTime,
-            efficiencyBonus,
             equipmentSpeedBonus
         );
 
-        // Actions per hour
+        // Actions per hour (base rate without efficiency)
         const actionsPerHour = 3600 / actionTime;
 
         // Get output amount (how many items per action)
         // Use 'count' field from action output
         const outputAmount = action.count || action.baseAmount || 1;
 
-        // Items produced per hour (before efficiency multiplier)
-        const itemsPerHour = actionsPerHour * outputAmount;
+        // Calculate efficiency multiplier
+        // Efficiency: floor(eff/100) guaranteed + (eff % 100)/100 chance for one more
+        // Example: 150% = 1 base + 1 guaranteed + 50% chance = average 2.5 actions
+        const efficiencyMultiplier = 1 + Math.floor(efficiencyBonus / 100) + ((efficiencyBonus % 100) / 100);
+
+        // Items produced per hour (with efficiency multiplier)
+        const itemsPerHour = actionsPerHour * outputAmount * efficiencyMultiplier;
 
         // Calculate material costs
         const materialCosts = this.calculateMaterialCosts(actionDetails);
@@ -133,6 +138,7 @@ class ProfitCalculator {
             profitPerItem,
             profitPerHour,
             efficiencyBonus,
+            efficiencyMultiplier,
             equipmentSpeedBonus,
             skillLevel,
             requiredLevel: actionDetails.levelRequirement?.level || 1,
@@ -240,35 +246,16 @@ class ProfitCalculator {
     /**
      * Calculate time breakdown showing how modifiers affect action time
      * @param {number} baseTime - Base action time in seconds
-     * @param {number} efficiencyBonus - Efficiency bonus percentage
      * @param {number} equipmentSpeedBonus - Equipment speed bonus as decimal (e.g., 0.15 for 15%)
      * @returns {Object} Time breakdown with steps
      */
-    calculateTimeBreakdown(baseTime, efficiencyBonus, equipmentSpeedBonus) {
+    calculateTimeBreakdown(baseTime, equipmentSpeedBonus) {
         const steps = [];
-        let currentTime = baseTime;
-
-        // Level Efficiency step (if > 0)
-        if (efficiencyBonus > 0) {
-            const timeBeforeEff = currentTime;
-            const efficiencyDecimal = efficiencyBonus / 100;
-            currentTime = baseTime / (1 + efficiencyDecimal);
-            const reduction = timeBeforeEff - currentTime;
-
-            steps.push({
-                name: 'Level Efficiency',
-                bonus: efficiencyBonus, // percentage
-                reduction: reduction, // seconds saved
-                timeAfter: currentTime // running total
-            });
-        }
 
         // Equipment Speed step (if > 0)
         if (equipmentSpeedBonus > 0) {
-            const timeBeforeSpeed = currentTime;
-            // Calculate final time with BOTH efficiency and speed
-            const finalTime = baseTime / (1 + (efficiencyBonus / 100) + equipmentSpeedBonus);
-            const reduction = timeBeforeSpeed - finalTime;
+            const finalTime = baseTime / (1 + equipmentSpeedBonus);
+            const reduction = baseTime - finalTime;
 
             steps.push({
                 name: 'Equipment Speed',
@@ -277,14 +264,20 @@ class ProfitCalculator {
                 timeAfter: finalTime // final time
             });
 
-            currentTime = finalTime;
+            return {
+                baseTime: baseTime,
+                steps: steps,
+                finalTime: finalTime,
+                actionsPerHour: 3600 / finalTime
+            };
         }
 
+        // No modifiers - final time is base time
         return {
             baseTime: baseTime,
-            steps: steps,
-            finalTime: currentTime,
-            actionsPerHour: 3600 / currentTime
+            steps: [],
+            finalTime: baseTime,
+            actionsPerHour: 3600 / baseTime
         };
     }
 }
