@@ -91,9 +91,23 @@ console.log('  Data Manager created, waiting for game data...');
 
 dataManager.on('character_initialized', (data) => {
     console.log('  ✅ Character data loaded!');
-    console.log('  Skills loaded:', dataManager.getSkills()?.length || 0);
+
+    // Filter out Total Level (not a real skill)
+    const skills = dataManager.getSkills();
+    const realSkills = skills?.filter(s => !s.skillHrid.includes('total_level')) || [];
+
+    console.log('  Skills loaded:', realSkills.length);
     console.log('  Inventory items:', dataManager.getInventory()?.length || 0);
     console.log('  Equipment slots:', dataManager.getEquipment().size);
+
+    // Show what the skills are
+    if (realSkills.length > 0) {
+        console.log('\n  Skills breakdown:');
+        realSkills.forEach(skill => {
+            const skillName = skill.skillHrid.split('/').pop();
+            console.log(`    - ${skillName}: Level ${skill.level}`);
+        });
+    }
 });
 
 dataManager.on('actions_updated', () => {
