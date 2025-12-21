@@ -255,7 +255,13 @@ class ProfitCalculator {
             const price = marketAPI.getPrice(actionDetails.upgradeItemHrid, 0);
 
             if (itemDetails) {
-                const askPrice = (price?.ask && price.ask > 0) ? price.ask : 0;
+                // Get market price, or use face value for currency items
+                let askPrice = (price?.ask && price.ask > 0) ? price.ask : 0;
+
+                // Special case: Coins have no market price but have face value of 1
+                if (actionDetails.upgradeItemHrid === '/items/gold_coin' && askPrice === 0) {
+                    askPrice = 1;
+                }
 
                 // Apply artisan reduction (upgrade items count as 1 item)
                 const reducedAmount = 1 * (1 - artisanBonus);
@@ -287,8 +293,13 @@ class ProfitCalculator {
                 // Apply artisan reduction
                 const reducedAmount = baseAmount * (1 - artisanBonus);
 
-                // Validate that the price is positive (ignore invalid market data)
-                const askPrice = (price?.ask && price.ask > 0) ? price.ask : 0;
+                // Get market price, or use face value for currency items
+                let askPrice = (price?.ask && price.ask > 0) ? price.ask : 0;
+
+                // Special case: Coins have no market price but have face value of 1
+                if (input.itemHrid === '/items/gold_coin' && askPrice === 0) {
+                    askPrice = 1; // 1 coin = 1 gold value
+                }
 
                 costs.push({
                     itemHrid: input.itemHrid,
