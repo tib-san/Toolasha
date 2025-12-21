@@ -148,6 +148,18 @@ class DataManager {
 
             this.emit('house_rooms_updated', data);
         });
+
+        // Handle skills_updated (when user gains skill levels)
+        this.webSocketHook.on('skills_updated', (data) => {
+            console.log('[Data Manager] Skills updated');
+
+            // Update character skills with new levels
+            if (data.characterSkills) {
+                this.characterSkills = data.characterSkills;
+            }
+
+            this.emit('skills_updated', data);
+        });
     }
 
     /**
