@@ -185,3 +185,108 @@ export function debugEquipmentSpeedBonuses(characterEquipment, itemDetailMap) {
 
     return bonuses;
 }
+
+/**
+ * Map action type HRID to equipment efficiency field name
+ * @param {string} actionTypeHrid - Action type HRID (e.g., "/action_types/cheesesmithing")
+ * @returns {string|null} Efficiency field name (e.g., "cheesesmithingEfficiency") or null
+ */
+function getEfficiencyFieldForActionType(actionTypeHrid) {
+    // Extract skill name from action type HRID
+    // e.g., "/action_types/cheesesmithing" -> "cheesesmithing"
+    const skillName = actionTypeHrid.replace('/action_types/', '');
+
+    // Map to efficiency field name
+    // e.g., "cheesesmithing" -> "cheesesmithingEfficiency"
+    const efficiencyField = skillName + 'Efficiency';
+
+    // Valid efficiency fields from game data
+    const validEfficiencyFields = [
+        'milkingEfficiency',
+        'foragingEfficiency',
+        'woodcuttingEfficiency',
+        'cheesesmithingEfficiency',
+        'craftingEfficiency',
+        'tailoringEfficiency',
+        'brewingEfficiency',
+        'cookingEfficiency',
+        'alchemyEfficiency'
+    ];
+
+    return validEfficiencyFields.includes(efficiencyField) ? efficiencyField : null;
+}
+
+/**
+ * Parse equipment efficiency bonuses for a specific action type
+ * @param {Map} characterEquipment - Equipment map from dataManager.getEquipment()
+ * @param {string} actionTypeHrid - Action type HRID
+ * @param {Object} itemDetailMap - Item details from init_client_data
+ * @returns {number} Total efficiency bonus as percentage (e.g., 12 for 12%)
+ *
+ * @example
+ * parseEquipmentEfficiencyBonuses(equipment, "/action_types/brewing", items)
+ * // Brewer's Top (base 0.1, bonus 0.002) +0: 10%
+ * // Brewer's Top (base 0.1, bonus 0.002) +10: 12%
+ * // Philosopher's Necklace (skillingEfficiency 0.02, bonus 0.002) +10: 4%
+ * // Total: 16%
+ */
+export function parseEquipmentEfficiencyBonuses(characterEquipment, actionTypeHrid, itemDetailMap) {
+    if (!characterEquipment || characterEquipment.size === 0) {
+        return 0; // No equipment
+    }
+
+    if (!actionTypeHrid || !itemDetailMap) {
+        return 0; // Missing required data
+    }
+
+    // Get the skill-specific efficiency field for this action type
+    const efficiencyField = getEfficiencyFieldForActionType(actionTypeHrid);
+
+    let totalEfficiencyBonus = 0;
+
+    // Iterate through all equipped items
+    for (const [slotHrid, equippedItem] of characterEquipment) {
+        // Get item details from game data
+        const itemDetails = itemDetailMap[equippedItem.itemHrid];
+
+        if (!itemDetails || !itemDetails.equipmentDetail) {
+            continue; // Not an equipment item
+        }
+
+        // Check if item has noncombat stats
+        const noncombatStats = itemDetails.equipmentDetail.noncombatStats;
+
+        if (!noncombatStats) {
+            continue; // No noncombat stats
+        }
+
+        // Get enhancement level from equipped item
+        const enhancementLevel = equippedItem.enhancementLevel || 0;
+
+        // Get enhancement bonuses for this item
+        const enhancementBonuses = itemDetails.equipmentDetail.noncombatEnhancementBonuses;
+
+        // Check for skill-specific efficiency (e.g., brewingEfficiency)
+        if (efficiencyField) {
+            const baseEfficiency = noncombatStats[efficiencyField];
+
+            if (baseEfficiency && baseEfficiency > 0) {
+                const enhancementBonus = (enhancementBonuses && enhancementBonuses[efficiencyField]) || 0;
+                const scaledEfficiency = calculateEnhancementScaling(baseEfficiency, enhancementBonus, enhancementLevel);
+                totalEfficiencyBonus += scaledEfficiency;
+            }
+        }
+
+        // Check for generic skilling efficiency (applies to all skills)
+        const baseSkillingEfficiency = noncombatStats.skillingEfficiency;
+
+        if (baseSkillingEfficiency && baseSkillingEfficiency > 0) {
+            const enhancementBonus = (enhancementBonuses && enhancementBonuses.skillingEfficiency) || 0;
+            const scaledEfficiency = calculateEnhancementScaling(baseSkillingEfficiency, enhancementBonus, enhancementLevel);
+            totalEfficiencyBonus += scaledEfficiency;
+        }
+    }
+
+    // Convert to percentage (0.15 -> 15%)
+    return totalEfficiencyBonus * 100;
+}

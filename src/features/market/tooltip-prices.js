@@ -162,41 +162,7 @@ class TooltipPrices {
         }
 
         // Fix tooltip overflow (ensure it stays in viewport)
-        this.fixTooltipOverflow(tooltipElement);
-    }
-
-    /**
-     * Fix tooltip overflow to ensure it stays within viewport
-     * @param {Element} tooltipElement - The tooltip popper element
-     */
-    fixTooltipOverflow(tooltipElement) {
-        // Use requestAnimationFrame to ensure DOM has updated
-        requestAnimationFrame(() => {
-            if (!tooltipElement.isConnected) {
-                return; // Tooltip already removed
-            }
-
-            const bBox = tooltipElement.getBoundingClientRect();
-
-            // Check if tooltip extends beyond viewport
-            if (bBox.top < 0 || bBox.bottom > window.innerHeight) {
-                // Get current transform
-                const transformString = tooltipElement.style.transform;
-
-                if (transformString) {
-                    // Parse transform3d(x, y, z)
-                    const match = transformString.match(/translate3d\(([^,]+),\s*([^,]+),\s*([^)]+)\)/);
-
-                    if (match) {
-                        const x = match[1];
-                        const z = match[3];
-
-                        // Reset Y position to 0 to keep tooltip in viewport
-                        tooltipElement.style.transform = `translate3d(${x}, 0px, ${z})`;
-                    }
-                }
-            }
-        });
+        dom.fixTooltipOverflow(tooltipElement);
     }
 
     /**
@@ -401,13 +367,16 @@ class TooltipPrices {
             html += `<div style="border-top: 1px solid rgba(255,255,255,0.2); margin: 8px 0;"></div>`;
             html += `<div>Efficiency: +${profitData.efficiencyBonus.toFixed(1)}%</div>`;
 
-            // Show efficiency breakdown (level + house)
-            if (profitData.levelEfficiency > 0 || profitData.houseEfficiency > 0) {
+            // Show efficiency breakdown (level + house + equipment)
+            if (profitData.levelEfficiency > 0 || profitData.houseEfficiency > 0 || profitData.equipmentEfficiency > 0) {
                 if (profitData.levelEfficiency > 0) {
                     html += `<div style="margin-left: 8px;">  - Level Advantage: +${profitData.levelEfficiency.toFixed(1)}%</div>`;
                 }
                 if (profitData.houseEfficiency > 0) {
                     html += `<div style="margin-left: 8px;">  - House Room: +${profitData.houseEfficiency.toFixed(1)}%</div>`;
+                }
+                if (profitData.equipmentEfficiency > 0) {
+                    html += `<div style="margin-left: 8px;">  - Equipment: +${profitData.equipmentEfficiency.toFixed(1)}%</div>`;
                 }
             }
 

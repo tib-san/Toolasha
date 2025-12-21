@@ -6,7 +6,7 @@
 import marketAPI from '../../api/marketplace.js';
 import dataManager from '../../core/data-manager.js';
 import * as efficiency from '../../utils/efficiency.js';
-import { parseEquipmentSpeedBonuses } from '../../utils/equipment-parser.js';
+import { parseEquipmentSpeedBonuses, parseEquipmentEfficiencyBonuses } from '../../utils/equipment-parser.js';
 import { calculateHouseEfficiency } from '../../utils/house-efficiency.js';
 
 /**
@@ -60,12 +60,19 @@ class ProfitCalculator {
         const levelEfficiency = Math.max(0, skillLevel - (actionDetails.levelRequirement?.level || 1));
         const houseEfficiency = calculateHouseEfficiency(actionDetails.type);
 
-        // Total efficiency bonus
-        const efficiencyBonus = levelEfficiency + houseEfficiency;
-
-        // Get equipped items for speed bonus calculation
+        // Get equipped items for efficiency bonus calculation
         const characterEquipment = dataManager.getEquipment();
         const initData = dataManager.getInitClientData();
+
+        // Calculate equipment efficiency bonus
+        const equipmentEfficiency = parseEquipmentEfficiencyBonuses(
+            characterEquipment,
+            actionDetails.type,
+            initData?.itemDetailMap || {}
+        );
+
+        // Total efficiency bonus (all sources additive)
+        const efficiencyBonus = levelEfficiency + houseEfficiency + equipmentEfficiency;
 
         // Calculate equipment speed bonus
         const equipmentSpeedBonus = parseEquipmentSpeedBonuses(
@@ -142,6 +149,7 @@ class ProfitCalculator {
             efficiencyBonus,         // Total efficiency
             levelEfficiency,          // Level advantage efficiency
             houseEfficiency,          // House room efficiency
+            equipmentEfficiency,      // Equipment efficiency
             efficiencyMultiplier,
             equipmentSpeedBonus,
             skillLevel,

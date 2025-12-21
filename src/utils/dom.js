@@ -216,6 +216,66 @@ export function removeStyles(id) {
     }
 }
 
+/**
+ * Fix tooltip overflow to ensure it stays within viewport
+ * @param {Element} tooltipElement - The tooltip popper element
+ */
+export function fixTooltipOverflow(tooltipElement) {
+    // Use requestAnimationFrame to ensure DOM has updated
+    requestAnimationFrame(() => {
+        if (!tooltipElement.isConnected) {
+            return; // Tooltip already removed
+        }
+
+        const bBox = tooltipElement.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+
+        // Find the actual tooltip content element (child of popper)
+        const tooltipContent = tooltipElement.querySelector('.MuiTooltip-tooltip');
+
+        // Check if tooltip extends beyond viewport
+        if (bBox.top < 0 || bBox.bottom > viewportHeight) {
+            // Get current transform
+            const transformString = tooltipElement.style.transform;
+
+            if (transformString) {
+                // Parse transform3d(x, y, z)
+                const match = transformString.match(/translate3d\(([^,]+),\s*([^,]+),\s*([^)]+)\)/);
+
+                if (match) {
+                    const x = match[1];
+                    const currentY = parseFloat(match[2]);
+                    const z = match[3];
+
+                    // Calculate how much to adjust Y
+                    let newY;
+
+                    if (bBox.height >= viewportHeight - 20) {
+                        // Tooltip is taller than viewport - position at top with small margin
+                        newY = 10;
+
+                        // Force max-height on the tooltip content to enable scrolling
+                        if (tooltipContent) {
+                            tooltipContent.style.maxHeight = `${viewportHeight - 20}px`;
+                            tooltipContent.style.overflowY = 'auto';
+                        }
+                    } else if (bBox.top < 0) {
+                        // Tooltip extends above viewport - move it down
+                        newY = currentY - bBox.top + 10;
+                    } else if (bBox.bottom > viewportHeight) {
+                        // Tooltip extends below viewport - move it up
+                        newY = currentY - (bBox.bottom - viewportHeight) - 10;
+                    }
+
+                    if (newY !== undefined) {
+                        tooltipElement.style.transform = `translate3d(${x}, ${newY}px, ${z})`;
+                    }
+                }
+            }
+        }
+    });
+}
+
 export default {
     waitForElement,
     waitForElements,
@@ -227,5 +287,6 @@ export default {
     removeElements,
     getOriginalText,
     addStyles,
-    removeStyles
+    removeStyles,
+    fixTooltipOverflow
 };

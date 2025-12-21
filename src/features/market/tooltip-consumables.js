@@ -153,41 +153,7 @@ class TooltipConsumables {
         this.injectConsumableDisplay(tooltipElement, consumableStats);
 
         // Fix tooltip overflow (ensure it stays in viewport)
-        this.fixTooltipOverflow(tooltipElement);
-    }
-
-    /**
-     * Fix tooltip overflow to ensure it stays within viewport
-     * @param {Element} tooltipElement - The tooltip popper element
-     */
-    fixTooltipOverflow(tooltipElement) {
-        // Use requestAnimationFrame to ensure DOM has updated
-        requestAnimationFrame(() => {
-            if (!tooltipElement.isConnected) {
-                return; // Tooltip already removed
-            }
-
-            const bBox = tooltipElement.getBoundingClientRect();
-
-            // Check if tooltip extends beyond viewport
-            if (bBox.top < 0 || bBox.bottom > window.innerHeight) {
-                // Get current transform
-                const transformString = tooltipElement.style.transform;
-
-                if (transformString) {
-                    // Parse transform3d(x, y, z)
-                    const match = transformString.match(/translate3d\(([^,]+),\s*([^,]+),\s*([^)]+)\)/);
-
-                    if (match) {
-                        const x = match[1];
-                        const z = match[3];
-
-                        // Reset Y position to 0 to keep tooltip in viewport
-                        tooltipElement.style.transform = `translate3d(${x}, 0px, ${z})`;
-                    }
-                }
-            }
-        });
+        dom.fixTooltipOverflow(tooltipElement);
     }
 
     /**
