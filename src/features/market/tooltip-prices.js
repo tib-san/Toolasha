@@ -221,6 +221,11 @@ class TooltipPrices {
             return;
         }
 
+        // Don't show prices if both are zero (no market data)
+        if (price.ask === 0 && price.bid === 0) {
+            return;
+        }
+
         // Calculate total prices for the amount
         const totalAsk = price.ask * amount;
         const totalBid = price.bid * amount;
@@ -257,6 +262,17 @@ class TooltipPrices {
 
         // Check if we already injected (prevent duplicates)
         if (tooltipText.querySelector('.market-profit-injected')) {
+            return;
+        }
+
+        // Don't show profit if item has no market price
+        if (profitData.itemPrice.bid === 0 && profitData.itemPrice.ask === 0) {
+            return;
+        }
+
+        // Don't show profit if all material costs are zero (no market data)
+        const hasValidCosts = profitData.materialCosts.some(mat => mat.askPrice > 0);
+        if (profitData.materialCosts.length > 0 && !hasValidCosts) {
             return;
         }
 
