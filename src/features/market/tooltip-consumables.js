@@ -150,16 +150,18 @@ class TooltipConsumables {
         let duration = 0;
 
         // Check for HP restoration
-        if (consumable.hpRestore) {
+        if (consumable.hitpointRestore) {
             restoreType = 'HP';
-            restoreAmount = consumable.hpRestore;
-            duration = consumable.duration || 0;
+            restoreAmount = consumable.hitpointRestore;
+            // Convert nanoseconds to seconds (1e9 = 1 second)
+            duration = consumable.recoveryDuration ? consumable.recoveryDuration / 1e9 : 0;
         }
         // Check for MP restoration
-        else if (consumable.mpRestore) {
+        else if (consumable.manapointRestore) {
             restoreType = 'MP';
-            restoreAmount = consumable.mpRestore;
-            duration = consumable.duration || 0;
+            restoreAmount = consumable.manapointRestore;
+            // Convert nanoseconds to seconds (1e9 = 1 second)
+            duration = consumable.recoveryDuration ? consumable.recoveryDuration / 1e9 : 0;
         }
 
         if (!restoreType || restoreAmount === 0) {
