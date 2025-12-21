@@ -8,6 +8,8 @@ import storage from './core/storage.js';
 import config from './core/config.js';
 import webSocketHook from './core/websocket.js';
 import DataManager from './core/data-manager.js';
+import dom from './utils/dom.js';
+import efficiency from './utils/efficiency.js';
 
 console.log('MWI Tools (Refactored) - Initializing...');
 
@@ -115,8 +117,33 @@ dataManager.on('actions_updated', () => {
     console.log(`  ⚡ Actions updated: ${actions.length} in queue`);
 });
 
+// Test the utility modules
+console.log('\n=== Testing Utility Modules ===');
+
+// Test efficiency calculations
+console.log('  Efficiency calculations:');
+const eff150 = efficiency.calculateEfficiency(150);
+console.log(`    150% efficiency: ${eff150.min}-${eff150.max} actions (${eff150.chanceForMore}% for more)`);
+const expectedOutput = efficiency.calculateExpectedOutput(150);
+console.log(`    Expected output: ${expectedOutput.toFixed(2)}× per action`);
+
+// Test action time with buffs
+const actionTime = efficiency.calculateActionTime(6, 30);
+console.log(`    6s action with 30% speed: ${actionTime.toFixed(2)}s`);
+
+// Test XP per hour
+const xpPerHour = efficiency.calculateXpPerHour(50, 5);
+console.log(`    50 XP every 5s: ${numberFormatter(xpPerHour)} XP/hour`);
+
+// Test DOM helpers
+console.log('  DOM helpers:');
+const coloredText = dom.createColoredText('Test Text', 'main');
+console.log(`    Created colored span: ${coloredText.outerHTML.substring(0, 50)}...`);
+
+console.log('✅ Utility modules working!');
+
 // TODO: Initialize other modules here as we extract them
 // ... etc
 
 console.log('\n🎉 MWI Tools (Refactored) - Ready!');
-console.log('📊 Modules loaded: Formatters, Storage, Config, WebSocket Hook, Data Manager');
+console.log('📊 Modules loaded: Formatters, Storage, Config, WebSocket Hook, Data Manager, DOM Utils, Efficiency Utils');
