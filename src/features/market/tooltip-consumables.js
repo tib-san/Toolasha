@@ -34,10 +34,61 @@ class TooltipConsumables {
             await marketAPI.fetch(true);
         }
 
+        // Add CSS to prevent tooltip cutoff (if not already added)
+        this.addTooltipStyles();
+
         // Set up MutationObserver to watch for tooltips
         this.setupObserver();
 
         console.log('[TooltipConsumables] ✅ Initialized');
+    }
+
+    /**
+     * Add CSS styles to prevent tooltip cutoff
+     *
+     * CRITICAL: CSS alone is not enough! MUI uses JavaScript to position tooltips
+     * with transform3d(), which can place them off-screen. We need both:
+     * 1. CSS: Enables scrolling when tooltip is taller than viewport
+     * 2. JavaScript: Repositions tooltip when it extends beyond viewport (see fixTooltipOverflow)
+     */
+    addTooltipStyles() {
+        // Check if styles already exist (might be added by tooltip-prices)
+        if (document.getElementById('mwi-tooltip-fixes')) {
+            return; // Already added
+        }
+
+        const css = `
+            /* Ensure tooltip content is scrollable if too tall */
+            .MuiTooltip-tooltip {
+                max-height: calc(100vh - 20px) !important;
+                overflow-y: auto !important;
+            }
+
+            /* Also target the popper container */
+            .MuiTooltip-popper {
+                max-height: 100vh !important;
+            }
+
+            /* Add subtle scrollbar styling */
+            .MuiTooltip-tooltip::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            .MuiTooltip-tooltip::-webkit-scrollbar-track {
+                background: rgba(0, 0, 0, 0.2);
+            }
+
+            .MuiTooltip-tooltip::-webkit-scrollbar-thumb {
+                background: rgba(255, 255, 255, 0.3);
+                border-radius: 3px;
+            }
+
+            .MuiTooltip-tooltip::-webkit-scrollbar-thumb:hover {
+                background: rgba(255, 255, 255, 0.5);
+            }
+        `;
+
+        dom.addStyles(css, 'mwi-tooltip-fixes');
     }
 
     /**
@@ -100,6 +151,43 @@ class TooltipConsumables {
 
         // Inject consumable display
         this.injectConsumableDisplay(tooltipElement, consumableStats);
+
+        // Fix tooltip overflow (ensure it stays in viewport)
+        this.fixTooltipOverflow(tooltipElement);
+    }
+
+    /**
+     * Fix tooltip overflow to ensure it stays within viewport
+     * @param {Element} tooltipElement - The tooltip popper element
+     */
+    fixTooltipOverflow(tooltipElement) {
+        // Use requestAnimationFrame to ensure DOM has updated
+        requestAnimationFrame(() => {
+            if (!tooltipElement.isConnected) {
+                return; // Tooltip already removed
+            }
+
+            const bBox = tooltipElement.getBoundingClientRect();
+
+            // Check if tooltip extends beyond viewport
+            if (bBox.top < 0 || bBox.bottom > window.innerHeight) {
+                // Get current transform
+                const transformString = tooltipElement.style.transform;
+
+                if (transformString) {
+                    // Parse transform3d(x, y, z)
+                    const match = transformString.match(/translate3d\(([^,]+),\s*([^,]+),\s*([^)]+)\)/);
+
+                    if (match) {
+                        const x = match[1];
+                        const z = match[3];
+
+                        // Reset Y position to 0 to keep tooltip in viewport
+                        tooltipElement.style.transform = `translate3d(${x}, 0px, ${z})`;
+                    }
+                }
+            }
+        });
     }
 
     /**

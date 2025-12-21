@@ -46,13 +46,23 @@ class TooltipPrices {
 
     /**
      * Add CSS styles to prevent tooltip cutoff
+     *
+     * CRITICAL: CSS alone is not enough! MUI uses JavaScript to position tooltips
+     * with transform3d(), which can place them off-screen. We need both:
+     * 1. CSS: Enables scrolling when tooltip is taller than viewport
+     * 2. JavaScript: Repositions tooltip when it extends beyond viewport (see fixTooltipOverflow)
      */
     addTooltipStyles() {
         const css = `
             /* Ensure tooltip content is scrollable if too tall */
             .MuiTooltip-tooltip {
-                max-height: calc(100vh - 20px);
-                overflow-y: auto;
+                max-height: calc(100vh - 20px) !important;
+                overflow-y: auto !important;
+            }
+
+            /* Also target the popper container */
+            .MuiTooltip-popper {
+                max-height: 100vh !important;
             }
 
             /* Add subtle scrollbar styling */
@@ -150,6 +160,43 @@ class TooltipPrices {
                 this.injectProfitDisplay(tooltipElement, profitData);
             }
         }
+
+        // Fix tooltip overflow (ensure it stays in viewport)
+        this.fixTooltipOverflow(tooltipElement);
+    }
+
+    /**
+     * Fix tooltip overflow to ensure it stays within viewport
+     * @param {Element} tooltipElement - The tooltip popper element
+     */
+    fixTooltipOverflow(tooltipElement) {
+        // Use requestAnimationFrame to ensure DOM has updated
+        requestAnimationFrame(() => {
+            if (!tooltipElement.isConnected) {
+                return; // Tooltip already removed
+            }
+
+            const bBox = tooltipElement.getBoundingClientRect();
+
+            // Check if tooltip extends beyond viewport
+            if (bBox.top < 0 || bBox.bottom > window.innerHeight) {
+                // Get current transform
+                const transformString = tooltipElement.style.transform;
+
+                if (transformString) {
+                    // Parse transform3d(x, y, z)
+                    const match = transformString.match(/translate3d\(([^,]+),\s*([^,]+),\s*([^)]+)\)/);
+
+                    if (match) {
+                        const x = match[1];
+                        const z = match[3];
+
+                        // Reset Y position to 0 to keep tooltip in viewport
+                        tooltipElement.style.transform = `translate3d(${x}, 0px, ${z})`;
+                    }
+                }
+            }
+        });
     }
 
     /**
@@ -327,13 +374,26 @@ class TooltipPrices {
             html += `<div style="color: gray; font-style: italic;">Incomplete market data</div>`;
         }
 
-        // Time line (always show - doesn't depend on prices)
-        html += `<div>Time: ${profitData.actionTime.toFixed(1)}s (${numberFormatter(profitData.actionsPerHour)}/hr)</div>`;
+        // Time breakdown section (always show)
+        const breakdown = profitData.timeBreakdown;
 
-        // Efficiency line (always show if > 0)
-        if (profitData.efficiencyBonus > 0) {
-            html += `<div>Efficiency: +${profitData.efficiencyBonus.toFixed(1)}%</div>`;
+        // Show base time
+        html += `<div style="margin-top: 4px;">Base Time: ${breakdown.baseTime.toFixed(1)}s</div>`;
+
+        // Show each modifier step
+        if (breakdown.steps.length > 0) {
+            for (const step of breakdown.steps) {
+                html += `<div style="margin-left: 8px;">`;
+                html += `  - ${step.name} (+${step.bonus.toFixed(1)}%): -${step.reduction.toFixed(1)}s → ${step.timeAfter.toFixed(1)}s`;
+                html += `</div>`;
+            }
+
+            // Visual separator before final time
+            html += `<div style="border-top: 1px solid rgba(255,255,255,0.3); margin: 2px 0;"></div>`;
         }
+
+        // Final time
+        html += `<div style="font-weight: bold;">Final Time: ${breakdown.finalTime.toFixed(1)}s (${numberFormatter(breakdown.actionsPerHour)}/hr)</div>`;
 
         html += '</div>';
         html += '</div>';

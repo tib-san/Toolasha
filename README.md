@@ -68,9 +68,10 @@ MWI Tools/
 
 ### Utils
 - **formatters.js** - Number and time formatting utilities
-  - `numberFormatter(num, digits)` - Format with K/M/B suffixes
+  - `numberFormatter(num, digits)` - Format with thousand separators (1,500,000)
   - `timeReadable(sec)` - Convert seconds to readable format
   - `formatWithSeparator(num)` - Add thousand separators
+  - **Note:** Changed from K/M/B abbreviations to full numbers for clarity
 
 - **dom.js** - DOM manipulation helpers ✅
   - `waitForElement(selector)` - Wait for element to appear
@@ -132,10 +133,75 @@ MWI Tools/
 **All utilities are now in place!** DOM helpers provide UI building blocks, and Efficiency calculators implement game mechanics.
 
 ### Phase 3: Feature Modules
-- [ ] Market system
+
+#### Market System ✅ COMPLETE!
+- **marketplace.js** - Market price API client ✅
+  - `marketAPI.fetch(forceFetch)` - Fetch market data (with caching)
+  - `marketAPI.getPrice(itemHrid, enhancementLevel)` - Get item price
+  - `marketAPI.getPrices(itemHrids)` - Get multiple prices
+  - `marketAPI.isLoaded()` - Check if data is loaded
+  - `marketAPI.getDataAge()` - Get age of cached data
+  - 1-hour cache with automatic expiration
+  - Falls back to expired cache on network errors
+  - Error logging and recovery
+
+- **profit-calculator.js** - Production cost and profit analysis ✅
+  - `profitCalculator.calculateProfit(itemHrid)` - Calculate profit for craftable items
+  - Calculates: material costs, action time, profit per item/hour
+  - Accounts for: market tax (2%), level efficiency bonus, equipment speed bonuses
+  - Returns comprehensive profit data including all inputs/outputs
+
+- **equipment-parser.js** - Equipment speed bonus parser ✅
+  - `parseEquipmentSpeedBonuses(equipment, actionType, itemMap)` - Parse speed bonuses
+  - Maps action types to speed fields (craftingSpeed, brewingSpeed, etc.)
+  - Handles enhancement scaling (+0.1 per level)
+  - Sums all matching equipment bonuses
+
+- **tooltip-prices.js** - Market prices in tooltips ✅
+  - Displays ask/bid prices with thousand separators
+  - Shows total prices for stacks
+  - Profit analysis section with production costs, material breakdown
+  - Equipment speed bonus display
+  - Intelligent handling of missing market data (shows "-" for unavailable)
+  - CSS scrolling + JavaScript repositioning to prevent cutoff
+  - MutationObserver watches for tooltip appearance
+
+- **tooltip-consumables.js** - Consumable stats in tooltips ✅
+  - HP/MP restoration rates (per second or instant)
+  - Cost efficiency (coins per HP/MP)
+  - Daily maximum restoration
+  - Duration display
+  - Market price integration for cost calculations
+  - Same tooltip overflow fix as prices
+
+**Market Features Summary:**
+- Real-time market prices from official API
+- Production profit analysis with material costs
+- Equipment speed calculations for accurate action times
+- Smart tooltip positioning that never cuts off
+- All prices use full numbers with thousand separators (not K/M/B)
+
+**Efficiency System Roadmap:**
+The profit calculator currently accounts for:
+- ✅ **Phase 1 COMPLETE:** Equipment speed bonuses (skill-specific, with enhancement scaling)
+- ✅ **Phase 1 COMPLETE:** Level advantage efficiency (+1% per level above requirement)
+- ⏳ **Phase 2 PLANNED:** Community buff efficiency (14-19.7% based on tier 0-20)
+- ⏳ **Phase 2 PLANNED:** House room efficiency (1.5-13.5% based on level 0-8)
+- ⏳ **Phase 3 PLANNED:** Consumable buffs (Efficiency Tea +10%, skill teas)
+
+Phase 2 will add user configuration for buff tier and house room levels (data not accessible via WebSocket).
+Phase 3 will research whether active buff state is accessible for automatic detection.
+
+#### ⚠️ Debug Mode (Temporary)
+Both tooltip modules have debug timing logs enabled for performance testing:
+- Set `this.DEBUG = false` to disable logs
+- All debug code marked with `========== DEBUG - DELETE WHEN DONE ==========`
+- Logs: Extract HRID time, calculation time, injection time, overflow fix time
+- Use for performance profiling, remove when satisfied with performance
+
+#### Remaining Features
 - [ ] Networth calculation
 - [ ] Action panel enhancements
-- [ ] Tooltip system
 - [ ] Enhancement optimizer
 - [ ] Combat statistics
 - [ ] And more...
