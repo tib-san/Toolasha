@@ -1,30 +1,81 @@
 /**
- * Foraging Profit Calculator
+ * Gathering Profit Calculator
  *
- * Calculates comprehensive profit/hour for Foraging actions including:
+ * Calculates comprehensive profit/hour for gathering actions (Foraging, Woodcutting, Milking) including:
  * - All drop table items at market prices
  * - Drink consumption costs
  * - Equipment speed bonuses
  * - Efficiency buffs (level, house, tea, equipment)
- * - Gourmet tea bonus items
+ * - Gourmet tea bonus items (production skills only)
  * - Market tax (2%)
  */
 
 import marketAPI from '../../api/marketplace.js';
 import dataManager from '../../core/data-manager.js';
 import { parseEquipmentSpeedBonuses, parseEssenceFindBonus, parseRareFindBonus } from '../../utils/equipment-parser.js';
-import { parseTeaEfficiency, parseGourmetBonus, getDrinkConcentration } from '../../utils/tea-parser.js';
+import { parseTeaEfficiency, parseGourmetBonus, parseProcessingBonus, parseGatheringBonus, getDrinkConcentration } from '../../utils/tea-parser.js';
 import { calculateHouseRareFind } from '../../utils/house-efficiency.js';
 import { stackAdditive } from '../../utils/efficiency.js';
 import { formatWithSeparator } from '../../utils/formatters.js';
 import expectedValueCalculator from '../market/expected-value-calculator.js';
 
 /**
- * Calculate comprehensive profit for a Foraging action
+ * Processing Tea conversions (raw → processed)
+ * 19 total conversions: 5 Foraging, 7 Woodcutting, 7 Milking
+ */
+const PROCESSING_CONVERSIONS = {
+    // Foraging (5)
+    '/items/cotton': '/items/cotton_fabric',
+    '/items/flax': '/items/linen_fabric',
+    '/items/bamboo_branch': '/items/bamboo_fabric',
+    '/items/cocoon': '/items/silk_fabric',
+    '/items/radiant_fiber': '/items/radiant_fabric',
+
+    // Woodcutting (7)
+    '/items/log': '/items/lumber',
+    '/items/arcane_log': '/items/arcane_lumber',
+    '/items/birch_log': '/items/birch_lumber',
+    '/items/cedar_log': '/items/cedar_lumber',
+    '/items/ginkgo_log': '/items/ginkgo_lumber',
+    '/items/purpleheart_log': '/items/purpleheart_lumber',
+    '/items/redwood_log': '/items/redwood_lumber',
+
+    // Milking (7)
+    '/items/milk': '/items/cheese',
+    '/items/azure_milk': '/items/azure_cheese',
+    '/items/burble_milk': '/items/burble_cheese',
+    '/items/crimson_milk': '/items/crimson_cheese',
+    '/items/holy_milk': '/items/holy_cheese',
+    '/items/rainbow_milk': '/items/rainbow_cheese',
+    '/items/verdant_milk': '/items/verdant_cheese'
+};
+
+/**
+ * Action types for gathering skills (3 skills)
+ */
+const GATHERING_TYPES = [
+    '/action_types/foraging',
+    '/action_types/woodcutting',
+    '/action_types/milking'
+];
+
+/**
+ * Action types for production skills that benefit from Gourmet Tea (5 skills)
+ */
+const PRODUCTION_TYPES = [
+    '/action_types/brewing',
+    '/action_types/cooking',
+    '/action_types/cheesesmithing',
+    '/action_types/crafting',
+    '/action_types/tailoring'
+];
+
+/**
+ * Calculate comprehensive profit for a gathering action
  * @param {string} actionHrid - Action HRID (e.g., "/actions/foraging/asteroid_belt")
  * @returns {Object|null} Profit data or null if not applicable
  */
-export async function calculateForagingProfit(actionHrid) {
+export async function calculateGatheringProfit(actionHrid) {
     // Get action details
     const gameData = dataManager.getInitClientData();
     const actionDetail = gameData.actionDetailMap[actionHrid];
@@ -33,13 +84,13 @@ export async function calculateForagingProfit(actionHrid) {
         return null;
     }
 
-    // Only process Foraging actions with drop tables
-    if (!actionDetail.type.includes('foraging')) {
+    // Only process gathering actions (Foraging, Woodcutting, Milking) with drop tables
+    if (!GATHERING_TYPES.includes(actionDetail.type)) {
         return null;
     }
 
-    if (!actionDetail.dropTable || actionDetail.dropTable.length <= 1) {
-        return null;
+    if (!actionDetail.dropTable) {
+        return null; // No drop table - nothing to calculate
     }
 
     // Ensure market data is loaded
@@ -49,11 +100,10 @@ export async function calculateForagingProfit(actionHrid) {
     }
 
     // Get character data
-    const characterData = dataManager.getCharacterData();
     const equipment = dataManager.getEquipment();
     const skills = dataManager.getSkills();
-    const houseRooms = characterData.houseRooms || [];
-    const activeBuffs = characterData.buffs || [];
+    const houseRooms = Array.from(dataManager.getHouseRooms().values());
+    const activeBuffs = []; // Not currently used
 
     // Calculate action time per action (with speed bonuses)
     const baseTimePerActionSec = actionDetail.baseTimeCost / 1000000000;
@@ -67,8 +117,8 @@ export async function calculateForagingProfit(actionHrid) {
     // Calculate actions per hour
     let actionsPerHour = 3600 / actualTimePerActionSec;
 
-    // Get drink slots for this action type
-    const drinkSlots = gameData.actionTypeDrinkSlotsMap?.[actionDetail.type] || [];
+    // Get character's actual equipped drink slots for this action type (from WebSocket data)
+    const drinkSlots = dataManager.getActionDrinkSlots(actionDetail.type);
 
     // Get drink concentration from equipment
     const drinkConcentration = getDrinkConcentration(equipment, gameData.itemDetailMap);
@@ -81,11 +131,38 @@ export async function calculateForagingProfit(actionHrid) {
         drinkConcentration
     );
 
-    const gourmetBonus = parseGourmetBonus(
-        drinkSlots,
-        gameData.itemDetailMap,
-        drinkConcentration
-    );
+    // Gourmet Tea only applies to production skills (Brewing, Cooking, Cheesesmithing, Crafting, Tailoring)
+    // NOT gathering skills (Foraging, Woodcutting, Milking)
+    const gourmetBonus = PRODUCTION_TYPES.includes(actionDetail.type)
+        ? parseGourmetBonus(drinkSlots, gameData.itemDetailMap, drinkConcentration)
+        : 0;
+
+    // Processing Tea: 15% base chance to convert raw → processed (Cotton → Cotton Fabric, etc.)
+    // Only applies to gathering skills (Foraging, Woodcutting, Milking)
+    const processingBonus = GATHERING_TYPES.includes(actionDetail.type)
+        ? parseProcessingBonus(drinkSlots, gameData.itemDetailMap, drinkConcentration)
+        : 0;
+
+    // Gathering Quantity: Increases item drop amounts (min/max)
+    // Sources: Gathering Tea (15% base), Community Buff (20% base + 0.5%/level), Achievement Tiers
+    // Only applies to gathering skills (Foraging, Woodcutting, Milking)
+    let totalGathering = 0;
+    let gatheringTea = 0;
+    let communityGathering = 0;
+    if (GATHERING_TYPES.includes(actionDetail.type)) {
+        // Parse Gathering Tea bonus
+        gatheringTea = parseGatheringBonus(drinkSlots, gameData.itemDetailMap, drinkConcentration);
+
+        // Get Community Buff level for gathering quantity
+        const communityBuffLevel = dataManager.getCommunityBuffLevel('/community_buff_types/gathering_quantity');
+        communityGathering = communityBuffLevel ? 0.2 + (communityBuffLevel * 0.005) : 0;
+
+        // TODO: Add achievement tier bonus when available
+        // const achievementGathering = ...
+
+        // Stack all bonuses additively
+        totalGathering = gatheringTea + communityGathering;
+    }
 
     // Calculate drink consumption costs
     let drinkCostPerHour = 0;
@@ -93,7 +170,7 @@ export async function calculateForagingProfit(actionHrid) {
         if (!drink || !drink.itemHrid) {
             continue;
         }
-        const askPrice = marketData.marketData[drink.itemHrid]?.[0]?.a || 0;
+        const askPrice = marketData[drink.itemHrid]?.[0]?.a || 0;
         drinkCostPerHour += askPrice * 12; // 12 drinks per hour (5min each)
     }
 
@@ -119,6 +196,10 @@ export async function calculateForagingProfit(actionHrid) {
     }
 
     // Calculate equipment efficiency bonus (specific items like gathering charms)
+    // Extract skill name from action type (e.g., "/action_types/foraging" -> "foraging")
+    const skillName = actionDetail.type.replace('/action_types/', '');
+    const skillEfficiencyStat = `${skillName}Efficiency`; // e.g., "foragingEfficiency"
+
     let equipmentEfficiency = 0;
     for (const [slot, equippedItem] of Object.entries(equipment)) {
         if (!equippedItem?.itemHrid) continue;
@@ -127,10 +208,17 @@ export async function calculateForagingProfit(actionHrid) {
         if (!itemDetail?.equipmentDetail?.noncombatStats) continue;
 
         const stats = itemDetail.equipmentDetail.noncombatStats;
-        if (stats.efficiency) {
-            // Base efficiency
-            let efficiency = stats.efficiency;
 
+        // Check for both generic efficiency and skill-specific efficiency
+        let efficiency = 0;
+        if (stats.efficiency) {
+            efficiency += stats.efficiency; // Generic efficiency (all skills)
+        }
+        if (stats[skillEfficiencyStat]) {
+            efficiency += stats[skillEfficiencyStat]; // Skill-specific (e.g., foragingEfficiency)
+        }
+
+        if (efficiency > 0) {
             // Apply enhancement scaling (only accessories/charms get 5x)
             const slotType = itemDetail.equipmentDetail.slot;
             const isAccessory = [
@@ -166,22 +254,56 @@ export async function calculateForagingProfit(actionHrid) {
 
     // Calculate revenue from drop table
     let revenuePerHour = 0;
+    let processingRevenueBonus = 0; // Track extra revenue from Processing Tea
+    const processingConversions = []; // Track conversion details for display
     const dropTable = actionDetail.dropTable;
 
     for (const drop of dropTable) {
-        const bidPrice = marketData.marketData[drop.itemHrid]?.[0]?.b || 0;
-        const avgAmount = (drop.minCount + drop.maxCount) / 2;
+        const rawBidPrice = marketData[drop.itemHrid]?.[0]?.b || 0;
+
+        // Apply gathering quantity bonus to drop amounts (Gathering Tea + Community Buff + Achievements)
+        const baseAvgAmount = (drop.minCount + drop.maxCount) / 2;
+        const avgAmount = baseAvgAmount * (1 + totalGathering);
+
         const itemsPerHour = actionsPerHour * drop.dropRate * avgAmount;
 
         // Apply market tax (2%)
-        const bidAfterTax = bidPrice * 0.98;
+        const rawPriceAfterTax = rawBidPrice * 0.98;
 
-        revenuePerHour += itemsPerHour * bidAfterTax;
+        // Check if this item has a Processing conversion (e.g., Bamboo Branch → Bamboo Fabric)
+        const processedItemHrid = PROCESSING_CONVERSIONS[drop.itemHrid];
+        let effectivePrice = rawPriceAfterTax;
 
-        // Add Gourmet tea bonus items (12% chance for +100% items, scales with drink concentration)
+        if (processedItemHrid && processingBonus > 0) {
+            // Processing Tea: weighted average of raw vs processed
+            const processedBidPrice = marketData[processedItemHrid]?.[0]?.b || 0;
+            const processedPriceAfterTax = processedBidPrice * 0.98;
+
+            // Expected value = (1 - processingChance) × rawPrice + processingChance × processedPrice
+            effectivePrice = (1 - processingBonus) * rawPriceAfterTax + processingBonus * processedPriceAfterTax;
+
+            // Track the extra revenue from Processing
+            const processingDelta = effectivePrice - rawPriceAfterTax;
+            processingRevenueBonus += itemsPerHour * processingDelta;
+
+            // Store conversion details for display
+            const rawItemName = gameData.itemDetailMap[drop.itemHrid]?.name || 'Unknown';
+            const processedItemName = gameData.itemDetailMap[processedItemHrid]?.name || 'Unknown';
+            const valueGainPerProc = processedPriceAfterTax - rawPriceAfterTax;
+
+            processingConversions.push({
+                rawItem: rawItemName,
+                processedItem: processedItemName,
+                valueGain: valueGainPerProc
+            });
+        }
+
+        revenuePerHour += itemsPerHour * effectivePrice;
+
+        // Add Gourmet tea bonus items (only for production skills, not gathering)
         if (gourmetBonus > 0) {
             const bonusItemsPerHour = itemsPerHour * (gourmetBonus / 100);
-            revenuePerHour += bonusItemsPerHour * bidAfterTax;
+            revenuePerHour += bonusItemsPerHour * effectivePrice;
         }
     }
 
@@ -209,6 +331,12 @@ export async function calculateForagingProfit(actionHrid) {
         totalEfficiency,
         speedBonus,
         bonusRevenue,              // Essence and rare find details
+        processingBonus,           // Processing Tea chance (as decimal)
+        processingRevenueBonus,    // Extra revenue from Processing conversions
+        processingConversions,     // Array of conversion details {rawItem, processedItem, valueGain}
+        totalGathering,            // Total gathering quantity bonus (as decimal)
+        gatheringTea,              // Gathering Tea component (as decimal)
+        communityGathering,        // Community Buff component (as decimal)
         details: {
             levelEfficiency,
             houseEfficiency,
@@ -394,8 +522,7 @@ export function formatProfitDisplay(profitData) {
 
     // Show bonus revenue breakdown (essences and rare finds)
     if (profitData.bonusRevenue && profitData.bonusRevenue.totalBonusRevenue > 0) {
-        lines.push(`<br><span style="font-size: 0.9em; opacity: 0.8;">`);
-        lines.push(`Bonus revenue: ${formatWithSeparator(Math.round(profitData.bonusRevenue.totalBonusRevenue))}/hour`);
+        lines.push(`<br>Bonus revenue: ${formatWithSeparator(Math.round(profitData.bonusRevenue.totalBonusRevenue))}/hour`);
 
         const bonusParts = [];
         if (profitData.bonusRevenue.essenceFindBonus > 0) {
@@ -408,7 +535,46 @@ export function formatProfitDisplay(profitData) {
         if (bonusParts.length > 0) {
             lines.push(` (${bonusParts.join(', ')})`);
         }
-        lines.push(`</span>`);
+
+        // Show individual bonus drops
+        if (profitData.bonusRevenue.bonusDrops && profitData.bonusRevenue.bonusDrops.length > 0) {
+            for (const drop of profitData.bonusRevenue.bonusDrops) {
+                lines.push(`<br><span style="font-size: 0.85em; opacity: 0.7; margin-left: 10px;">`);
+                lines.push(`• ${drop.itemName}: ${(drop.dropRate * 100).toFixed(drop.dropRate < 0.01 ? 3 : 2)}% drop, ~${drop.dropsPerHour.toFixed(1)}/hour`);
+                lines.push(`</span>`);
+            }
+        }
+    }
+
+    // Show Processing Tea bonus (conversions: raw → processed)
+    if (profitData.processingBonus > 0 && profitData.processingRevenueBonus > 0) {
+        lines.push(`<br>Processing: +${formatWithSeparator(Math.round(profitData.processingRevenueBonus))}/hour`);
+        lines.push(` (${(profitData.processingBonus * 100).toFixed(1)}% conversion)`);
+
+        // Show individual conversions
+        if (profitData.processingConversions && profitData.processingConversions.length > 0) {
+            for (const conversion of profitData.processingConversions) {
+                lines.push(`<br><span style="font-size: 0.85em; opacity: 0.7; margin-left: 10px;">`);
+                lines.push(`• ${conversion.rawItem} → ${conversion.processedItem}: +${formatWithSeparator(Math.round(conversion.valueGain))} value per proc`);
+                lines.push(`</span>`);
+            }
+        }
+    }
+
+    // Show Gathering Quantity bonus (increases item drops)
+    if (profitData.totalGathering > 0) {
+        const gatheringParts = [];
+        if (profitData.gatheringTea > 0) {
+            gatheringParts.push(`${(profitData.gatheringTea * 100).toFixed(1)}% tea`);
+        }
+        if (profitData.communityGathering > 0) {
+            gatheringParts.push(`${(profitData.communityGathering * 100).toFixed(1)}% community`);
+        }
+
+        lines.push(`<br>Gathering: +${(profitData.totalGathering * 100).toFixed(1)}% quantity`);
+        if (gatheringParts.length > 0) {
+            lines.push(` (${gatheringParts.join(' + ')})`);
+        }
     }
 
     lines.push(`</div>`);

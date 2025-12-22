@@ -7,6 +7,167 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-12-22
+
+### Overview
+
+Third pre-release version featuring comprehensive gathering profit enhancements with detailed breakdown displays for all gathering skills (Foraging, Woodcutting, Milking).
+
+**Status:** Development/Testing (Version < 1.0.0 = pre-release)
+
+### Added
+
+#### **Gathering Quantity Support - Full Tea & Community Buff Integration**
+
+**NEW FEATURE:** Gathering Quantity bonus now fully implemented with detailed breakdown display.
+
+- **Gathering Quantity Calculation:**
+  - Parses Gathering Tea bonus (15% base, scales with Drink Concentration)
+  - Detects Community Buff level for gathering quantity (20% base + 0.5% per level)
+  - Stacks all bonuses additively (tea + community + achievements when available)
+  - Formula: `avgAmount = baseAmount × (1 + totalGathering)`
+  - Affects all drop quantities (increases items received per action)
+
+- **Display Format:**
+  ```
+  Gathering: +46.0% quantity (15.0% tea + 31.0% community)
+  ```
+  - Shows total percentage with component breakdown
+  - Only displays when totalGathering > 0
+  - Helps players understand all sources contributing to quantity bonuses
+
+- **Integration:**
+  - New method: `parseGatheringBonus()` in tea-parser.js (lines 252-268)
+  - Community buff detection via `dataManager.getCommunityBuffLevel('/community_buff_types/gathering_quantity')`
+  - Applied to drop table calculations in gathering-profit.js (lines 146-165, 261-263)
+  - Returns breakdown components: `gatheringTea`, `communityGathering`, `totalGathering`
+
+#### **Detailed Bonus Revenue Display - Item-by-Item Breakdown**
+
+**UX IMPROVEMENT:** Bonus revenue now shows individual drops with complete details.
+
+- **Enhanced Bonus Revenue Section:**
+  - Shows total bonus revenue with percentages (essence find, rare find)
+  - Lists each bonus drop item individually:
+    - Item name
+    - Drop rate (formatted to 2-3 decimal places)
+    - Drops per hour (formatted to 1 decimal)
+  - Format: `• Medium Meteorite Cache: 0.04% drop, ~0.7/hour`
+  - Indented sub-items with smaller font (0.85em) and lower opacity (0.7)
+
+- **Display Example:**
+  ```
+  Bonus revenue: 90,633/hour (2.2% rare find)
+    • Medium Meteorite Cache: 0.04% drop, ~0.7/hour
+  ```
+
+#### **Processing Tea Details - Conversion Breakdown**
+
+**UX IMPROVEMENT:** Processing Tea now shows exactly what's being converted and the value gained.
+
+- **Enhanced Processing Section:**
+  - Shows total processing revenue with conversion chance
+  - Lists each conversion individually:
+    - Raw item → Processed item
+    - Value gain per successful proc
+  - Format: `• Rainbow Milk → Rainbow Cheese: +1,358 value per proc`
+  - Helps players understand which items are being converted
+
+- **Display Example:**
+  ```
+  Processing: +185,555/hour (16.5% conversion)
+    • Rainbow Milk → Rainbow Cheese: +1,358 value per proc
+  ```
+
+- **Technical Implementation:**
+  - Tracks conversion details during calculation (lines 289-298)
+  - Stores: rawItem name, processedItem name, valueGain per proc
+  - Returns array: `processingConversions` for display formatting
+
+### Changed
+
+#### **Module Rename: foraging-profit.js → gathering-profit.js**
+
+**BREAKING CHANGE:** Renamed module to reflect support for all gathering skills.
+
+- **Scope Expansion:**
+  - Previously: Foraging only
+  - Now: Foraging, Woodcutting, Milking (all 3 gathering skills)
+  - Function renamed: `calculateForagingProfit()` → `calculateGatheringProfit()`
+  - Module renamed: `foraging-profit.js` → `gathering-profit.js`
+
+- **Behavior:**
+  - Same calculation logic applies to all gathering skills
+  - Efficiency, speed, tea buffs work consistently across all three
+  - Processing Tea conversions:
+    - Foraging: 5 conversions (Cotton → Cotton Fabric, etc.)
+    - Woodcutting: 7 conversions (Log → Lumber, etc.)
+    - Milking: 7 conversions (Milk → Cheese, etc.)
+
+- **Updated References:**
+  - panel-observer.js: Import and function call updated
+  - main.js: Import path updated
+  - README.md: Documentation updated to reflect all gathering skills
+
+### Technical Details
+
+#### Gathering Quantity Formula
+```javascript
+// Parse Gathering Tea (15% base, scales with Drink Concentration)
+gatheringTea = parseGatheringBonus(drinkSlots, itemDetailMap, drinkConcentration)
+
+// Get Community Buff level (0-20)
+communityBuffLevel = dataManager.getCommunityBuffLevel('/community_buff_types/gathering_quantity')
+communityGathering = communityBuffLevel ? 0.2 + (communityBuffLevel * 0.005) : 0
+
+// Stack additively
+totalGathering = gatheringTea + communityGathering
+
+// Apply to drop amounts
+avgAmount = baseAmount × (1 + totalGathering)
+```
+
+#### Option D Display Format
+```
+Overall Profit: 468,476/hour, 11,243,417/day
+(+46.0% efficiency: 35% level, 11.0% tea)
+Bonus revenue: 90,633/hour (2.2% rare find)
+  • Medium Meteorite Cache: 0.04% drop, ~0.7/hour
+Processing: +185,555/hour (16.5% conversion)
+  • Rainbow Milk → Rainbow Cheese: +1,358 value per proc
+Gathering: +46.0% quantity (15.0% tea + 31.0% community)
+```
+
+### Files Modified
+
+**Core:**
+- `src/features/actions/gathering-profit.js` (renamed from foraging-profit.js)
+  - Lines 146-165: Gathering quantity calculation
+  - Lines 261-298: Processing conversion tracking with details
+  - Lines 311-347: Return object with breakdown components
+  - Lines 523-580: Enhanced display formatting (Option D)
+
+**Utilities:**
+- `src/utils/tea-parser.js` (lines 252-268, 277)
+  - Added `parseGatheringBonus()` function
+  - Added to exports
+
+**Integration:**
+- `src/features/actions/panel-observer.js` (line 12)
+  - Updated import: gathering-profit.js
+  - Updated function call: calculateGatheringProfit()
+
+- `src/main.js` (line 18)
+  - Updated import path
+
+**Documentation:**
+- `README.md` (lines 3, 208-228, 289)
+  - Updated version badges to 0.3.0
+  - Updated module name and function names
+  - Added gathering quantity, processing details, bonus revenue details
+
+**Result:** Complete transparency into all gathering profit components with detailed breakdowns for every bonus type.
+
 ## [0.2.0] - 2025-12-21
 
 ### Overview

@@ -249,11 +249,30 @@ export function parseActionLevelBonus(activeDrinks, itemDetailMap, drinkConcentr
     });
 }
 
+/**
+ * Parse Gathering bonus from active tea buffs
+ * @param {Array} activeDrinks - Array of active drink items from actionTypeDrinkSlotsMap
+ * @param {Object} itemDetailMap - Item details from init_client_data
+ * @param {number} drinkConcentration - Drink Concentration stat (as decimal, e.g., 0.12 for 12%)
+ * @returns {number} Gathering quantity bonus as decimal (e.g., 0.168 for 16.8% more items)
+ *
+ * @example
+ * // With Gathering Tea (+15% base) and 12% Drink Concentration:
+ * parseGatheringBonus(activeDrinks, items, 0.12)
+ * // Returns: 0.168 (15% × 1.12 = 16.8% gathering quantity)
+ */
+export function parseGatheringBonus(activeDrinks, itemDetailMap, drinkConcentration = 0) {
+    return parseTeaBuff(activeDrinks, itemDetailMap, drinkConcentration, {
+        buffTypeHrids: ['/buff_types/gathering']
+    });
+}
+
 export default {
     parseTeaEfficiency,
     getDrinkConcentration,
     parseArtisanBonus,
     parseGourmetBonus,
     parseProcessingBonus,
-    parseActionLevelBonus
+    parseActionLevelBonus,
+    parseGatheringBonus
 };

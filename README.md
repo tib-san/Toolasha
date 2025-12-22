@@ -1,6 +1,6 @@
 # MWI Tools - Refactoring Project
 
-![Version](https://img.shields.io/badge/version-0.1.0-orange?style=flat-square) ![Status](https://img.shields.io/badge/status-pre--release-yellow?style=flat-square) ![License](https://img.shields.io/badge/license-CC--BY--NC--SA--4.0-blue?style=flat-square)
+![Version](https://img.shields.io/badge/version-0.3.0-orange?style=flat-square) ![Status](https://img.shields.io/badge/status-pre--release-yellow?style=flat-square) ![License](https://img.shields.io/badge/license-CC--BY--NC--SA--4.0-blue?style=flat-square)
 
 Modular, maintainable rewrite of MWITools userscript for Milky Way Idle.
 
@@ -205,19 +205,23 @@ All efficiency sources are automatically detected from character data - no manua
   - Filters out combat action panels (only enhances skilling)
   - MutationObserver watches for panel modal appearance
 
-- **foraging-profit.js** - Comprehensive Foraging profit calculator ✅
-  - `calculateForagingProfit(actionHrid)` - Calculate hourly and daily profit
+- **gathering-profit.js** - Comprehensive gathering profit calculator ✅
+  - `calculateGatheringProfit(actionHrid)` - Calculate hourly and daily profit
+  - **Supports all gathering skills:** Foraging, Woodcutting, Milking
   - Accounts for: Drop table items, market prices, drink costs, equipment speed, efficiency bonuses
   - Efficiency sources: Level advantage, house rooms, tea buffs, equipment stats
-  - Gourmet Tea integration: Bonus items calculated and added to revenue
-  - **Essence drops**: Foraging Essence drops with Essence Find equipment bonus
-  - **Rare find drops**: Branch of Insight, Large Meteorite Cache, etc. with Rare Find bonuses
+  - **Gathering Quantity:** Tea (15% base) + Community Buff (20-29.5%) with detailed breakdown
+  - **Processing Tea:** 15% conversion chance with value gain per proc (raw → processed items)
+  - **Gourmet Tea integration:** Bonus items for production skills (not gathering)
+  - **Essence drops:** Essence drops with Essence Find equipment bonus
+  - **Rare find drops:** Detailed breakdown with drop rates and items/hour
+  - **Bonus revenue display:** Item-by-item breakdown with rates and revenue
   - Rare Find sources: Equipment + house rooms (combined, additive)
   - Market tax: 2% selling fee applied to all revenue
-  - Returns: profitPerHour, profitPerDay, revenuePerHour, drinkCostPerHour, actionsPerHour, efficiency breakdown, bonus revenue details
+  - Returns: profitPerHour, profitPerDay, revenuePerHour, drinkCostPerHour, actionsPerHour, efficiency breakdown, bonus revenue details, gathering/processing breakdowns
 
 **Action Panel Features Summary:**
-- ✅ **Foraging profit calculator** - Comprehensive economic analysis with all bonuses
+- ✅ **Gathering profit calculator** - Comprehensive economic analysis for Foraging, Woodcutting, Milking
 - ❌ **Total action time** - Not yet implemented
 - ❌ **Quick input buttons** - Not yet implemented
 - ❌ **Level progression calculator** - Not yet implemented
@@ -286,7 +290,7 @@ node tests/MODULE_NAME.test.js
 
 ---
 
-**Version:** 0.1.0 (Pre-release)
+**Version:** 0.3.0 (Pre-release)
 **Status:** Development/Testing
 **Original Author:** bot7420
 **Updated By:** Celasha and Claude
