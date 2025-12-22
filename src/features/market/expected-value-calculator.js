@@ -149,8 +149,23 @@ class ExpectedValueCalculator {
         // Special case: Cowbell (use bag price ÷ 10)
         if (itemHrid === this.COWBELL_HRID) {
             const bagPrice = marketAPI.getPrice(this.COWBELL_BAG_HRID, 0);
-            if (bagPrice && bagPrice.bid > 0) {
-                return bagPrice.bid / 10; // 10 cowbells per bag
+            if (bagPrice) {
+                // Respect pricing mode for Cowbell Bag price
+                const pricingMode = config.getSettingValue('profitCalc_pricingMode', 'conservative');
+                const respectPricingMode = config.getSettingValue('expectedValue_respectPricingMode', true);
+
+                let bagValue = 0;
+                if (respectPricingMode) {
+                    // Conservative: Bid (instant sell), Hybrid/Optimistic: Ask (patient sell)
+                    bagValue = pricingMode === 'conservative' ? bagPrice.bid : bagPrice.ask;
+                } else {
+                    // Always use conservative
+                    bagValue = bagPrice.bid;
+                }
+
+                if (bagValue > 0) {
+                    return bagValue / 10; // 10 cowbells per bag
+                }
             }
             return null; // No bag price available
         }
