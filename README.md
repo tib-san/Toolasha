@@ -1,5 +1,7 @@
 # MWI Tools - Refactoring Project
 
+![Version](https://img.shields.io/badge/version-0.1.0-orange?style=flat-square) ![Status](https://img.shields.io/badge/status-pre--release-yellow?style=flat-square) ![License](https://img.shields.io/badge/license-CC--BY--NC--SA--4.0-blue?style=flat-square)
+
 Modular, maintainable rewrite of MWITools userscript for Milky Way Idle.
 
 ## 🚀 Quick Start
@@ -216,9 +218,13 @@ node tests/MODULE_NAME.test.js
 
 ## 📚 Documentation
 
+- **README.md** - This file (project overview and quick start)
+- **CHANGELOG.md** - Version history and release notes
 - **PROJECT_DOCS.md** - Complete project overview and refactoring plan
 - **TABLE_OF_CONTENTS.md** - Detailed function index of original code
 - **EXCLUDED_FEATURES.md** - Features intentionally excluded (Chinese language support)
+- **TESTING_CHECKLIST.md** - Comprehensive testing guide for all features
+- **TOOLTIP_FORMAT_STANDARDS.md** - Tooltip formatting conventions
 
 ## 🔧 Development Workflow
 
@@ -256,7 +262,20 @@ node tests/MODULE_NAME.test.js
 
 ---
 
-**Version:** 25.1-refactor
+**Version:** 0.1.0 (Pre-release)
+**Status:** Development/Testing
 **Original Author:** bot7420
 **Updated By:** Celasha and Claude
 **License:** CC-BY-NC-SA-4.0
+
+## Version Management
+
+This project uses [Semantic Versioning](https://semver.org/):
+- **0.x.x** = Pre-release/development versions (current status)
+- **1.0.0** = First stable release (after production testing)
+- **MAJOR.MINOR.PATCH** after 1.0.0:
+  - MAJOR: Breaking changes
+  - MINOR: New features (backwards compatible)
+  - PATCH: Bug fixes and refactorings
+
+See [CHANGELOG.md](CHANGELOG.md) for detailed version history.

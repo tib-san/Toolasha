@@ -1,6 +1,6 @@
 {
   "name": "mwitools-refactor",
-  "version": "25.1.0",
+  "version": "0.1.0",
   "description": "Refactored MWI Tools userscript",
   "type": "module",
   "scripts": {

@@ -5,9 +5,13 @@
 This project aims to break apart the monolithic MWITools-25.0.user.js (~6,700 lines) into modular, maintainable, and efficient components.
 
 **Original File:** MWITools-25.0.user.js (466KB, 6706 lines)
+**Original Version:** 25.0 (last monolithic version)
+**Current Version:** 0.1.0 (refactored, pre-release)
 **Author:** bot7420
-**Version:** 25.0
+**Updated By:** Celasha and Claude
 **License:** CC-BY-NC-SA-4.0
+
+**Versioning:** This project uses [Semantic Versioning](https://semver.org/). Version 0.1.0 indicates pre-release/development status. See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 ## Goals
 
