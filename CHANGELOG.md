@@ -6,6 +6,103 @@ All notable changes to the MWI Tools refactoring project.
 
 ### Added - December 21, 2024
 
+#### **Phase 6: Expected Value Calculator for Openable Containers**
+
+**NEW FEATURE:** Complete expected value analysis for all 19 openable containers to help players decide whether to open or sell crates, chests, and Purple's Gift.
+
+- **Container Detection:**
+  - Automatically detects all openable containers via `isOpenable` flag
+  - Covers all 19 containers: Artisan's Crates (3), Meteorite Caches (3), Treasure Chests (3), Dungeon Chests (8), Purple's Gift (1), Cowbell Bag (1)
+  - Uses `openableLootDropMap` from game data for complete drop tables
+
+- **Expected Value Calculation:**
+  - Formula: `EV = sum((minCount + maxCount) / 2 × dropRate × price × taxFactor)`
+  - Applies 2% market tax to tradeable items
+  - Handles special pricing: Coin (face value = 1), Cowbell (bag price ÷ 10)
+  - Respects pricing mode setting (Conservative/Hybrid/Optimistic)
+  - New module: `expected-value-calculator.js` with pre-calculation and caching
+
+- **Nested Container Convergence:**
+  - 4-iteration convergence algorithm handles Purple's Gift containing smaller containers
+  - Dependency-ordered calculation ensures nested values are accurate
+  - Cached results updated when market data refreshes
+
+- **Pricing Mode Integration:**
+  - **Conservative:** Container cost = Ask (instant buy), Drop revenue = Bid (instant sell)
+  - **Hybrid (default):** Container cost = Ask (instant buy), Drop revenue = Ask (patient sell)
+  - **Optimistic:** Container cost = Bid (patient buy), Drop revenue = Ask (patient sell)
+  - New setting: `expectedValue_respectPricingMode` (default: true)
+
+- **Tooltip Display:**
+  - New "EXPECTED VALUE" section between price and profit analysis
+  - Shows pricing mode used in header
+  - Summary: Expected return, container cost, net profit (color-coded)
+  - Detailed drop breakdown with all drops listed
+  - Format: `• Item Name (dropRate%): avgCount avg → expectedValue`
+  - Shows total from all drops with final calculation
+  - Example:
+    ```
+    EXPECTED VALUE (HYBRID MODE)
+      Expected Return: 17,250
+      Container Cost: 15,000
+      Net Profit: +2,250 (+15.0%)
+
+    All Drops (19 total):
+      • Task Token (100.00%): 7.50 avg → 9,000
+      • Coin (100.00%): 7,500.00 avg → 7,500
+      • Shard of Protection (100.00%): 1.50 avg → 450
+      • Coin (10.00%): 37,500.00 avg → 3,675
+      • Small Artisan's Crate (2.00%): 0.02 avg → 64
+      ... (14 more drops)
+
+    Total from 19 drops: 17,250
+    ```
+
+- **Configuration Settings:**
+  - `itemTooltip_expectedValue` (default: true) - Enable/disable EV display
+  - `expectedValue_showDrops` (default: "All") - Control drop detail level:
+    - "All": Show every drop with full details
+    - "Top 5": Show 5 highest value drops
+    - "Top 10": Show 10 highest value drops
+    - "None": Summary only (no individual drops)
+  - `expectedValue_respectPricingMode` (default: true) - Use pricing mode for calculations
+
+- **Color Coding:**
+  - **Green (lime):** Profitable to open (positive net profit)
+  - **Red:** Loss (negative net profit, better to sell unopened)
+  - Percentage shown alongside absolute profit
+
+**Files Added:**
+- `src/features/market/expected-value-calculator.js` (new module, ~350 lines)
+
+**Files Modified:**
+- `src/features/market/tooltip-prices.js` (lines 10, 156-170, 556-647) - Import and integration
+- `src/core/config.js` (lines 87-101) - Three new configuration settings
+- `src/main.js` (lines 17, 120, 167) - Import, initialization, and debug export
+
+**Technical Details:**
+```javascript
+// Expected value calculation for a drop
+avgCount = (minCount + maxCount) / 2
+taxFactor = item.tradeable ? 0.98 : 1.0
+dropValue = avgCount × dropRate × price × taxFactor
+
+// Nested container convergence (4 iterations)
+for (iteration = 0; iteration < 4; iteration++) {
+    for (container in containers) {
+        ev = calculateSingleContainer(container)
+        cache.set(container, ev)
+    }
+}
+
+// Special pricing
+Coin: price = 1 (face value)
+Cowbell: price = Cowbell Bag price / 10
+Nested container: price = cached EV from previous iteration
+```
+
+**Result:** Players can now make informed decisions about whether opening or selling containers is more profitable, with complete transparency into all drops and their expected values.
+
 #### **Phase 5: Essence & Rare Find Revenue Tracking**
 
 **NEW FEATURE:** Bonus Revenue from essence and rare find drops

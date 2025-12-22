@@ -14,6 +14,7 @@ import marketAPI from './api/marketplace.js';
 import tooltipPrices from './features/market/tooltip-prices.js';
 import tooltipConsumables from './features/market/tooltip-consumables.js';
 import profitCalculator from './features/market/profit-calculator.js';
+import expectedValueCalculator from './features/market/expected-value-calculator.js';
 
 console.log('MWI Tools (Refactored) - Initializing...');
 
@@ -116,6 +117,7 @@ dataManager.on('character_initialized', (data) => {
     setTimeout(() => {
         console.log('\n=== Initializing Market Features ===');
         tooltipPrices.initialize();
+        expectedValueCalculator.initialize();
         tooltipConsumables.initialize();
     }, 1000);
 });
@@ -162,6 +164,7 @@ const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window
 targetWindow.MWITools = {
     dataManager,
     profitCalculator,
+    expectedValueCalculator,
     marketAPI,
     config,
     storage,

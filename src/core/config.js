@@ -84,6 +84,21 @@ class Config {
                 desc: "Item tooltip: Production cost and profit. [Depends on the previous selection]",
                 isTrue: true,
             },
+            itemTooltip_expectedValue: {
+                id: "itemTooltip_expectedValue",
+                desc: "Item tooltip: Expected value for openable containers (crates, chests, Purple's Gift). [Depends on the first selection]",
+                isTrue: true,
+            },
+            expectedValue_showDrops: {
+                id: "expectedValue_showDrops",
+                desc: "Expected value drop display: 'Top 5' = 5 highest value drops, 'Top 10' = 10 highest, 'All' = all drops, 'None' = summary only. [Depends on the previous selection]",
+                value: "All",
+            },
+            expectedValue_respectPricingMode: {
+                id: "expectedValue_respectPricingMode",
+                desc: "Use pricing mode for expected value calculations (same as profit calculator). [Depends on the previous selection]",
+                isTrue: true,
+            },
             profitCalc_pricingMode: {
                 id: "profitCalc_pricingMode",
                 desc: "Profit calculation pricing mode: 'conservative' = instant trading (Ask/Bid), 'hybrid' = instant buy + sell orders (Ask/Ask), 'optimistic' = patient trading (Bid/Ask).",

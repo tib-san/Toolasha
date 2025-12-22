@@ -7,6 +7,7 @@ import config from '../../core/config.js';
 import marketAPI from '../../api/marketplace.js';
 import dataManager from '../../core/data-manager.js';
 import profitCalculator from './profit-calculator.js';
+import expectedValueCalculator from './expected-value-calculator.js';
 import { numberFormatter, formatKMB } from '../../utils/formatters.js';
 import dom from '../../utils/dom.js';
 
@@ -152,8 +153,15 @@ class TooltipPrices {
         // Inject price display
         this.injectPriceDisplay(tooltipElement, price, amount);
 
-        // Check if profit calculator is enabled
-        if (config.getSetting('itemTooltip_profit')) {
+        // Check if this is an openable container
+        if (itemDetails.isOpenable && config.getSetting('itemTooltip_expectedValue')) {
+            const evData = expectedValueCalculator.calculateExpectedValue(itemHrid);
+            if (evData) {
+                this.injectExpectedValueDisplay(tooltipElement, evData);
+            }
+        }
+        // Otherwise check if profit calculator is enabled
+        else if (config.getSetting('itemTooltip_profit')) {
             // Calculate and inject profit information
             const profitData = profitCalculator.calculateProfit(itemHrid);
             if (profitData) {
@@ -543,6 +551,99 @@ class TooltipPrices {
 
         // Insert at the end of the tooltip
         tooltipText.appendChild(profitDiv);
+    }
+
+    /**
+     * Inject expected value display into tooltip
+     * @param {Element} tooltipElement - Tooltip element
+     * @param {Object} evData - Expected value calculation data
+     */
+    injectExpectedValueDisplay(tooltipElement, evData) {
+        // Find the tooltip text container
+        const tooltipText = tooltipElement.querySelector('.ItemTooltipText_itemTooltipText__zFq3A');
+
+        if (!tooltipText) {
+            return;
+        }
+
+        // Check if we already injected (prevent duplicates)
+        if (tooltipText.querySelector('.market-ev-injected')) {
+            return;
+        }
+
+        // Create EV display container
+        const evDiv = dom.createStyledDiv(
+            { color: config.SCRIPT_COLOR_TOOLTIP, marginTop: '8px' },
+            '',
+            'market-ev-injected'
+        );
+
+        // Build EV display
+        let html = '<div style="border-top: 1px solid rgba(255,255,255,0.2); padding-top: 8px;">';
+
+        // Header with pricing mode
+        html += `<div style="font-weight: bold; margin-bottom: 4px;">EXPECTED VALUE (${evData.pricingMode.toUpperCase()} MODE)</div>`;
+        html += '<div style="font-size: 0.9em; margin-left: 8px;">';
+
+        // Summary: Expected Return, Container Cost, Net Profit
+        html += `<div>Expected Return: ${numberFormatter(evData.expectedReturn)}</div>`;
+        html += `<div>Container Cost: ${numberFormatter(evData.containerCost)}</div>`;
+
+        // Net profit with color coding
+        const profitColor = evData.netProfit >= 0 ? 'lime' : 'red';
+        const profitSign = evData.netProfit >= 0 ? '+' : '';
+        html += `<div style="color: ${profitColor}; font-weight: bold;">Net Profit: ${profitSign}${numberFormatter(evData.netProfit)} (${profitSign}${evData.profitPercentage.toFixed(1)}%)</div>`;
+
+        html += '</div>'; // Close summary section
+
+        // Drop breakdown (if configured to show)
+        const showDropsSetting = config.getSettingValue('expectedValue_showDrops', 'All');
+
+        if (showDropsSetting !== 'None' && evData.drops.length > 0) {
+            html += '<div style="border-top: 1px solid rgba(255,255,255,0.2); margin: 8px 0;"></div>';
+
+            // Determine how many drops to show
+            let dropsToShow = evData.drops;
+            let headerLabel = 'All Drops';
+
+            if (showDropsSetting === 'Top 5') {
+                dropsToShow = evData.drops.slice(0, 5);
+                headerLabel = 'Top 5 Drops';
+            } else if (showDropsSetting === 'Top 10') {
+                dropsToShow = evData.drops.slice(0, 10);
+                headerLabel = 'Top 10 Drops';
+            }
+
+            html += `<div style="font-weight: bold; margin-bottom: 4px;">${headerLabel} (${evData.drops.length} total):</div>`;
+            html += '<div style="font-size: 0.9em; margin-left: 8px;">';
+
+            // List each drop
+            for (const drop of dropsToShow) {
+                if (!drop.hasPriceData) {
+                    // Show item without price data in gray
+                    html += `<div style="color: #aaa;">• ${drop.itemName} (${(drop.dropRate * 100).toFixed(2)}%): ${drop.avgCount.toFixed(2)} avg → No price data</div>`;
+                } else {
+                    // Format drop rate percentage
+                    const dropRatePercent = (drop.dropRate * 100).toFixed(2);
+
+                    // Show full drop breakdown
+                    html += `<div>• ${drop.itemName} (${dropRatePercent}%): ${drop.avgCount.toFixed(2)} avg → ${numberFormatter(drop.expectedValue)}</div>`;
+                }
+            }
+
+            html += '</div>'; // Close drops list
+
+            // Show total
+            html += '<div style="border-top: 1px solid rgba(255,255,255,0.2); margin: 4px 0;"></div>';
+            html += `<div style="font-size: 0.9em; margin-left: 8px; font-weight: bold;">Total from ${evData.drops.length} drops: ${numberFormatter(evData.expectedReturn)}</div>`;
+        }
+
+        html += '</div>'; // Close main container
+
+        evDiv.innerHTML = html;
+
+        // Insert at the end of the tooltip
+        tooltipText.appendChild(evDiv);
     }
 
     /**
