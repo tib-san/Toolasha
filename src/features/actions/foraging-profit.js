@@ -362,7 +362,11 @@ export function formatProfitDisplay(profitData) {
     lines.push(`<div style="color: var(--script-color); text-align: left; margin-top: 8px;">`);
     lines.push(`<strong>Overall Profit:</strong>`);
     lines.push(`<br>${formatWithSeparator(Math.round(profitData.profitPerHour))}/hour`);
-    lines.push(`, ${formatWithSeparator(Math.round(profitData.profitPerDay))}/day`);
+
+    // Only show per day if profit is positive
+    if (profitData.profitPerHour > 0) {
+        lines.push(`, ${formatWithSeparator(Math.round(profitData.profitPerDay))}/day`);
+    }
 
     // Show efficiency breakdown
     lines.push(`<br><span style="font-size: 0.9em; opacity: 0.8;">`);
