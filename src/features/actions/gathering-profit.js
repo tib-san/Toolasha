@@ -274,62 +274,110 @@ export async function calculateGatheringProfit(actionHrid) {
 
     for (const drop of dropTable) {
         const rawBidPrice = marketData[drop.itemHrid]?.[0]?.b || 0;
+        const rawPriceAfterTax = rawBidPrice * 0.98;
 
         // Apply gathering quantity bonus to drop amounts (Gathering Tea + Community Buff + Achievements)
         const baseAvgAmount = (drop.minCount + drop.maxCount) / 2;
-        const avgAmount = baseAvgAmount * (1 + totalGathering);
+        const avgAmountPerAction = baseAvgAmount * (1 + totalGathering);
 
-        const itemsPerHour = actionsPerHour * drop.dropRate * avgAmount;
-
-        // Store base output details for display
-        const itemName = gameData.itemDetailMap[drop.itemHrid]?.name || 'Unknown';
-        baseOutputs.push({
-            name: itemName,
-            itemsPerHour: itemsPerHour,
-            dropRate: drop.dropRate
-        });
-
-        // Apply market tax (2%)
-        const rawPriceAfterTax = rawBidPrice * 0.98;
-
-        // Check if this item has a Processing conversion (e.g., Bamboo Branch → Bamboo Fabric)
+        // Check if this item has a Processing conversion (e.g., Verdant Milk → Verdant Cheese)
         const processedItemHrid = PROCESSING_CONVERSIONS[drop.itemHrid];
-        let effectivePrice = rawPriceAfterTax;
+
+        let rawItemsPerHour = 0;
+        let processedItemsPerHour = 0;
 
         if (processedItemHrid && processingBonus > 0) {
-            // Processing Tea: weighted average of raw vs processed
+            // Look up the conversion ratio from crafting recipe
+            const processingActionHrid = Object.keys(gameData.actionDetailMap).find(actionHrid => {
+                const action = gameData.actionDetailMap[actionHrid];
+                return action.outputItems?.[0]?.itemHrid === processedItemHrid;
+            });
+
+            const conversionRatio = processingActionHrid
+                ? gameData.actionDetailMap[processingActionHrid].inputItems[0].count
+                : 2; // Default to 2:1 if recipe not found
+
+            // Processing Tea: Per-action calculation (checked before efficiency multiplies)
+            // If processing procs (processingChance):
+            const processedPerAction = Math.floor(avgAmountPerAction / conversionRatio);
+            const rawLeftoverPerAction = avgAmountPerAction % conversionRatio;
+
+            // If processing doesn't proc (1 - processingChance):
+            const rawNoProcessingPerAction = avgAmountPerAction;
+
+            // Expected value per action
+            const expectedProcessedPerAction = processingBonus * processedPerAction;
+            const expectedRawPerAction = processingBonus * rawLeftoverPerAction +
+                                        (1 - processingBonus) * rawNoProcessingPerAction;
+
+            // Total per hour (multiply by actions/hour)
+            processedItemsPerHour = actionsPerHour * drop.dropRate * expectedProcessedPerAction;
+            rawItemsPerHour = actionsPerHour * drop.dropRate * expectedRawPerAction;
+
+            // Calculate revenue from both outputs
             const processedBidPrice = marketData[processedItemHrid]?.[0]?.b || 0;
             const processedPriceAfterTax = processedBidPrice * 0.98;
 
-            // Expected value = (1 - processingChance) × rawPrice + processingChance × processedPrice
-            effectivePrice = (1 - processingBonus) * rawPriceAfterTax + processingBonus * processedPriceAfterTax;
+            const rawRevenue = rawItemsPerHour * rawPriceAfterTax;
+            const processedRevenue = processedItemsPerHour * processedPriceAfterTax;
+            revenuePerHour += rawRevenue + processedRevenue;
 
-            // Track the extra revenue from Processing
-            const processingDelta = effectivePrice - rawPriceAfterTax;
-            processingRevenueBonus += itemsPerHour * processingDelta;
-
-            // Store conversion details for display
+            // Track processing details for display
             const rawItemName = gameData.itemDetailMap[drop.itemHrid]?.name || 'Unknown';
             const processedItemName = gameData.itemDetailMap[processedItemHrid]?.name || 'Unknown';
-            const valueGainPerConversion = processedPriceAfterTax - rawPriceAfterTax;
-            const conversionsPerHour = itemsPerHour * processingBonus;
-            const revenueFromConversion = conversionsPerHour * valueGainPerConversion;
 
+            // Value gain per conversion = cheese value - (2 × milk value)
+            const costOfMilkUsed = conversionRatio * rawPriceAfterTax;
+            const valueGainPerConversion = processedPriceAfterTax - costOfMilkUsed;
+            const revenueFromConversion = processedItemsPerHour * valueGainPerConversion;
+
+            processingRevenueBonus += revenueFromConversion;
             processingConversions.push({
                 rawItem: rawItemName,
                 processedItem: processedItemName,
                 valueGain: valueGainPerConversion,
-                conversionsPerHour: conversionsPerHour,
+                conversionsPerHour: processedItemsPerHour,
                 revenuePerHour: revenueFromConversion
+            });
+
+            // Store output details (show both raw and processed)
+            const rawItemDisplayName = gameData.itemDetailMap[drop.itemHrid]?.name || 'Unknown';
+            const processedItemDisplayName = gameData.itemDetailMap[processedItemHrid]?.name || 'Unknown';
+
+            baseOutputs.push({
+                name: rawItemDisplayName,
+                itemsPerHour: rawItemsPerHour,
+                dropRate: drop.dropRate
+            });
+
+            baseOutputs.push({
+                name: processedItemDisplayName,
+                itemsPerHour: processedItemsPerHour,
+                dropRate: drop.dropRate * processingBonus // Effective drop rate for processed
+            });
+        } else {
+            // No processing - simple calculation
+            rawItemsPerHour = actionsPerHour * drop.dropRate * avgAmountPerAction;
+            revenuePerHour += rawItemsPerHour * rawPriceAfterTax;
+
+            // Store output details
+            const itemName = gameData.itemDetailMap[drop.itemHrid]?.name || 'Unknown';
+            baseOutputs.push({
+                name: itemName,
+                itemsPerHour: rawItemsPerHour,
+                dropRate: drop.dropRate
             });
         }
 
-        revenuePerHour += itemsPerHour * effectivePrice;
-
         // Add Gourmet tea bonus items (only for production skills, not gathering)
         if (gourmetBonus > 0) {
-            const bonusItemsPerHour = itemsPerHour * (gourmetBonus / 100);
-            revenuePerHour += bonusItemsPerHour * effectivePrice;
+            const totalItemsPerHour = rawItemsPerHour + processedItemsPerHour;
+            const bonusItemsPerHour = totalItemsPerHour * (gourmetBonus / 100);
+            // Gourmet bonus uses the weighted average price
+            const weightedPrice = (rawItemsPerHour * rawPriceAfterTax +
+                                  processedItemsPerHour * (marketData[processedItemHrid]?.[0]?.b || 0) * 0.98) /
+                                 (rawItemsPerHour + processedItemsPerHour);
+            revenuePerHour += bonusItemsPerHour * weightedPrice;
         }
     }
 
