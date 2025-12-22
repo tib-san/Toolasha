@@ -139,6 +139,15 @@ class TooltipPrices {
             return;
         }
 
+        // Check if this is an openable container first (they have no market price)
+        if (itemDetails.isOpenable && config.getSetting('itemTooltip_expectedValue')) {
+            const evData = expectedValueCalculator.calculateExpectedValue(itemHrid);
+            if (evData) {
+                this.injectExpectedValueDisplay(tooltipElement, evData);
+            }
+            return; // Skip price/profit display for containers
+        }
+
         // Get market price (for base item, enhancement level 0)
         const price = marketAPI.getPrice(itemHrid, 0);
 
@@ -153,15 +162,8 @@ class TooltipPrices {
         // Inject price display
         this.injectPriceDisplay(tooltipElement, price, amount);
 
-        // Check if this is an openable container
-        if (itemDetails.isOpenable && config.getSetting('itemTooltip_expectedValue')) {
-            const evData = expectedValueCalculator.calculateExpectedValue(itemHrid);
-            if (evData) {
-                this.injectExpectedValueDisplay(tooltipElement, evData);
-            }
-        }
-        // Otherwise check if profit calculator is enabled
-        else if (config.getSetting('itemTooltip_profit')) {
+        // Check if profit calculator is enabled
+        if (config.getSetting('itemTooltip_profit')) {
             // Calculate and inject profit information
             const profitData = profitCalculator.calculateProfit(itemHrid);
             if (profitData) {
