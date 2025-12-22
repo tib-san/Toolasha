@@ -326,7 +326,7 @@ class TooltipPrices {
                     const dcContribution = profitData.artisanBonus * (profitData.drinkConcentration / (1 + profitData.drinkConcentration));
                     artisanDisplay += ` (-${(dcContribution * 100).toFixed(1)}% DC)`;
                 }
-                html += `<div style="font-size: 0.9em; color: #90EE90; margin-bottom: 4px;">${artisanDisplay}</div>`;
+                html += `<div style="font-size: 0.9em; margin-bottom: 4px;">${artisanDisplay}</div>`;
             }
 
             html += '<div style="font-size: 0.9em; margin-left: 8px;">';
@@ -393,8 +393,7 @@ class TooltipPrices {
 
         // Check if we can calculate profit (need BOTH valid ask and bid prices)
         if (profitData.itemPrice.bid > 0 && profitData.itemPrice.ask > 0) {
-            // Net profit line (color-coded)
-            const profitColor = profitData.profitPerItem >= 0 ? 'lime' : 'red';
+            // Net profit line (standard color - no highlighting)
             const profitPerDay = profitData.profitPerHour * 24;
 
             // Add per-day profit in K/M/B format if profitable
@@ -404,7 +403,7 @@ class TooltipPrices {
             }
             profitText += ')';
 
-            html += `<div style="color: ${profitColor}; font-weight: bold;">${profitText}</div>`;
+            html += `<div style="font-weight: bold;">${profitText}</div>`;
 
             // Sell vs Cost line
             html += `<div>Sell: ${numberFormatter(profitData.priceAfterTax)} | Cost: ${numberFormatter(profitData.costPerItem)}</div>`;
