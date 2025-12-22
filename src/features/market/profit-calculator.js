@@ -10,6 +10,7 @@ import * as efficiency from '../../utils/efficiency.js';
 import { parseEquipmentSpeedBonuses, parseEquipmentEfficiencyBonuses, parseEssenceFindBonus } from '../../utils/equipment-parser.js';
 import { calculateHouseEfficiency, calculateHouseRareFind } from '../../utils/house-efficiency.js';
 import { parseTeaEfficiency, getDrinkConcentration, parseArtisanBonus, parseGourmetBonus, parseProcessingBonus, parseActionLevelBonus } from '../../utils/tea-parser.js';
+import expectedValueCalculator from './expected-value-calculator.js';
 
 /**
  * ProfitCalculator class handles profit calculations for production actions
@@ -578,9 +579,16 @@ class ProfitCalculator {
                 // Expected drops per hour
                 const dropsPerHour = actionsPerHour * finalDropRate * avgCount;
 
-                // Get market price
-                const price = marketAPI.getPrice(drop.itemHrid, 0);
-                const itemPrice = price?.bid || 0; // Use bid price (instant sell)
+                // Get price: Check if openable container (use EV), otherwise market price
+                let itemPrice = 0;
+                if (itemDetails.isOpenable) {
+                    // Use expected value for openable containers
+                    itemPrice = expectedValueCalculator.getCachedValue(drop.itemHrid) || 0;
+                } else {
+                    // Use market price for regular items
+                    const price = marketAPI.getPrice(drop.itemHrid, 0);
+                    itemPrice = price?.bid || 0; // Use bid price (instant sell)
+                }
 
                 // Revenue per hour from this drop
                 const revenuePerHour = dropsPerHour * itemPrice;
@@ -614,9 +622,16 @@ class ProfitCalculator {
                 // Expected drops per hour
                 const dropsPerHour = actionsPerHour * finalDropRate * avgCount;
 
-                // Get market price
-                const price = marketAPI.getPrice(drop.itemHrid, 0);
-                const itemPrice = price?.bid || 0; // Use bid price (instant sell)
+                // Get price: Check if openable container (use EV), otherwise market price
+                let itemPrice = 0;
+                if (itemDetails.isOpenable) {
+                    // Use expected value for openable containers
+                    itemPrice = expectedValueCalculator.getCachedValue(drop.itemHrid) || 0;
+                } else {
+                    // Use market price for regular items
+                    const price = marketAPI.getPrice(drop.itemHrid, 0);
+                    itemPrice = price?.bid || 0; // Use bid price (instant sell)
+                }
 
                 // Revenue per hour from this drop
                 const revenuePerHour = dropsPerHour * itemPrice;

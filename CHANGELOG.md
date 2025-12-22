@@ -8,18 +8,21 @@ All notable changes to the MWI Tools refactoring project.
 
 #### **Phase 6: Expected Value Calculator for Openable Containers**
 
-**NEW FEATURE:** Complete expected value analysis for all 19 openable containers to help players decide whether to open or sell crates, chests, and Purple's Gift.
+**NEW FEATURE:** Expected value analysis for all 19 openable containers to help players understand the value of container drops from skilling actions.
 
-- **Container Detection:**
-  - Automatically detects all openable containers via `isOpenable` flag
+**IMPORTANT:** Containers **cannot be sold** on the market - they are rare find drops from skilling. The EV calculator shows the total value you'll receive when opening the container.
+
+- **Container Sources:**
+  - All containers are "Rare Finds" from skilling actions
+  - Drop rates scale with Rare Find stat from house rooms (0.2% base + 0.2% per total level)
+  - Cannot be bought or sold - only obtained as drops and opened
   - Covers all 19 containers: Artisan's Crates (3), Meteorite Caches (3), Treasure Chests (3), Dungeon Chests (8), Purple's Gift (1), Cowbell Bag (1)
-  - Uses `openableLootDropMap` from game data for complete drop tables
 
 - **Expected Value Calculation:**
   - Formula: `EV = sum((minCount + maxCount) / 2 × dropRate × price × taxFactor)`
-  - Applies 2% market tax to tradeable items
+  - Applies 2% market tax to tradeable drops
   - Handles special pricing: Coin (face value = 1), Cowbell (bag price ÷ 10)
-  - Respects pricing mode setting (Conservative/Hybrid/Optimistic)
+  - Respects pricing mode for valuing drops (Conservative = bid, Hybrid/Optimistic = ask)
   - New module: `expected-value-calculator.js` with pre-calculation and caching
 
 - **Nested Container Convergence:**
@@ -27,33 +30,26 @@ All notable changes to the MWI Tools refactoring project.
   - Dependency-ordered calculation ensures nested values are accurate
   - Cached results updated when market data refreshes
 
-- **Pricing Mode Integration:**
-  - **Conservative:** Container cost = Ask (instant buy), Drop revenue = Bid (instant sell)
-  - **Hybrid (default):** Container cost = Ask (instant buy), Drop revenue = Ask (patient sell)
-  - **Optimistic:** Container cost = Bid (patient buy), Drop revenue = Ask (patient sell)
-  - New setting: `expectedValue_respectPricingMode` (default: true)
+- **Integration with Profit Calculator:**
+  - When containers appear in rare find drops, profit calculator uses EV instead of market price (which is 0)
+  - Provides accurate bonus revenue calculations for actions that drop containers
+  - Example: Woodcutting drops Small Artisan's Crate (0.005%) → valued at EV (17,250) not market price (0)
 
 - **Tooltip Display:**
-  - New "EXPECTED VALUE" section between price and profit analysis
-  - Shows pricing mode used in header
-  - Summary: Expected return, container cost, net profit (color-coded)
-  - Detailed drop breakdown with all drops listed
+  - New "EXPECTED VALUE" section for container tooltips
+  - Shows total expected return from opening
+  - Optional detailed drop breakdown (all drops shown by default)
   - Format: `• Item Name (dropRate%): avgCount avg → expectedValue`
-  - Shows total from all drops with final calculation
   - Example:
     ```
-    EXPECTED VALUE (HYBRID MODE)
+    EXPECTED VALUE
       Expected Return: 17,250
-      Container Cost: 15,000
-      Net Profit: +2,250 (+15.0%)
 
     All Drops (19 total):
       • Task Token (100.00%): 7.50 avg → 9,000
       • Coin (100.00%): 7,500.00 avg → 7,500
       • Shard of Protection (100.00%): 1.50 avg → 450
-      • Coin (10.00%): 37,500.00 avg → 3,675
-      • Small Artisan's Crate (2.00%): 0.02 avg → 64
-      ... (14 more drops)
+      ... (16 more drops)
 
     Total from 19 drops: 17,250
     ```
@@ -65,24 +61,20 @@ All notable changes to the MWI Tools refactoring project.
     - "Top 5": Show 5 highest value drops
     - "Top 10": Show 10 highest value drops
     - "None": Summary only (no individual drops)
-  - `expectedValue_respectPricingMode` (default: true) - Use pricing mode for calculations
-
-- **Color Coding:**
-  - **Green (lime):** Profitable to open (positive net profit)
-  - **Red:** Loss (negative net profit, better to sell unopened)
-  - Percentage shown alongside absolute profit
+  - `expectedValue_respectPricingMode` (default: true) - Use pricing mode when valuing drops inside containers
 
 **Files Added:**
 - `src/features/market/expected-value-calculator.js` (new module, ~350 lines)
 
 **Files Modified:**
-- `src/features/market/tooltip-prices.js` (lines 10, 156-170, 556-647) - Import and integration
+- `src/features/market/tooltip-prices.js` (lines 10, 156-170, 556-641) - Import and simplified display
+- `src/features/market/profit-calculator.js` (lines 13, 582-591, 625-634) - Import EV calculator, use EV for container drops
 - `src/core/config.js` (lines 87-101) - Three new configuration settings
 - `src/main.js` (lines 17, 120, 167) - Import, initialization, and debug export
 
 **Technical Details:**
 ```javascript
-// Expected value calculation for a drop
+// Expected value calculation for a drop inside a container
 avgCount = (minCount + maxCount) / 2
 taxFactor = item.tradeable ? 0.98 : 1.0
 dropValue = avgCount × dropRate × price × taxFactor
@@ -95,13 +87,23 @@ for (iteration = 0; iteration < 4; iteration++) {
     }
 }
 
-// Special pricing
+// Special pricing for drops
 Coin: price = 1 (face value)
 Cowbell: price = Cowbell Bag price / 10
 Nested container: price = cached EV from previous iteration
+Market items: price = bid (conservative) or ask (hybrid/optimistic)
+
+// Integration with profit calculator
+if (itemDetails.isOpenable) {
+    // Container in rare drop table - use EV
+    itemPrice = expectedValueCalculator.getCachedValue(itemHrid)
+} else {
+    // Regular item - use market price
+    itemPrice = marketAPI.getPrice(itemHrid, 0)?.bid
+}
 ```
 
-**Result:** Players can now make informed decisions about whether opening or selling containers is more profitable, with complete transparency into all drops and their expected values.
+**Result:** Players can now understand the true value of container drops from skilling actions. When containers appear in the BONUS REVENUE section of profit tooltips, they're correctly valued at their expected value rather than 0. The EV tooltip provides complete transparency into what you'll receive when opening any container.
 
 #### **Phase 5: Essence & Rare Find Revenue Tracking**
 

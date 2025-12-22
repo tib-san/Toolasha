@@ -581,18 +581,12 @@ class TooltipPrices {
         // Build EV display
         let html = '<div style="border-top: 1px solid rgba(255,255,255,0.2); padding-top: 8px;">';
 
-        // Header with pricing mode
-        html += `<div style="font-weight: bold; margin-bottom: 4px;">EXPECTED VALUE (${evData.pricingMode.toUpperCase()} MODE)</div>`;
+        // Header
+        html += '<div style="font-weight: bold; margin-bottom: 4px;">EXPECTED VALUE</div>';
         html += '<div style="font-size: 0.9em; margin-left: 8px;">';
 
-        // Summary: Expected Return, Container Cost, Net Profit
-        html += `<div>Expected Return: ${numberFormatter(evData.expectedReturn)}</div>`;
-        html += `<div>Container Cost: ${numberFormatter(evData.containerCost)}</div>`;
-
-        // Net profit with color coding
-        const profitColor = evData.netProfit >= 0 ? 'lime' : 'red';
-        const profitSign = evData.netProfit >= 0 ? '+' : '';
-        html += `<div style="color: ${profitColor}; font-weight: bold;">Net Profit: ${profitSign}${numberFormatter(evData.netProfit)} (${profitSign}${evData.profitPercentage.toFixed(1)}%)</div>`;
+        // Expected value (simple display)
+        html += `<div style="color: lime; font-weight: bold;">Expected Return: ${numberFormatter(evData.expectedValue)}</div>`;
 
         html += '</div>'; // Close summary section
 
@@ -635,7 +629,7 @@ class TooltipPrices {
 
             // Show total
             html += '<div style="border-top: 1px solid rgba(255,255,255,0.2); margin: 4px 0;"></div>';
-            html += `<div style="font-size: 0.9em; margin-left: 8px; font-weight: bold;">Total from ${evData.drops.length} drops: ${numberFormatter(evData.expectedReturn)}</div>`;
+            html += `<div style="font-size: 0.9em; margin-left: 8px; font-weight: bold;">Total from ${evData.drops.length} drops: ${numberFormatter(evData.expectedValue)}</div>`;
         }
 
         html += '</div>'; // Close main container

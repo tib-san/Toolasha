@@ -216,66 +216,24 @@ class ExpectedValueCalculator {
             return null; // No cached value (shouldn't happen after init)
         }
 
-        // Get container cost (what you pay to acquire it)
-        const containerCost = this.getContainerCost(itemHrid);
-        if (containerCost === null || containerCost === 0) {
-            return null; // No market price for container
-        }
-
-        // Calculate net profit/loss
-        const netProfit = expectedReturn - containerCost;
-        const profitPercentage = (netProfit / containerCost) * 100;
-
         // Get detailed drop breakdown
         const drops = this.getDropBreakdown(itemHrid);
-
-        // Get pricing mode label
-        const pricingMode = config.getSettingValue('profitCalc_pricingMode', 'conservative');
-        const pricingModeLabel = pricingMode.charAt(0).toUpperCase() + pricingMode.slice(1);
 
         return {
             itemName: itemDetails.name,
             itemHrid,
-            expectedReturn,
-            containerCost,
-            netProfit,
-            profitPercentage,
-            drops,
-            pricingMode: pricingModeLabel
+            expectedValue: expectedReturn,
+            drops
         };
     }
 
     /**
-     * Get container acquisition cost
-     * @param {string} containerHrid - Container HRID
-     * @returns {number|null} Cost or null
+     * Get cached expected value for a container (for use by other modules)
+     * @param {string} itemHrid - Container item HRID
+     * @returns {number|null} Cached EV or null
      */
-    getContainerCost(containerHrid) {
-        const pricingMode = config.getSettingValue('profitCalc_pricingMode', 'conservative');
-        const respectPricingMode = config.getSettingValue('expectedValue_respectPricingMode', true);
-
-        const price = marketAPI.getPrice(containerHrid, 0);
-        if (!price) {
-            return null;
-        }
-
-        // Determine which price to use for container cost
-        let cost = 0;
-
-        if (respectPricingMode) {
-            // Conservative/Hybrid: Ask (instant buy)
-            // Optimistic: Bid (patient buy)
-            if (pricingMode === 'optimistic') {
-                cost = price.bid;
-            } else {
-                cost = price.ask;
-            }
-        } else {
-            // Always use conservative (instant buy)
-            cost = price.ask;
-        }
-
-        return cost > 0 ? cost : null;
+    getCachedValue(itemHrid) {
+        return this.containerCache.get(itemHrid) || null;
     }
 
     /**
