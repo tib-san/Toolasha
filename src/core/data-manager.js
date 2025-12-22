@@ -282,6 +282,20 @@ class DataManager {
     }
 
     /**
+     * Get community buff level
+     * @param {string} buffTypeHrid - Buff type HRID (e.g., "/community_buff_types/production_efficiency")
+     * @returns {number} Buff level (0 if not active)
+     */
+    getCommunityBuffLevel(buffTypeHrid) {
+        if (!this.characterData?.communityBuffs) {
+            return 0;
+        }
+
+        const buff = this.characterData.communityBuffs.find(b => b.hrid === buffTypeHrid);
+        return buff?.level || 0;
+    }
+
+    /**
      * Get player's skills
      * @returns {Array|null} Character skills
      */

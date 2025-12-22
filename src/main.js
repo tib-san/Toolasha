@@ -157,7 +157,9 @@ console.log('\n🎉 MWI Tools (Refactored) - Ready!');
 console.log('📊 Modules loaded: Formatters, Storage, Config, WebSocket Hook, Data Manager, DOM Utils, Efficiency Utils');
 
 // Expose modules to window for debugging/testing
-window.MWITools = {
+// Use unsafeWindow for userscript managers (Tampermonkey/Violentmonkey)
+const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+targetWindow.MWITools = {
     dataManager,
     profitCalculator,
     marketAPI,
@@ -166,5 +168,5 @@ window.MWITools = {
     version: '25.1-refactor'
 };
 
-console.log('🔧 Debug: Access modules via window.MWITools');
+console.log('🔧 Debug: Access modules via MWITools (exposed to page context)');
 console.log('   Example: MWITools.dataManager.getHouseRooms()');

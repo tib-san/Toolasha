@@ -203,12 +203,14 @@ class TooltipPrices {
      * @returns {number} Item amount (default 1)
      */
     extractItemAmount(tooltipElement) {
-        // Look for amount text in tooltip (e.g., "x5", "Amount: 5")
+        // Look for amount text in tooltip (e.g., "x5", "Amount: 5", "Amount: 4,900")
         const text = tooltipElement.textContent;
-        const match = text.match(/x(\d+)|Amount:\s*(\d+)/i);
+        const match = text.match(/x([\d,]+)|Amount:\s*([\d,]+)/i);
 
         if (match) {
-            return parseInt(match[1] || match[2], 10);
+            // Strip commas before parsing
+            const amountStr = (match[1] || match[2]).replace(/,/g, '');
+            return parseInt(amountStr, 10);
         }
 
         return 1; // Default to 1 if not found
@@ -408,8 +410,8 @@ class TooltipPrices {
             html += `<div style="border-top: 1px solid rgba(255,255,255,0.2); margin: 8px 0;"></div>`;
             html += `<div>Efficiency: +${profitData.efficiencyBonus.toFixed(1)}%</div>`;
 
-            // Show efficiency breakdown (level + house + equipment + tea)
-            if (profitData.levelEfficiency > 0 || profitData.houseEfficiency > 0 || profitData.equipmentEfficiency > 0 || profitData.teaEfficiency > 0) {
+            // Show efficiency breakdown (level + house + equipment + tea + community)
+            if (profitData.levelEfficiency > 0 || profitData.houseEfficiency > 0 || profitData.equipmentEfficiency > 0 || profitData.teaEfficiency > 0 || profitData.communityEfficiency > 0) {
                 if (profitData.levelEfficiency > 0) {
                     html += `<div style="margin-left: 8px;">  - Level Advantage: +${profitData.levelEfficiency.toFixed(1)}%</div>`;
                     // Show Action Level bonus if active (e.g., Artisan Tea)
@@ -425,6 +427,9 @@ class TooltipPrices {
                 }
                 if (profitData.teaEfficiency > 0) {
                     html += `<div style="margin-left: 8px;">  - Tea Buffs: +${profitData.teaEfficiency.toFixed(1)}%</div>`;
+                }
+                if (profitData.communityEfficiency > 0) {
+                    html += `<div style="margin-left: 8px;">  - Community Buff: +${profitData.communityEfficiency.toFixed(1)}%</div>`;
                 }
             }
 

@@ -122,8 +122,12 @@ class ProfitCalculator {
             drinkConcentration
         );
 
+        // Get community buff bonus (Production Efficiency)
+        const communityBuffLevel = dataManager.getCommunityBuffLevel('/community_buff_types/production_efficiency');
+        const communityEfficiency = this.calculateCommunityBuffBonus(communityBuffLevel, actionDetails.type);
+
         // Total efficiency bonus (all sources additive)
-        const efficiencyBonus = levelEfficiency + houseEfficiency + equipmentEfficiency + teaEfficiency;
+        const efficiencyBonus = levelEfficiency + houseEfficiency + equipmentEfficiency + teaEfficiency + communityEfficiency;
 
         // Calculate equipment speed bonus
         const equipmentSpeedBonus = parseEquipmentSpeedBonuses(
@@ -226,6 +230,7 @@ class ProfitCalculator {
             houseEfficiency,          // House room efficiency
             equipmentEfficiency,      // Equipment efficiency
             teaEfficiency,            // Tea buff efficiency
+            communityEfficiency,      // Community buff efficiency
             actionLevelBonus,         // Action Level bonus from teas (e.g., Artisan Tea)
             artisanBonus,             // Artisan material cost reduction
             gourmetBonus,             // Gourmet bonus item chance
@@ -437,6 +442,32 @@ class ProfitCalculator {
             finalTime: baseTime,
             actionsPerHour: 3600 / baseTime
         };
+    }
+
+    /**
+     * Calculate community buff bonus for production efficiency
+     * @param {number} buffLevel - Community buff level (0-20)
+     * @param {string} actionTypeHrid - Action type to check if buff applies
+     * @returns {number} Efficiency bonus percentage
+     */
+    calculateCommunityBuffBonus(buffLevel, actionTypeHrid) {
+        if (buffLevel === 0) {
+            return 0;
+        }
+
+        // Check if buff applies to this action type
+        const initData = dataManager.getInitClientData();
+        const buffDef = initData.communityBuffTypeDetailMap?.['/community_buff_types/production_efficiency'];
+
+        if (!buffDef?.usableInActionTypeMap?.[actionTypeHrid]) {
+            return 0; // Buff doesn't apply to this skill
+        }
+
+        // Formula: flatBoost + (level - 1) × flatBoostLevelBonus
+        const baseBonus = buffDef.buff.flatBoost * 100; // 14%
+        const levelBonus = (buffLevel - 1) * buffDef.buff.flatBoostLevelBonus * 100; // 0.3% per level
+
+        return baseBonus + levelBonus;
     }
 }
 
