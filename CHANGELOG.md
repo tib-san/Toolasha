@@ -4,6 +4,56 @@ All notable changes to the MWI Tools refactoring project.
 
 ## [Unreleased]
 
+### Added - December 21, 2024
+
+#### **Phase 3: Community Buffs & Pricing Modes**
+- **NEW FEATURE:** Community Buff Detection
+  - Detects Production Efficiency community buff level (0-20)
+  - Formula: `14% + (level - 1) × 0.3%` = 19.7% at T20
+  - New method: `dataManager.getCommunityBuffLevel(buffTypeHrid)`
+  - New method: `profitCalculator.calculateCommunityBuffBonus(level, actionType)`
+  - Displayed in efficiency breakdown: "Community Buff: +19.7%"
+  - Closes efficiency gap with external calculators
+
+- **NEW FEATURE:** Three Pricing Modes
+  - **Conservative (Ask/Bid):** Instant trading both ways (lowest profit)
+  - **Hybrid (Ask/Ask):** Instant buy, patient sell orders (realistic, DEFAULT)
+  - **Optimistic (Bid/Ask):** Patient trading both ways (highest profit)
+  - Console access: `MWITools.config.setSettingValue('profitCalc_pricingMode', 'hybrid')`
+  - Setting stored in `config.js` as string value
+
+- **NEW FEATURE:** Artisan Tea Floor/Modulo Breakdown
+  - Shows guaranteed material savings: `floor(reduction)`
+  - Shows probability for extra savings: `(reduction % 1) × 100`
+  - Example: 2 base materials with 10.2% Artisan
+    - Total savings: 0.204
+    - Guaranteed: 0 (floor)
+    - Chance: 20.4% to save 1 material
+  - Matches Efficiency mechanic display format
+
+- **NEW DOCUMENTATION:** Comprehensive Testing Checklist
+  - 25 test sections covering all features
+  - Core systems, tooltips, equipment, house rooms
+  - All tea buff types (efficiency, artisan, gourmet, processing)
+  - All three pricing modes
+  - Edge cases and performance testing
+
+### Fixed - December 21, 2024
+
+#### **Stack Amount Extraction for Large Numbers**
+- **FIXED:** Comma-separated amounts now parsed correctly
+- **Previous:** "Amount: 4,900" parsed as "4" (regex only matched digits)
+- **Current:** "Amount: 4,900" parsed as "4900" (regex matches `[\d,]+`, strips commas)
+- **Impact:** Stack totals now calculate correctly (4,900 × 230 = 1,127,000)
+- **File:** `src/features/market/tooltip-prices.js` line 208
+
+#### **MWITools Export to Page Context**
+- **FIXED:** MWITools now accessible in browser console
+- **Previous:** `window.MWITools` set in userscript context (isolated)
+- **Current:** `unsafeWindow.MWITools` set in page context (accessible)
+- **Impact:** Console commands now work: `MWITools.config.getSettingValue(...)`
+- **File:** `src/main.js` line 161
+
 ### Fixed - December 21, 2024
 
 #### **CRITICAL FIX: Efficiency Formula Correction**

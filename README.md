@@ -180,17 +180,22 @@ MWI Tools/
 - Equipment speed calculations for accurate action times
 - Smart tooltip positioning that never cuts off
 - All prices use full numbers with thousand separators (not K/M/B)
+- **Three pricing modes:** Conservative, Hybrid (default), Optimistic
+- **Community buff detection:** Automatic T20 Production Efficiency integration
+- **Artisan Tea breakdown:** Shows floor/modulo material savings mechanics
 
-**Efficiency System Roadmap:**
-The profit calculator currently accounts for:
+**Efficiency System Status:**
+The profit calculator accounts for:
 - ✅ **Phase 1 COMPLETE:** Equipment speed bonuses (skill-specific, with enhancement scaling)
 - ✅ **Phase 1 COMPLETE:** Level advantage efficiency (+1% per level above requirement)
-- ⏳ **Phase 2 PLANNED:** Community buff efficiency (14-19.7% based on tier 0-20)
-- ⏳ **Phase 2 PLANNED:** House room efficiency (1.5-13.5% based on level 0-8)
-- ⏳ **Phase 3 PLANNED:** Consumable buffs (Efficiency Tea +10%, skill teas)
+- ✅ **Phase 2 COMPLETE:** Community buff efficiency (14-19.7% based on tier 0-20) - Auto-detected via WebSocket
+- ✅ **Phase 2 COMPLETE:** House room efficiency (1.5-13.5% based on level 0-8) - Auto-detected via WebSocket
+- ✅ **Phase 3 COMPLETE:** Tea buff efficiency (Efficiency Tea +10%, skill teas +2-6%) - Auto-detected
+- ✅ **Phase 3 COMPLETE:** Artisan Tea material reduction (10% base, scaled by Drink Concentration)
+- ✅ **Phase 3 COMPLETE:** Gourmet Tea bonus items (12% base, scaled by Drink Concentration)
+- ✅ **Phase 3 COMPLETE:** Action Level bonuses from teas (e.g., Artisan Tea +5)
 
-Phase 2 will add user configuration for buff tier and house room levels (data not accessible via WebSocket).
-Phase 3 will research whether active buff state is accessible for automatic detection.
+All efficiency sources are automatically detected from character data - no manual configuration needed!
 
 #### ⚠️ Debug Mode (Temporary)
 Both tooltip modules have debug timing logs enabled for performance testing:
