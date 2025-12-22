@@ -553,10 +553,11 @@ export function formatProfitDisplay(profitData) {
         lines.push(`<br>Output:`);
         for (const output of profitData.baseOutputs) {
             lines.push(`<br><span style="font-size: 0.85em; opacity: 0.7; margin-left: 10px;">`);
+            const decimals = output.itemsPerHour < 1 ? 2 : 1;
             if (output.dropRate < 1.0) {
-                lines.push(`• ${output.name}: ~${output.itemsPerHour.toFixed(1)}/hour (${(output.dropRate * 100).toFixed(1)}% drop rate)`);
+                lines.push(`• ${output.name}: ~${output.itemsPerHour.toFixed(decimals)}/hour (${(output.dropRate * 100).toFixed(1)}% drop rate)`);
             } else {
-                lines.push(`• ${output.name}: ~${output.itemsPerHour.toFixed(1)}/hour`);
+                lines.push(`• ${output.name}: ~${output.itemsPerHour.toFixed(decimals)}/hour`);
             }
             lines.push(`</span>`);
         }
@@ -596,7 +597,8 @@ export function formatProfitDisplay(profitData) {
         if (profitData.bonusRevenue.bonusDrops && profitData.bonusRevenue.bonusDrops.length > 0) {
             for (const drop of profitData.bonusRevenue.bonusDrops) {
                 lines.push(`<br><span style="font-size: 0.85em; opacity: 0.7; margin-left: 10px;">`);
-                lines.push(`• ${drop.itemName}: ${(drop.dropRate * 100).toFixed(drop.dropRate < 0.01 ? 3 : 2)}% drop, ~${drop.dropsPerHour.toFixed(1)}/hour → ${formatWithSeparator(Math.round(drop.revenuePerHour))}/hour`);
+                const decimals = drop.dropsPerHour < 1 ? 2 : 1;
+                lines.push(`• ${drop.itemName}: ${(drop.dropRate * 100).toFixed(drop.dropRate < 0.01 ? 3 : 2)}% drop, ~${drop.dropsPerHour.toFixed(decimals)}/hour → ${formatWithSeparator(Math.round(drop.revenuePerHour))}/hour`);
                 lines.push(`</span>`);
             }
         }
@@ -611,7 +613,8 @@ export function formatProfitDisplay(profitData) {
         if (profitData.processingConversions && profitData.processingConversions.length > 0) {
             for (const conversion of profitData.processingConversions) {
                 lines.push(`<br><span style="font-size: 0.85em; opacity: 0.7; margin-left: 10px;">`);
-                lines.push(`• ${conversion.rawItem} → ${conversion.processedItem}: ~${conversion.conversionsPerHour.toFixed(1)} converted/hour, +${formatWithSeparator(Math.round(conversion.valueGain))} per conversion → ${formatWithSeparator(Math.round(conversion.revenuePerHour))}/hour`);
+                const decimals = conversion.conversionsPerHour < 1 ? 2 : 1;
+                lines.push(`• ${conversion.rawItem} → ${conversion.processedItem}: ~${conversion.conversionsPerHour.toFixed(decimals)} converted/hour, +${formatWithSeparator(Math.round(conversion.valueGain))} per conversion → ${formatWithSeparator(Math.round(conversion.revenuePerHour))}/hour`);
                 lines.push(`</span>`);
             }
         }
