@@ -199,9 +199,32 @@ The profit calculator accounts for:
 
 All efficiency sources are automatically detected from character data - no manual configuration needed!
 
+#### Action Panel Enhancements ✅ PARTIAL!
+- **panel-observer.js** - Action panel detection and MutationObserver ✅
+  - Detects when skill action panels appear
+  - Filters out combat action panels (only enhances skilling)
+  - MutationObserver watches for panel modal appearance
+
+- **foraging-profit.js** - Comprehensive Foraging profit calculator ✅
+  - `calculateForagingProfit(actionHrid)` - Calculate hourly and daily profit
+  - Accounts for: Drop table items, market prices, drink costs, equipment speed, efficiency bonuses
+  - Efficiency sources: Level advantage, house rooms, tea buffs, equipment stats
+  - Gourmet Tea integration: Bonus items calculated and added to revenue
+  - **Essence drops**: Foraging Essence drops with Essence Find equipment bonus
+  - **Rare find drops**: Branch of Insight, Large Meteorite Cache, etc. with Rare Find bonuses
+  - Rare Find sources: Equipment + house rooms (combined, additive)
+  - Market tax: 2% selling fee applied to all revenue
+  - Returns: profitPerHour, profitPerDay, revenuePerHour, drinkCostPerHour, actionsPerHour, efficiency breakdown, bonus revenue details
+
+**Action Panel Features Summary:**
+- ✅ **Foraging profit calculator** - Comprehensive economic analysis with all bonuses
+- ❌ **Total action time** - Not yet implemented
+- ❌ **Quick input buttons** - Not yet implemented
+- ❌ **Level progression calculator** - Not yet implemented
+- ❌ **XP per hour display** - Not yet implemented
+
 #### Remaining Features
 - [ ] Networth calculation
-- [ ] Action panel enhancements
 - [ ] Enhancement optimizer
 - [ ] Combat statistics
 - [ ] And more...

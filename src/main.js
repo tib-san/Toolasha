@@ -15,6 +15,7 @@ import tooltipPrices from './features/market/tooltip-prices.js';
 import tooltipConsumables from './features/market/tooltip-consumables.js';
 import profitCalculator from './features/market/profit-calculator.js';
 import expectedValueCalculator from './features/market/expected-value-calculator.js';
+import { initActionPanelObserver } from './features/actions/panel-observer.js';
 
 console.log('MWI Tools (Refactored) - Initializing...');
 
@@ -51,7 +52,7 @@ console.log('  Stored "test_value" with key "test_key"');
 const retrieved = storage.get('test_key');
 console.log('  Retrieved:', retrieved);
 
-storage.setJSON('test_json', { name: 'MWI Tools', version: '0.1.0' });
+storage.setJSON('test_json', { name: 'MWI Tools', version: '0.2.0' });
 console.log('  Stored JSON object');
 const retrievedJSON = storage.getJSON('test_json');
 console.log('  Retrieved JSON:', retrievedJSON);
@@ -119,6 +120,10 @@ dataManager.on('character_initialized', (data) => {
         await tooltipPrices.initialize();
         await expectedValueCalculator.initialize();
         await tooltipConsumables.initialize();
+
+        console.log('\n=== Initializing Action Panel Features ===');
+        initActionPanelObserver();
+        console.log('  ✅ Action panel observer initialized');
     }, 1000);
 });
 
@@ -165,7 +170,7 @@ targetWindow.MWITools = {
     marketAPI,
     config,
     storage,
-    version: '0.1.0'
+    version: '0.2.0'
 };
 
 console.log('🔧 Debug: Access modules via MWITools (exposed to page context)');

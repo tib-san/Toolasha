@@ -7,6 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-12-21
+
+### Overview
+
+Second pre-release version featuring Action Panel Enhancements with comprehensive Foraging profit calculator.
+
+**Status:** Development/Testing (Version < 1.0.0 = pre-release)
+
+### Added
+
+#### **Action Panel Enhancements - Foraging Profit Calculator**
+
+**NEW FEATURE:** Comprehensive profit analysis for Foraging actions with multiple drops. Automatically displays when opening Foraging action panels.
+
+- **Action Panel Observer (`panel-observer.js`):**
+  - MutationObserver detects when action panels appear
+  - Filters out combat action panels (only processes skilling actions)
+  - Checks for XP gain element to identify skilling vs combat
+  - Automatically triggers profit calculation for eligible Foraging actions
+
+- **Foraging Profit Calculator (`foraging-profit.js`):**
+  - Calculates hourly and daily profit with full economic analysis
+  - **Revenue Factors:**
+    - All drop table items at market bid prices
+    - Average drop amounts with drop rates
+    - Market tax (2% selling fee)
+    - Gourmet Tea bonus items (+12% base, scales with Drink Concentration)
+  - **Cost Factors:**
+    - Drink consumption (12 drinks/hour at market ask price)
+  - **Efficiency Bonuses (all additive):**
+    - Level advantage (+1% per level above requirement)
+    - House room efficiency (+1.5% per room level)
+    - Tea efficiency (Efficiency Tea, skill teas with Drink Concentration scaling)
+    - Equipment efficiency (charms, accessories with enhancement scaling)
+  - **Equipment Speed Bonuses:**
+    - Reduces action time (not efficiency)
+    - Accounts for skill-specific speed stats
+  - **Essence Drops:**
+    - Foraging Essence (15% base drop rate)
+    - Applies Essence Find equipment bonus
+    - Example: 10% Essence Find → 15% × 1.10 = 16.5% drop rate
+  - **Rare Find Drops:**
+    - Branch of Insight, Large Meteorite Cache, Thread of Expertise
+    - Applies Rare Find bonus from equipment + house rooms
+    - House rooms: +0.2% per total house room level
+    - Example: 1.8% Rare Find → 0.003% × 1.018 = 0.003054%
+  - **Container Pricing:**
+    - Openable containers (caches) use Expected Value calculator
+    - Regular items use market bid prices
+  - **Display Format:**
+    ```
+    Overall Profit:
+    1,250,000/hour, 30,000,000/day
+    (+15.5% efficiency: 5% level, 4.5% house, 3.0% tea, 3.0% equip)
+    Bonus revenue: 125,000/hour (10.0% essence find, 1.8% rare find)
+    ```
+
+**Technical Implementation:**
+- Reuses existing utilities: equipment-parser, tea-parser, house-efficiency, expected-value-calculator
+- Lazy-loads market data (no performance impact until panel opens)
+- Non-invasive: Inserts display below drop table without modifying game UI
+- Follows same architecture as production profit calculator
+
+**Integration:**
+- Initialized after character data loads in main.js
+- Automatically active for all Foraging actions with multiple drops
+- No configuration required - works out of the box
+
 ## [0.1.0] - 2024-12-21
 
 ### Overview
