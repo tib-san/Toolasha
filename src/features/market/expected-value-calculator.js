@@ -211,14 +211,11 @@ class ExpectedValueCalculator {
             return null; // Not an openable container
         }
 
-        // Get expected return from cache
-        const expectedReturn = this.containerCache.get(itemHrid);
-        if (expectedReturn === null || expectedReturn === undefined) {
-            return null; // No cached value (shouldn't happen after init)
-        }
-
-        // Get detailed drop breakdown
+        // Get detailed drop breakdown (calculates with fresh market prices)
         const drops = this.getDropBreakdown(itemHrid);
+
+        // Calculate total expected value from fresh drop data
+        const expectedReturn = drops.reduce((sum, drop) => sum + drop.expectedValue, 0);
 
         return {
             itemName: itemDetails.name,
