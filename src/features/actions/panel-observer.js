@@ -10,7 +10,6 @@
 
 import dataManager from '../../core/data-manager.js';
 import { calculateForagingProfit, formatProfitDisplay } from './foraging-profit.js';
-import { waitForElement } from '../../utils/dom.js';
 
 /**
  * CSS selectors for action panel detection
@@ -25,36 +24,22 @@ const SELECTORS = {
 
 /**
  * Initialize action panel observer
- * Waits for game UI to load, then sets up MutationObserver
+ * Sets up MutationObserver on document.body to watch for action panels
  */
 export function initActionPanelObserver() {
-    // Wait for app container to exist
-    waitForAppContainer();
-}
-
-/**
- * Wait for app container and set up observer
- */
-async function waitForAppContainer() {
-    const appContainer = await waitForElement('#__next');
-    if (!appContainer) {
-        console.error('[MWI Tools] Could not find app container');
-        return;
-    }
-
-    setupMutationObserver(appContainer);
+    setupMutationObserver();
 }
 
 /**
  * Set up MutationObserver to detect action panels
- * @param {HTMLElement} targetNode - Root node to observe
  */
-function setupMutationObserver(targetNode) {
+function setupMutationObserver() {
     const observer = new MutationObserver(async (mutations) => {
         for (const mutation of mutations) {
             for (const addedNode of mutation.addedNodes) {
                 // Check if this is a modal container with an action panel
                 if (
+                    addedNode.nodeType === Node.ELEMENT_NODE &&
                     addedNode.classList?.contains('Modal_modalContainer__3B80m') &&
                     addedNode.querySelector(SELECTORS.PANEL)
                 ) {
@@ -65,10 +50,9 @@ function setupMutationObserver(targetNode) {
         }
     });
 
-    observer.observe(targetNode, {
-        attributes: false,
+    observer.observe(document.body, {
         childList: true,
-        subtree: true
+        subtree: false
     });
 
     console.log('[MWI Tools] Action panel observer initialized');
