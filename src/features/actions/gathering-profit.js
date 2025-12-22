@@ -166,12 +166,22 @@ export async function calculateGatheringProfit(actionHrid) {
 
     // Calculate drink consumption costs
     let drinkCostPerHour = 0;
+    const drinkCosts = [];
     for (const drink of drinkSlots) {
         if (!drink || !drink.itemHrid) {
             continue;
         }
         const askPrice = marketData[drink.itemHrid]?.[0]?.a || 0;
-        drinkCostPerHour += askPrice * 12; // 12 drinks per hour (5min each)
+        const costPerHour = askPrice * 12; // 12 drinks per hour (5min each)
+        drinkCostPerHour += costPerHour;
+
+        // Store individual drink cost details
+        const drinkName = gameData.itemDetailMap[drink.itemHrid]?.name || 'Unknown';
+        drinkCosts.push({
+            name: drinkName,
+            priceEach: askPrice,
+            costPerHour: costPerHour
+        });
     }
 
     // Calculate level efficiency bonus
@@ -331,6 +341,7 @@ export async function calculateGatheringProfit(actionHrid) {
         profitPerDay,
         revenuePerHour,
         drinkCostPerHour,
+        drinkCosts,                // Array of individual drink costs {name, priceEach, costPerHour}
         actionsPerHour,
         totalEfficiency,
         speedBonus,
@@ -523,6 +534,20 @@ export function formatProfitDisplay(profitData) {
 
     lines.push(effParts.join(', '));
     lines.push(`)</span>`);
+
+    // Show drink costs breakdown
+    if (profitData.drinkCostPerHour > 0) {
+        lines.push(`<br>Drink costs: -${formatWithSeparator(Math.round(profitData.drinkCostPerHour))}/hour`);
+
+        // Show individual drink costs
+        if (profitData.drinkCosts && profitData.drinkCosts.length > 0) {
+            for (const drink of profitData.drinkCosts) {
+                lines.push(`<br><span style="font-size: 0.85em; opacity: 0.7; margin-left: 10px;">`);
+                lines.push(`• ${drink.name}: ${formatWithSeparator(Math.round(drink.priceEach))} each × 12/hour → ${formatWithSeparator(Math.round(drink.costPerHour))}/hour`);
+                lines.push(`</span>`);
+            }
+        }
+    }
 
     // Show bonus revenue breakdown (essences and rare finds)
     if (profitData.bonusRevenue && profitData.bonusRevenue.totalBonusRevenue > 0) {
