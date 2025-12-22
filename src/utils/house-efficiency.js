@@ -78,7 +78,43 @@ export function getHouseRoomName(houseRoomHrid) {
     return names[houseRoomHrid] || 'Unknown';
 }
 
+/**
+ * Calculate total Rare Find bonus from all house rooms
+ * @returns {number} Total rare find bonus as percentage (e.g., 1.6 for 1.6%)
+ *
+ * @example
+ * calculateHouseRareFind()
+ * // Returns: 1.6 (if total house room levels = 8: flatBoost 0.2% + (8 × 0.2% per level) = 1.8%)
+ *
+ * Formula from game data:
+ * - flatBoost: 0.2%
+ * - flatBoostLevelBonus: 0.2% per level
+ * - Total: 0.2% + (totalLevels × 0.2%)
+ */
+export function calculateHouseRareFind() {
+    // Get all house rooms
+    const houseRooms = dataManager.getHouseRooms();
+
+    if (!houseRooms || houseRooms.size === 0) {
+        return 0; // No house rooms
+    }
+
+    // Sum all house room levels
+    let totalLevels = 0;
+    for (const [hrid, room] of houseRooms) {
+        totalLevels += room.level || 0;
+    }
+
+    // Formula: flatBoost + (totalLevels × flatBoostLevelBonus)
+    // flatBoost: 0.2%, flatBoostLevelBonus: 0.2%
+    const flatBoost = 0.2;
+    const flatBoostLevelBonus = 0.2;
+
+    return flatBoost + (totalLevels * flatBoostLevelBonus);
+}
+
 export default {
     calculateHouseEfficiency,
-    getHouseRoomName
+    getHouseRoomName,
+    calculateHouseRareFind
 };

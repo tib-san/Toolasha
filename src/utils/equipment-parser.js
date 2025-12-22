@@ -290,3 +290,58 @@ export function parseEquipmentEfficiencyBonuses(characterEquipment, actionTypeHr
     // Convert to percentage (0.15 -> 15%)
     return totalEfficiencyBonus * 100;
 }
+
+/**
+ * Parse Essence Find bonus from equipment
+ * @param {Map} characterEquipment - Equipment map from dataManager.getEquipment()
+ * @param {Object} itemDetailMap - Item details from init_client_data
+ * @returns {number} Total essence find bonus as percentage (e.g., 15 for 15%)
+ *
+ * @example
+ * parseEssenceFindBonus(equipment, items)
+ * // Ring of Essence Find (base 0.15, bonus 0.015) +0: 15%
+ * // Ring of Essence Find (base 0.15, bonus 0.015) +10: 30%
+ */
+export function parseEssenceFindBonus(characterEquipment, itemDetailMap) {
+    if (!characterEquipment || characterEquipment.size === 0) {
+        return 0; // No equipment
+    }
+
+    if (!itemDetailMap) {
+        return 0; // Missing item data
+    }
+
+    let totalEssenceFindBonus = 0;
+
+    // Iterate through all equipped items
+    for (const [slotHrid, equippedItem] of characterEquipment) {
+        const itemDetails = itemDetailMap[equippedItem.itemHrid];
+
+        if (!itemDetails || !itemDetails.equipmentDetail) {
+            continue; // Not an equipment item
+        }
+
+        const noncombatStats = itemDetails.equipmentDetail.noncombatStats;
+        if (!noncombatStats) {
+            continue; // No noncombat stats
+        }
+
+        // Get enhancement level from equipped item
+        const enhancementLevel = equippedItem.enhancementLevel || 0;
+
+        // Get enhancement bonuses for this item
+        const enhancementBonuses = itemDetails.equipmentDetail.noncombatEnhancementBonuses;
+
+        // Check for skillingEssenceFind stat
+        const baseEssenceFind = noncombatStats.skillingEssenceFind;
+
+        if (baseEssenceFind && baseEssenceFind > 0) {
+            const enhancementBonus = (enhancementBonuses && enhancementBonuses.skillingEssenceFind) || 0;
+            const scaledEssenceFind = calculateEnhancementScaling(baseEssenceFind, enhancementBonus, enhancementLevel);
+            totalEssenceFindBonus += scaledEssenceFind;
+        }
+    }
+
+    // Convert to percentage (0.15 -> 15%)
+    return totalEssenceFindBonus * 100;
+}

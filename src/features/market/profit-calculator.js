@@ -7,8 +7,8 @@ import config from '../../core/config.js';
 import marketAPI from '../../api/marketplace.js';
 import dataManager from '../../core/data-manager.js';
 import * as efficiency from '../../utils/efficiency.js';
-import { parseEquipmentSpeedBonuses, parseEquipmentEfficiencyBonuses } from '../../utils/equipment-parser.js';
-import { calculateHouseEfficiency } from '../../utils/house-efficiency.js';
+import { parseEquipmentSpeedBonuses, parseEquipmentEfficiencyBonuses, parseEssenceFindBonus } from '../../utils/equipment-parser.js';
+import { calculateHouseEfficiency, calculateHouseRareFind } from '../../utils/house-efficiency.js';
 import { parseTeaEfficiency, getDrinkConcentration, parseArtisanBonus, parseGourmetBonus, parseProcessingBonus, parseActionLevelBonus } from '../../utils/tea-parser.js';
 
 /**
@@ -222,6 +222,14 @@ class ProfitCalculator {
         // Profit per item (for display)
         const profitPerItem = profitPerHour / totalItemsPerHour;
 
+        // Calculate bonus revenue from essence and rare find drops
+        const bonusRevenue = this.calculateBonusRevenue(
+            actionDetails,
+            actionsPerHour,
+            characterEquipment,
+            initData?.itemDetailMap || {}
+        );
+
         return {
             itemName: itemDetails.name,
             itemHrid,
@@ -241,6 +249,7 @@ class ProfitCalculator {
             priceAfterTax,            // Output price after 2% tax (bid or ask based on mode)
             profitPerItem,
             profitPerHour,
+            bonusRevenue,             // Bonus revenue from essences and rare finds
             efficiencyBonus,         // Total efficiency
             levelEfficiency,          // Level advantage efficiency
             houseEfficiency,          // House room efficiency
@@ -534,6 +543,104 @@ class ProfitCalculator {
         }
 
         return costs;
+    }
+
+    /**
+     * Calculate bonus revenue from essence and rare find drops
+     * @param {Object} actionDetails - Action details from game data
+     * @param {number} actionsPerHour - Actions per hour
+     * @param {Map} characterEquipment - Equipment map
+     * @param {Object} itemDetailMap - Item details map
+     * @returns {Object} Bonus revenue data with essence and rare find drops
+     */
+    calculateBonusRevenue(actionDetails, actionsPerHour, characterEquipment, itemDetailMap) {
+        // Get Essence Find bonus from equipment
+        const essenceFindBonus = parseEssenceFindBonus(characterEquipment, itemDetailMap);
+
+        // Get Rare Find bonus from house rooms
+        const rareFindBonus = calculateHouseRareFind();
+
+        const bonusDrops = [];
+        let totalBonusRevenue = 0;
+
+        // Process essence drops
+        if (actionDetails.essenceDropTable && actionDetails.essenceDropTable.length > 0) {
+            for (const drop of actionDetails.essenceDropTable) {
+                const itemDetails = itemDetailMap[drop.itemHrid];
+                if (!itemDetails) continue;
+
+                // Calculate average drop count
+                const avgCount = (drop.minCount + drop.maxCount) / 2;
+
+                // Apply Essence Find multiplier to drop rate
+                const finalDropRate = drop.dropRate * (1 + essenceFindBonus / 100);
+
+                // Expected drops per hour
+                const dropsPerHour = actionsPerHour * finalDropRate * avgCount;
+
+                // Get market price
+                const price = marketAPI.getPrice(drop.itemHrid, 0);
+                const itemPrice = price?.bid || 0; // Use bid price (instant sell)
+
+                // Revenue per hour from this drop
+                const revenuePerHour = dropsPerHour * itemPrice;
+
+                bonusDrops.push({
+                    itemHrid: drop.itemHrid,
+                    itemName: itemDetails.name,
+                    dropRate: finalDropRate,
+                    dropsPerHour,
+                    priceEach: itemPrice,
+                    revenuePerHour,
+                    type: 'essence'
+                });
+
+                totalBonusRevenue += revenuePerHour;
+            }
+        }
+
+        // Process rare find drops
+        if (actionDetails.rareDropTable && actionDetails.rareDropTable.length > 0) {
+            for (const drop of actionDetails.rareDropTable) {
+                const itemDetails = itemDetailMap[drop.itemHrid];
+                if (!itemDetails) continue;
+
+                // Calculate average drop count
+                const avgCount = (drop.minCount + drop.maxCount) / 2;
+
+                // Apply Rare Find multiplier to drop rate
+                const finalDropRate = drop.dropRate * (1 + rareFindBonus / 100);
+
+                // Expected drops per hour
+                const dropsPerHour = actionsPerHour * finalDropRate * avgCount;
+
+                // Get market price
+                const price = marketAPI.getPrice(drop.itemHrid, 0);
+                const itemPrice = price?.bid || 0; // Use bid price (instant sell)
+
+                // Revenue per hour from this drop
+                const revenuePerHour = dropsPerHour * itemPrice;
+
+                bonusDrops.push({
+                    itemHrid: drop.itemHrid,
+                    itemName: itemDetails.name,
+                    dropRate: finalDropRate,
+                    dropsPerHour,
+                    priceEach: itemPrice,
+                    revenuePerHour,
+                    type: 'rare_find'
+                });
+
+                totalBonusRevenue += revenuePerHour;
+            }
+        }
+
+        return {
+            essenceFindBonus,       // Essence Find % from equipment
+            rareFindBonus,          // Rare Find % from house rooms
+            bonusDrops,             // Array of all bonus drops with details
+            totalBonusRevenue       // Total revenue/hour from all bonus drops
+        };
     }
 }
 

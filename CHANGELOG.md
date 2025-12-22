@@ -6,6 +6,100 @@ All notable changes to the MWI Tools refactoring project.
 
 ### Added - December 21, 2024
 
+#### **Phase 5: Essence & Rare Find Revenue Tracking**
+
+**NEW FEATURE:** Bonus Revenue from essence and rare find drops
+
+- **Essence Find Tracking:**
+  - Extracts `skillingEssenceFind` stat from equipment (e.g., Ring of Essence Find: 15% base + 1.5% per enhancement level)
+  - New function: `parseEssenceFindBonus()` in equipment-parser.js
+  - Multiplies essence drop rates: `finalDropRate = baseDropRate × (1 + essenceFind%)`
+  - Example: 15% essence drop with 15% Essence Find → 17.25% final drop rate
+
+- **Rare Find Tracking:**
+  - Calculates Rare Find from house room levels (0.2% base + 0.2% per total level)
+  - New function: `calculateHouseRareFind()` in house-efficiency.js
+  - Multiplies rare find drop rates: `finalDropRate = baseDropRate × (1 + rareFind%)`
+  - Example: 0.003% Branch of Insight with 1.8% Rare Find → 0.00305% final drop rate
+
+- **Revenue Calculation:**
+  - Processes all items in `essenceDropTable` and `rareDropTable` for each action
+  - Formula: `dropsPerHour = actionsPerHour × dropRate × avgCount × (1 + bonus%)`
+  - Uses market bid price (instant sell) for all bonus drops
+  - New method: `profitCalculator.calculateBonusRevenue()`
+
+- **Tooltip Display:**
+  - New "BONUS REVENUE" section after Profit Analysis
+  - Shows Essence Find and Rare Find bonuses if > 0
+  - Lists all essence and rare find drops with individual revenue
+  - Format: `• Item Name: drops/hr (dropRate%) @ price → revenue/hr`
+  - Shows total bonus revenue and adjusted profit
+  - Example:
+    ```
+    BONUS REVENUE
+      Essence Find: +15.0% | Rare Find: +1.8%
+      • Woodcutting Essence: 9.000/hr (15.00%) @ 400 → 3,600/hr
+      • Branch of Insight: 0.002/hr (0.0031%) @ 21,000,000 → 42,000/hr
+      • Large Meteorite Cache: 0.024/hr (0.0389%) @ 740,000 → 17,760/hr
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      Total Bonus: 63,360/hr
+      Adjusted Profit: 623,729/hr (15.0M/day)
+    ```
+
+- **Key Features:**
+  - Shows ALL rare items regardless of drop rate (even 0.00003% items)
+  - Smart drop rate formatting: 4 decimals for < 0.001%, 2 decimals otherwise
+  - Drops/hour shown to 3 decimal places for accuracy on rare items
+  - Color-coded adjusted profit (lime/red based on profitability)
+  - Only appears when action has essence or rare find drops
+
+**Files Modified:**
+- `src/utils/equipment-parser.js` (lines 294-347) - Added `parseEssenceFindBonus()`
+- `src/utils/house-efficiency.js` (lines 81-120) - Added `calculateHouseRareFind()`
+- `src/features/market/profit-calculator.js` (lines 10-11, 225-231, 252, 548-644) - Added bonus revenue calculation
+- `src/features/market/tooltip-prices.js` (lines 405-443) - Added Bonus Revenue display section
+
+**Technical Details:**
+```javascript
+// Essence drops (e.g., Woodcutting Essence from Arcane Tree)
+essenceDropRate = 0.15 // 15% base
+essenceFindBonus = 15% // Ring of Essence Find +0
+finalRate = 0.15 × (1 + 0.15) = 0.1725 // 17.25%
+dropsPerHour = 60 actions/hr × 0.1725 × 1 = 10.35/hr
+
+// Rare finds (e.g., Branch of Insight from Arcane Tree)
+rareDropRate = 0.00003 // 0.003% base
+rareFindBonus = 1.8% // All house rooms at level 8
+finalRate = 0.00003 × (1 + 0.018) = 0.00003054 // 0.003054%
+dropsPerHour = 60 actions/hr × 0.00003054 × 1 = 0.00183/hr
+```
+
+**Result:** Complete revenue picture including all bonus drops from skilling actions
+
+#### **Phase 4c: Drink Concentration Display**
+
+**UX IMPROVEMENT:** Inline Drink Concentration contribution display
+
+- **Display Changes:**
+  - Shows DC contribution inline with tea-affected stats
+  - Format: `Tea Buffs: +11.2% (+1.2% DC)`
+  - Format: `Artisan: -11.2% material requirement (-1.2% DC)`
+  - Format: `Gourmet: +13.4% bonus items (+1.4% DC)`
+  - Format: `Processing: 16.8% conversion chance (+1.8% DC)`
+  - Shows DC contribution in Action Level breakdown
+
+- **Calculation Formula:**
+  - DC contribution = `totalEffect × (DC / (1 + DC))`
+  - Example: 11.2% tea efficiency with 12% DC → DC contributes 1.2%
+
+- **Visibility:**
+  - Only shows when drinkConcentration > 0
+  - Appears on all tea-affected stats (Efficiency, Artisan, Gourmet, Processing, Action Level)
+  - Compact inline format - no separate section needed
+
+**Files Modified:**
+- `src/features/market/tooltip-prices.js` (lines 313-319, 437-445, 477-482, 490-495)
+
 #### **Phase 4: Material Costs & Tea Consumption**
 
 ##### **Phase 4a: Material Cost Efficiency Scaling**

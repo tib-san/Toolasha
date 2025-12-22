@@ -311,7 +311,12 @@ class TooltipPrices {
 
             // Show artisan reduction if active
             if (profitData.artisanBonus > 0) {
-                html += `<div style="font-size: 0.9em; color: #90EE90; margin-bottom: 4px;">Artisan: -${(profitData.artisanBonus * 100).toFixed(1)}% material requirement</div>`;
+                let artisanDisplay = `Artisan: -${(profitData.artisanBonus * 100).toFixed(1)}% material requirement`;
+                if (profitData.drinkConcentration > 0) {
+                    const dcContribution = profitData.artisanBonus * (profitData.drinkConcentration / (1 + profitData.drinkConcentration));
+                    artisanDisplay += ` (-${(dcContribution * 100).toFixed(1)}% DC)`;
+                }
+                html += `<div style="font-size: 0.9em; color: #90EE90; margin-bottom: 4px;">${artisanDisplay}</div>`;
             }
 
             html += '<div style="font-size: 0.9em; margin-left: 8px;">';
@@ -397,6 +402,46 @@ class TooltipPrices {
             html += `<div style="color: gray; font-style: italic;">Incomplete market data</div>`;
         }
 
+        html += '</div>'; // Close profit analysis indented section
+
+        // Bonus Revenue section (essences and rare finds)
+        if (profitData.bonusRevenue && profitData.bonusRevenue.bonusDrops.length > 0) {
+            html += '<div style="border-top: 1px solid rgba(255,255,255,0.2); margin: 8px 0;"></div>';
+            html += '<div style="font-weight: bold; margin-bottom: 4px;">BONUS REVENUE</div>';
+            html += '<div style="font-size: 0.9em; margin-left: 8px;">';
+
+            // Show Essence Find and Rare Find bonuses if > 0
+            if (profitData.bonusRevenue.essenceFindBonus > 0 || profitData.bonusRevenue.rareFindBonus > 0) {
+                const bonusParts = [];
+                if (profitData.bonusRevenue.essenceFindBonus > 0) {
+                    bonusParts.push(`Essence Find: +${profitData.bonusRevenue.essenceFindBonus.toFixed(1)}%`);
+                }
+                if (profitData.bonusRevenue.rareFindBonus > 0) {
+                    bonusParts.push(`Rare Find: +${profitData.bonusRevenue.rareFindBonus.toFixed(1)}%`);
+                }
+                html += `<div style="font-size: 0.85em; color: #aaa; margin-bottom: 4px;">${bonusParts.join(' | ')}</div>`;
+            }
+
+            // Show each bonus drop
+            for (const drop of profitData.bonusRevenue.bonusDrops) {
+                const dropRatePercent = (drop.dropRate * 100).toFixed(drop.dropRate < 0.001 ? 4 : 2);
+                html += `<div>• ${drop.itemName}: ${drop.dropsPerHour.toFixed(3)}/hr (${dropRatePercent}%) @ ${numberFormatter(drop.priceEach)} → ${numberFormatter(drop.revenuePerHour)}/hr</div>`;
+            }
+
+            // Show total bonus revenue
+            html += '<div style="border-top: 1px solid rgba(255,255,255,0.2); margin: 4px 0;"></div>';
+            html += `<div style="font-weight: bold;">Total Bonus: ${numberFormatter(profitData.bonusRevenue.totalBonusRevenue)}/hr</div>`;
+
+            // Show adjusted profit (if we have profit data)
+            if (profitData.itemPrice.bid > 0 && profitData.itemPrice.ask > 0) {
+                const adjustedProfit = profitData.profitPerHour + profitData.bonusRevenue.totalBonusRevenue;
+                const adjustedProfitColor = adjustedProfit >= 0 ? 'lime' : 'red';
+                html += `<div style="color: ${adjustedProfitColor}; margin-top: 4px;">Adjusted Profit: ${numberFormatter(adjustedProfit)}/hr (${formatKMB(adjustedProfit * 24)}/day)</div>`;
+            }
+
+            html += '</div>'; // Close bonus revenue indented section
+        }
+
         // Separator before Action Time
         html += '<div style="border-top: 1px solid rgba(255,255,255,0.2); margin: 8px 0;"></div>';
 
@@ -430,7 +475,14 @@ class TooltipPrices {
                     html += `<div style="margin-left: 8px;">  - Level Advantage: +${profitData.levelEfficiency.toFixed(1)}%</div>`;
                     // Show Action Level bonus if active (e.g., Artisan Tea)
                     if (profitData.actionLevelBonus > 0) {
-                        html += `<div style="margin-left: 16px; font-size: 0.9em; color: #aaa;">Effective Requirement: ${profitData.effectiveRequirement.toFixed(1)} (base ${profitData.baseRequirement} + ${profitData.actionLevelBonus.toFixed(1)} from tea)</div>`;
+                        let actionLevelDisplay = `Effective Requirement: ${profitData.effectiveRequirement.toFixed(1)} (base ${profitData.baseRequirement}`;
+                        if (profitData.drinkConcentration > 0) {
+                            const dcContribution = profitData.actionLevelBonus * (profitData.drinkConcentration / (1 + profitData.drinkConcentration));
+                            actionLevelDisplay += ` + ${profitData.actionLevelBonus.toFixed(1)} from tea, +${dcContribution.toFixed(1)} DC)`;
+                        } else {
+                            actionLevelDisplay += ` + ${profitData.actionLevelBonus.toFixed(1)} from tea)`;
+                        }
+                        html += `<div style="margin-left: 16px; font-size: 0.9em; color: #aaa;">${actionLevelDisplay}</div>`;
                     }
                 }
                 if (profitData.houseEfficiency > 0) {
@@ -440,7 +492,16 @@ class TooltipPrices {
                     html += `<div style="margin-left: 8px;">  - Equipment: +${profitData.equipmentEfficiency.toFixed(1)}%</div>`;
                 }
                 if (profitData.teaEfficiency > 0) {
-                    html += `<div style="margin-left: 8px;">  - Tea Buffs: +${profitData.teaEfficiency.toFixed(1)}%</div>`;
+                    // Calculate DC contribution to tea efficiency
+                    // DC amplifies base tea effects: finalTea = baseTea × (1 + DC)
+                    // So DC contribution = finalTea - baseTea = baseTea × DC
+                    // Or: DC contribution = finalTea × (DC / (1 + DC))
+                    let teaDisplay = `  - Tea Buffs: +${profitData.teaEfficiency.toFixed(1)}%`;
+                    if (profitData.drinkConcentration > 0) {
+                        const dcContribution = profitData.teaEfficiency * (profitData.drinkConcentration / (1 + profitData.drinkConcentration));
+                        teaDisplay += ` (+${dcContribution.toFixed(1)}% DC)`;
+                    }
+                    html += `<div style="margin-left: 8px;">${teaDisplay}</div>`;
                 }
                 if (profitData.communityEfficiency > 0) {
                     html += `<div style="margin-left: 8px;">  - Community Buff: +${profitData.communityEfficiency.toFixed(1)}%</div>`;
@@ -453,7 +514,12 @@ class TooltipPrices {
         // Gourmet bonus section (if > 0)
         if (profitData.gourmetBonus > 0) {
             html += `<div style="border-top: 1px solid rgba(255,255,255,0.2); margin: 8px 0;"></div>`;
-            html += `<div>Gourmet: +${(profitData.gourmetBonus * 100).toFixed(1)}% bonus items</div>`;
+            let gourmetDisplay = `Gourmet: +${(profitData.gourmetBonus * 100).toFixed(1)}% bonus items`;
+            if (profitData.drinkConcentration > 0) {
+                const dcContribution = profitData.gourmetBonus * (profitData.drinkConcentration / (1 + profitData.drinkConcentration));
+                gourmetDisplay += ` (+${(dcContribution * 100).toFixed(1)}% DC)`;
+            }
+            html += `<div>${gourmetDisplay}</div>`;
             html += `<div style="margin-left: 8px;">Extra: +${numberFormatter(profitData.gourmetBonusItems)}/hr</div>`;
             html += `<div style="margin-left: 8px;">Total: ${numberFormatter(profitData.totalItemsPerHour)}/hr</div>`;
         }
@@ -461,7 +527,12 @@ class TooltipPrices {
         // Processing bonus section (if > 0)
         if (profitData.processingBonus > 0) {
             html += `<div style="border-top: 1px solid rgba(255,255,255,0.2); margin: 8px 0;"></div>`;
-            html += `<div>Processing: ${(profitData.processingBonus * 100).toFixed(1)}% conversion chance</div>`;
+            let processingDisplay = `Processing: ${(profitData.processingBonus * 100).toFixed(1)}% conversion chance`;
+            if (profitData.drinkConcentration > 0) {
+                const dcContribution = profitData.processingBonus * (profitData.drinkConcentration / (1 + profitData.drinkConcentration));
+                processingDisplay += ` (+${(dcContribution * 100).toFixed(1)}% DC)`;
+            }
+            html += `<div>${processingDisplay}</div>`;
             html += `<div style="margin-left: 8px; font-size: 0.85em; color: #aaa;">Converts raw → processed materials</div>`;
         }
 
