@@ -20,6 +20,47 @@ class ProfitCalculator {
         // Constants
         this.MARKET_TAX = 0.02; // 2% marketplace tax
         this.DRINKS_PER_HOUR = 12; // Average drink consumption per hour
+
+        // Cached static game data (never changes during session)
+        this._itemDetailMap = null;
+        this._actionDetailMap = null;
+        this._communityBuffMap = null;
+    }
+
+    /**
+     * Get item detail map (lazy-loaded and cached)
+     * @returns {Object} Item details map from init_client_data
+     */
+    getItemDetailMap() {
+        if (!this._itemDetailMap) {
+            const initData = dataManager.getInitClientData();
+            this._itemDetailMap = initData?.itemDetailMap || {};
+        }
+        return this._itemDetailMap;
+    }
+
+    /**
+     * Get action detail map (lazy-loaded and cached)
+     * @returns {Object} Action details map from init_client_data
+     */
+    getActionDetailMap() {
+        if (!this._actionDetailMap) {
+            const initData = dataManager.getInitClientData();
+            this._actionDetailMap = initData?.actionDetailMap || {};
+        }
+        return this._actionDetailMap;
+    }
+
+    /**
+     * Get community buff map (lazy-loaded and cached)
+     * @returns {Object} Community buff details map from init_client_data
+     */
+    getCommunityBuffMap() {
+        if (!this._communityBuffMap) {
+            const initData = dataManager.getInitClientData();
+            this._communityBuffMap = initData?.communityBuffTypeDetailMap || {};
+        }
+        return this._communityBuffMap;
     }
 
     /**
@@ -61,12 +102,12 @@ class ProfitCalculator {
 
         // Get equipped items for efficiency bonus calculation
         const characterEquipment = dataManager.getEquipment();
-        const initData = dataManager.getInitClientData();
+        const itemDetailMap = this.getItemDetailMap();
 
         // Get Drink Concentration from equipment
         const drinkConcentration = getDrinkConcentration(
             characterEquipment,
-            initData?.itemDetailMap || {}
+            itemDetailMap
         );
 
         // Get active drinks for this action type
@@ -76,7 +117,7 @@ class ProfitCalculator {
         // This lowers the effective requirement, not increases skill level
         const actionLevelBonus = parseActionLevelBonus(
             activeDrinks,
-            initData?.itemDetailMap || {},
+            itemDetailMap,
             drinkConcentration
         );
 
@@ -91,35 +132,35 @@ class ProfitCalculator {
         const equipmentEfficiency = parseEquipmentEfficiencyBonuses(
             characterEquipment,
             actionDetails.type,
-            initData?.itemDetailMap || {}
+            itemDetailMap
         );
 
         // Calculate tea efficiency bonus
         const teaEfficiency = parseTeaEfficiency(
             actionDetails.type,
             activeDrinks,
-            initData?.itemDetailMap || {},
+            itemDetailMap,
             drinkConcentration
         );
 
         // Calculate artisan material cost reduction
         const artisanBonus = parseArtisanBonus(
             activeDrinks,
-            initData?.itemDetailMap || {},
+            itemDetailMap,
             drinkConcentration
         );
 
         // Calculate gourmet bonus (Brewing/Cooking extra items)
         const gourmetBonus = parseGourmetBonus(
             activeDrinks,
-            initData?.itemDetailMap || {},
+            itemDetailMap,
             drinkConcentration
         );
 
         // Calculate processing bonus (Milking/Foraging/Woodcutting conversions)
         const processingBonus = parseProcessingBonus(
             activeDrinks,
-            initData?.itemDetailMap || {},
+            itemDetailMap,
             drinkConcentration
         );
 
@@ -134,7 +175,7 @@ class ProfitCalculator {
         const equipmentSpeedBonus = parseEquipmentSpeedBonuses(
             characterEquipment,
             actionDetails.type,
-            initData?.itemDetailMap || {}
+            itemDetailMap
         );
 
         // Calculate action time with ONLY speed bonuses
@@ -227,8 +268,7 @@ class ProfitCalculator {
         const bonusRevenue = this.calculateBonusRevenue(
             actionDetails,
             actionsPerHour,
-            characterEquipment,
-            initData?.itemDetailMap || {}
+            characterEquipment
         );
 
         return {
@@ -278,13 +318,10 @@ class ProfitCalculator {
      * @returns {Object|null} Action output data or null
      */
     findProductionAction(itemHrid) {
-        const initData = dataManager.getInitClientData();
-        if (!initData) {
-            return null;
-        }
+        const actionDetailMap = this.getActionDetailMap();
 
         // Search through all actions for one that produces this item
-        for (const [actionHrid, action] of Object.entries(initData.actionDetailMap)) {
+        for (const [actionHrid, action] of Object.entries(actionDetailMap)) {
             if (action.outputItems) {
                 for (const output of action.outputItems) {
                     if (output.itemHrid === itemHrid) {
@@ -479,8 +516,8 @@ class ProfitCalculator {
         }
 
         // Check if buff applies to this action type
-        const initData = dataManager.getInitClientData();
-        const buffDef = initData.communityBuffTypeDetailMap?.['/community_buff_types/production_efficiency'];
+        const communityBuffMap = this.getCommunityBuffMap();
+        const buffDef = communityBuffMap['/community_buff_types/production_efficiency'];
 
         if (!buffDef?.usableInActionTypeMap?.[actionTypeHrid]) {
             return 0; // Buff doesn't apply to this skill
@@ -548,10 +585,11 @@ class ProfitCalculator {
      * @param {Object} actionDetails - Action details from game data
      * @param {number} actionsPerHour - Actions per hour
      * @param {Map} characterEquipment - Equipment map
-     * @param {Object} itemDetailMap - Item details map
      * @returns {Object} Bonus revenue data with essence and rare find drops
      */
-    calculateBonusRevenue(actionDetails, actionsPerHour, characterEquipment, itemDetailMap) {
+    calculateBonusRevenue(actionDetails, actionsPerHour, characterEquipment) {
+        const itemDetailMap = this.getItemDetailMap();
+
         // Get Essence Find bonus from equipment
         const essenceFindBonus = parseEssenceFindBonus(characterEquipment, itemDetailMap);
 
