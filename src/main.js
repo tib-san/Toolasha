@@ -152,9 +152,6 @@ console.log(`    Created colored span: ${coloredText.outerHTML.substring(0, 50)}
 
 console.log('✅ Utility modules working!');
 
-// TODO: Initialize other modules here as we extract them
-// ... etc
-
 console.log('\n🎉 MWI Tools (Refactored) - Ready!');
 console.log('📊 Modules loaded: Formatters, Storage, Config, WebSocket Hook, Data Manager, DOM Utils, Efficiency Utils');
 

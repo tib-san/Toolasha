@@ -6,6 +6,31 @@ All notable changes to the MWI Tools refactoring project.
 
 ### Added - December 21, 2024
 
+#### **Equipment Rare Find Parsing & Two-Column Tooltip Layout**
+
+**Equipment Rare Find Support:** All rare find sources now properly accounted for in profit calculations.
+
+- **Equipment Parser Enhancements:**
+  - New `parseRareFindBonus()` function extracts rare find stats from equipment
+  - Supports skill-specific rare find: `brewingRareFind`, `milkingRareFind`, `cheesesmithingRareFind`, etc. (9 skills)
+  - Supports generic rare find: `skillingRareFind` (applies to all skills)
+  - Handles enhancement scaling with proper multipliers
+  - Example: Brewer's Top +0 provides +15% Rare Find for brewing actions
+
+- **Profit Calculator Integration:**
+  - Combines equipment rare find + house room rare find (was house rooms only)
+  - Formula: `rareFindBonus = equipmentRareFindBonus + houseRareFindBonus`
+  - Example with Brewer's Top +0: 15% (equipment) + 2.2% (10 house room levels) = 17.2% total
+
+- **Two-Column Tooltip Layout:**
+  - Left column: PRODUCTION COST (materials + artisan details + teas)
+  - Right column: PROFIT ANALYSIS + BONUS REVENUE (profit + essence/rare find drops)
+  - Bottom section: Full-width STATS (time, efficiency, gourmet, processing)
+  - Reduces vertical height while preserving all detailed information
+  - No information removed - complete artisan breakdowns, full drop details, all efficiency sources
+
+### Added - December 21, 2024
+
 #### **Phase 6: Expected Value Calculator for Openable Containers**
 
 **NEW FEATURE:** Expected value analysis for all 19 openable containers to help players understand the value of container drops from skilling actions.

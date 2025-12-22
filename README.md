@@ -197,13 +197,6 @@ The profit calculator accounts for:
 
 All efficiency sources are automatically detected from character data - no manual configuration needed!
 
-#### ⚠️ Debug Mode (Temporary)
-Both tooltip modules have debug timing logs enabled for performance testing:
-- Set `this.DEBUG = false` to disable logs
-- All debug code marked with `========== DEBUG - DELETE WHEN DONE ==========`
-- Logs: Extract HRID time, calculation time, injection time, overflow fix time
-- Use for performance profiling, remove when satisfied with performance
-
 #### Remaining Features
 - [ ] Networth calculation
 - [ ] Action panel enhancements

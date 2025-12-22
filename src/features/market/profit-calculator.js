@@ -427,9 +427,6 @@ class ProfitCalculator {
         const totalEfficiency = levelEfficiency + houseEfficiency;
 
         return totalEfficiency;
-
-        // TODO: Add tea efficiency bonus (Phase 3)
-        // TODO: Add equipment efficiency bonus
     }
 
     /**
