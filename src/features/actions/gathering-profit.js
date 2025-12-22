@@ -266,6 +266,7 @@ export async function calculateGatheringProfit(actionHrid) {
     let revenuePerHour = 0;
     let processingRevenueBonus = 0; // Track extra revenue from Processing Tea
     const processingConversions = []; // Track conversion details for display
+    const baseOutputs = []; // Track base item outputs for display
     const dropTable = actionDetail.dropTable;
 
     for (const drop of dropTable) {
@@ -276,6 +277,14 @@ export async function calculateGatheringProfit(actionHrid) {
         const avgAmount = baseAvgAmount * (1 + totalGathering);
 
         const itemsPerHour = actionsPerHour * drop.dropRate * avgAmount;
+
+        // Store base output details for display
+        const itemName = gameData.itemDetailMap[drop.itemHrid]?.name || 'Unknown';
+        baseOutputs.push({
+            name: itemName,
+            itemsPerHour: itemsPerHour,
+            dropRate: drop.dropRate
+        });
 
         // Apply market tax (2%)
         const rawPriceAfterTax = rawBidPrice * 0.98;
@@ -343,6 +352,7 @@ export async function calculateGatheringProfit(actionHrid) {
         drinkCostPerHour,
         drinkCosts,                // Array of individual drink costs {name, priceEach, costPerHour}
         actionsPerHour,
+        baseOutputs,               // Array of base item outputs {name, itemsPerHour, dropRate}
         totalEfficiency,
         speedBonus,
         bonusRevenue,              // Essence and rare find details
@@ -534,6 +544,23 @@ export function formatProfitDisplay(profitData) {
 
     lines.push(effParts.join(', '));
     lines.push(`)</span>`);
+
+    // Show actions per hour
+    lines.push(`<br>Actions: ${profitData.actionsPerHour.toFixed(1)}/hour`);
+
+    // Show base output quantities
+    if (profitData.baseOutputs && profitData.baseOutputs.length > 0) {
+        lines.push(`<br>Output:`);
+        for (const output of profitData.baseOutputs) {
+            lines.push(`<br><span style="font-size: 0.85em; opacity: 0.7; margin-left: 10px;">`);
+            if (output.dropRate < 1.0) {
+                lines.push(`• ${output.name}: ~${output.itemsPerHour.toFixed(1)}/hour (${(output.dropRate * 100).toFixed(1)}% drop rate)`);
+            } else {
+                lines.push(`• ${output.name}: ~${output.itemsPerHour.toFixed(1)}/hour`);
+            }
+            lines.push(`</span>`);
+        }
+    }
 
     // Show drink costs breakdown
     if (profitData.drinkCostPerHour > 0) {
