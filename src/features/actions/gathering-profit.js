@@ -203,7 +203,7 @@ export async function calculateGatheringProfit(actionHrid) {
     let houseEfficiency = 0;
     for (const room of houseRooms) {
         const roomDetail = gameData.houseRoomDetailMap?.[room.houseRoomHrid];
-        if (roomDetail?.actionTypeWhitelist?.includes(actionDetail.type)) {
+        if (roomDetail?.usableInActionTypeMap?.[actionDetail.type]) {
             houseEfficiency += (room.level || 0) * 1.5;
         }
     }
