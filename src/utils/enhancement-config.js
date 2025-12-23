@@ -46,8 +46,8 @@ function getAutoDetectedParams() {
     const enhancingSkill = skills.find(s => s.skillHrid === '/skills/enhancing');
     const enhancingLevel = enhancingSkill?.level || 1;
 
-    // Get Laboratory house room level (enhancing uses laboratory)
-    const houseLevel = dataManager.getHouseRoomLevel('/house_rooms/laboratory');
+    // Get Observatory house room level (enhancing uses observatory, NOT laboratory!)
+    const houseLevel = dataManager.getHouseRoomLevel('/house_rooms/observatory');
 
     // Calculate total success rate bonus
     // Tool bonus (from equipment) + house bonus (0.05% per level, not 0.5%!)
@@ -63,15 +63,11 @@ function getAutoDetectedParams() {
         experienceBonus: gear.experienceBonus,            // Experience bonus
         teas: teas,
 
-        // Display info (for UI)
-        toolName: gear.toolName,
-        toolLevel: gear.toolLevel,
-        speedName: gear.speedName,
-        speedLevel: gear.speedLevel,
-        rareFindName: gear.rareFindName,
-        rareFindLevel: gear.rareFindLevel,
-        experienceName: gear.experienceName,
-        experienceLevel: gear.experienceLevel,
+        // Display info (for UI) - show best item per slot
+        toolSlot: gear.toolSlot,
+        bodySlot: gear.bodySlot,
+        legsSlot: gear.legsSlot,
+        handsSlot: gear.handsSlot,
         detectedTeaBonus: teaLevelBonus,
     };
 }
@@ -96,14 +92,10 @@ function getManualParams() {
         },
 
         // No display info for manual mode
-        toolName: null,
-        toolLevel: 0,
-        speedName: null,
-        speedLevel: 0,
-        rareFindName: null,
-        rareFindLevel: 0,
-        experienceName: null,
-        experienceLevel: 0,
+        toolSlot: null,
+        bodySlot: null,
+        legsSlot: null,
+        handsSlot: null,
         detectedTeaBonus: 0,
     };
 }

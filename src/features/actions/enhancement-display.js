@@ -229,12 +229,20 @@ function formatEnhancementDisplay(params, calculations, itemDetails, protectFrom
     // Left column
     lines.push('<div>');
     lines.push(`<div style="color: #ccc;"><span style="color: #888;">Level:</span> ${params.enhancingLevel - params.detectedTeaBonus}${params.detectedTeaBonus > 0 ? ` <span style="color: #88ff88;">(+${params.detectedTeaBonus} tea)</span>` : ''}</div>`);
-    lines.push(`<div style="color: #ccc;"><span style="color: #888;">House:</span> Laboratory Lvl ${params.houseLevel}</div>`);
-    if (params.toolName) {
-        lines.push(`<div style="color: #ccc;"><span style="color: #888;">Tool:</span> ${params.toolName}${params.toolLevel > 0 ? ` +${params.toolLevel}` : ''}</div>`);
+    lines.push(`<div style="color: #ccc;"><span style="color: #888;">House:</span> Observatory Lvl ${params.houseLevel}</div>`);
+
+    // Display each equipment slot
+    if (params.toolSlot) {
+        lines.push(`<div style="color: #ccc;"><span style="color: #888;">Tool:</span> ${params.toolSlot.name}${params.toolSlot.enhancementLevel > 0 ? ` +${params.toolSlot.enhancementLevel}` : ''}</div>`);
     }
-    if (params.speedName) {
-        lines.push(`<div style="color: #ccc;"><span style="color: #888;">Speed:</span> ${params.speedName}${params.speedLevel > 0 ? ` +${params.speedLevel}` : ''}</div>`);
+    if (params.bodySlot) {
+        lines.push(`<div style="color: #ccc;"><span style="color: #888;">Body:</span> ${params.bodySlot.name}${params.bodySlot.enhancementLevel > 0 ? ` +${params.bodySlot.enhancementLevel}` : ''}</div>`);
+    }
+    if (params.legsSlot) {
+        lines.push(`<div style="color: #ccc;"><span style="color: #888;">Legs:</span> ${params.legsSlot.name}${params.legsSlot.enhancementLevel > 0 ? ` +${params.legsSlot.enhancementLevel}` : ''}</div>`);
+    }
+    if (params.handsSlot) {
+        lines.push(`<div style="color: #ccc;"><span style="color: #888;">Hands:</span> ${params.handsSlot.name}${params.handsSlot.enhancementLevel > 0 ? ` +${params.handsSlot.enhancementLevel}` : ''}</div>`);
     }
     lines.push('</div>');
 

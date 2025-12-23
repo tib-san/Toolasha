@@ -47,37 +47,25 @@ function getEnhancementMultiplier(itemDetails, enhancementLevel) {
 }
 
 /**
- * Detect best enhancing gear from all available items (equipped + inventory)
+ * Detect best enhancing gear by equipment slot
  * @param {Map} equipment - Character equipment map (for backward compatibility, can be null)
  * @param {Object} itemDetailMap - Item details map from init_client_data
  * @param {Array} inventory - Character inventory array (all items including equipped)
- * @returns {Object} Best enhancing gear for each stat
+ * @returns {Object} Best enhancing gear per slot with bonuses
  */
 export function detectEnhancingGear(equipment, itemDetailMap, inventory = null) {
     const gear = {
-        // Success rate (tool)
-        tool: null,
-        toolName: null,
-        toolLevel: 0,
+        // Totals for calculations
         toolBonus: 0,
-
-        // Speed (gloves/clothing)
-        speed: null,
-        speedName: null,
-        speedLevel: 0,
         speedBonus: 0,
-
-        // Rare Find (clothing)
-        rareFind: null,
-        rareFindName: null,
-        rareFindLevel: 0,
         rareFindBonus: 0,
-
-        // Experience (clothing)
-        experience: null,
-        experienceName: null,
-        experienceLevel: 0,
         experienceBonus: 0,
+
+        // Best items per slot for display
+        toolSlot: null,    // main_hand or two_hand
+        bodySlot: null,    // body
+        legsSlot: null,    // legs
+        handsSlot: null,   // hands
     };
 
     // Get items to scan - use inventory if provided, otherwise fall back to equipment
@@ -91,7 +79,15 @@ export function detectEnhancingGear(equipment, itemDetailMap, inventory = null) 
         itemsToScan = Array.from(equipment.values()).filter(item => item && item.itemHrid);
     }
 
-    // Search all items for enhancing bonuses
+    // Track best item per slot (by item level, then enhancement level)
+    const slotCandidates = {
+        tool: [],    // main_hand or two_hand
+        body: [],    // body
+        legs: [],    // legs
+        hands: [],   // hands
+    };
+
+    // Search all items for enhancing bonuses and group by slot
     for (const item of itemsToScan) {
         const itemDetails = itemDetailMap[item.itemHrid];
         if (!itemDetails?.equipmentDetail?.noncombatStats) continue;
@@ -99,50 +95,101 @@ export function detectEnhancingGear(equipment, itemDetailMap, inventory = null) 
         const stats = itemDetails.equipmentDetail.noncombatStats;
         const enhancementLevel = item.enhancementLevel || 0;
         const multiplier = getEnhancementMultiplier(itemDetails, enhancementLevel);
+        const equipmentType = itemDetails.equipmentDetail.equipmentType;
 
-        // Check for enhancing success rate (tools: celestial enhancer, etc.)
-        if (stats.enhancingSuccess) {
-            const bonus = stats.enhancingSuccess * 100 * multiplier;
-            if (bonus > gear.toolBonus) {
-                gear.toolBonus = bonus;
-                gear.tool = item;
-                gear.toolName = itemDetails.name;
-                gear.toolLevel = enhancementLevel;
-            }
-        }
+        // Check if item has any enhancing stats
+        const hasEnhancingStats = stats.enhancingSuccess || stats.enhancingSpeed ||
+                                  stats.enhancingRareFind || stats.enhancingExperience;
 
-        // Check for enhancing speed (gloves/clothing)
-        if (stats.enhancingSpeed) {
-            const bonus = stats.enhancingSpeed * 100 * multiplier;
-            if (bonus > gear.speedBonus) {
-                gear.speedBonus = bonus;
-                gear.speed = item;
-                gear.speedName = itemDetails.name;
-                gear.speedLevel = enhancementLevel;
-            }
-        }
+        if (!hasEnhancingStats) continue;
 
-        // Check for enhancing rare find (clothing)
-        if (stats.enhancingRareFind) {
-            const bonus = stats.enhancingRareFind * 100 * multiplier;
-            if (bonus > gear.rareFindBonus) {
-                gear.rareFindBonus = bonus;
-                gear.rareFind = item;
-                gear.rareFindName = itemDetails.name;
-                gear.rareFindLevel = enhancementLevel;
-            }
-        }
+        // Calculate all bonuses for this item
+        let itemBonuses = {
+            item: item,
+            itemDetails: itemDetails,
+            itemLevel: itemDetails.itemLevel || 0,
+            enhancementLevel: enhancementLevel,
+            toolBonus: stats.enhancingSuccess ? stats.enhancingSuccess * 100 * multiplier : 0,
+            speedBonus: stats.enhancingSpeed ? stats.enhancingSpeed * 100 * multiplier : 0,
+            rareFindBonus: stats.enhancingRareFind ? stats.enhancingRareFind * 100 * multiplier : 0,
+            experienceBonus: stats.enhancingExperience ? stats.enhancingExperience * 100 * multiplier : 0,
+        };
 
-        // Check for enhancing experience (clothing)
-        if (stats.enhancingExperience) {
-            const bonus = stats.enhancingExperience * 100 * multiplier;
-            if (bonus > gear.experienceBonus) {
-                gear.experienceBonus = bonus;
-                gear.experience = item;
-                gear.experienceName = itemDetails.name;
-                gear.experienceLevel = enhancementLevel;
-            }
+        // Group by slot
+        if (equipmentType === '/equipment_types/main_hand' || equipmentType === '/equipment_types/two_hand') {
+            slotCandidates.tool.push(itemBonuses);
+        } else if (equipmentType === '/equipment_types/body') {
+            slotCandidates.body.push(itemBonuses);
+        } else if (equipmentType === '/equipment_types/legs') {
+            slotCandidates.legs.push(itemBonuses);
+        } else if (equipmentType === '/equipment_types/hands') {
+            slotCandidates.hands.push(itemBonuses);
         }
+    }
+
+    // Select best item per slot (highest item level, then highest enhancement level)
+    const selectBest = (candidates) => {
+        if (candidates.length === 0) return null;
+
+        return candidates.reduce((best, current) => {
+            // Compare by item level first
+            if (current.itemLevel > best.itemLevel) return current;
+            if (current.itemLevel < best.itemLevel) return best;
+
+            // If item levels are equal, compare by enhancement level
+            if (current.enhancementLevel > best.enhancementLevel) return current;
+            return best;
+        });
+    };
+
+    const bestTool = selectBest(slotCandidates.tool);
+    const bestBody = selectBest(slotCandidates.body);
+    const bestLegs = selectBest(slotCandidates.legs);
+    const bestHands = selectBest(slotCandidates.hands);
+
+    // Add bonuses from best items in each slot
+    if (bestTool) {
+        gear.toolBonus += bestTool.toolBonus;
+        gear.speedBonus += bestTool.speedBonus;
+        gear.rareFindBonus += bestTool.rareFindBonus;
+        gear.experienceBonus += bestTool.experienceBonus;
+        gear.toolSlot = {
+            name: bestTool.itemDetails.name,
+            enhancementLevel: bestTool.enhancementLevel,
+        };
+    }
+
+    if (bestBody) {
+        gear.toolBonus += bestBody.toolBonus;
+        gear.speedBonus += bestBody.speedBonus;
+        gear.rareFindBonus += bestBody.rareFindBonus;
+        gear.experienceBonus += bestBody.experienceBonus;
+        gear.bodySlot = {
+            name: bestBody.itemDetails.name,
+            enhancementLevel: bestBody.enhancementLevel,
+        };
+    }
+
+    if (bestLegs) {
+        gear.toolBonus += bestLegs.toolBonus;
+        gear.speedBonus += bestLegs.speedBonus;
+        gear.rareFindBonus += bestLegs.rareFindBonus;
+        gear.experienceBonus += bestLegs.experienceBonus;
+        gear.legsSlot = {
+            name: bestLegs.itemDetails.name,
+            enhancementLevel: bestLegs.enhancementLevel,
+        };
+    }
+
+    if (bestHands) {
+        gear.toolBonus += bestHands.toolBonus;
+        gear.speedBonus += bestHands.speedBonus;
+        gear.rareFindBonus += bestHands.rareFindBonus;
+        gear.experienceBonus += bestHands.experienceBonus;
+        gear.handsSlot = {
+            name: bestHands.itemDetails.name,
+            enhancementLevel: bestHands.enhancementLevel,
+        };
     }
 
     return gear;
