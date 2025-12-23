@@ -84,23 +84,8 @@ export function initActionPanelObserver() {
 function setupMutationObserver() {
     const observer = new MutationObserver(async (mutations) => {
         for (const mutation of mutations) {
-            // DEBUG: Log all mutations
-            if (mutation.type === 'childList') {
-                console.log('[MWI Tools DEBUG] Mutation detected:', {
-                    type: mutation.type,
-                    addedNodes: mutation.addedNodes.length,
-                    removedNodes: mutation.removedNodes.length,
-                    target: mutation.target.className || mutation.target.tagName
-                });
-            }
+            // Handle attribute changes (value updates from clicking up/down arrows)
             if (mutation.type === 'attributes') {
-                console.log('[MWI Tools DEBUG] Attribute mutation:', {
-                    attributeName: mutation.attributeName,
-                    target: mutation.target.tagName,
-                    oldValue: mutation.oldValue,
-                    newValue: mutation.target.getAttribute(mutation.attributeName)
-                });
-
                 // Handle value attribute changes on INPUT elements (clicking up/down arrows)
                 if (mutation.attributeName === 'value' && mutation.target.tagName === 'INPUT') {
                     const input = mutation.target;
@@ -108,7 +93,6 @@ function setupMutationObserver() {
                     if (panel) {
                         const itemHrid = panel.dataset.mwiItemHrid;
                         if (itemHrid) {
-                            console.log('[MWI Tools DEBUG] Input value changed via attribute! Triggering update...');
                             // Trigger the same debounced update
                             triggerEnhancementUpdate(panel, itemHrid);
                         }
@@ -118,14 +102,6 @@ function setupMutationObserver() {
 
             for (const addedNode of mutation.addedNodes) {
                 if (addedNode.nodeType !== Node.ELEMENT_NODE) continue;
-
-                // DEBUG: Log added nodes
-                console.log('[MWI Tools DEBUG] Node added:', {
-                    tag: addedNode.tagName,
-                    class: addedNode.className,
-                    type: addedNode.type,
-                    id: addedNode.id
-                });
 
                 // Check for modal container with regular action panel (gathering/crafting)
                 if (
@@ -155,7 +131,6 @@ function setupMutationObserver() {
                     // Find the parent enhancing panel
                     let panel = addedNode.closest(SELECTORS.ENHANCING_PANEL);
                     if (panel) {
-                        console.log('[MWI Tools] Detected outputs section added to enhancing panel');
                         await handleEnhancingPanel(panel);
                     }
                 }
@@ -168,7 +143,6 @@ function setupMutationObserver() {
                     // Find the parent enhancing panel
                     let panel = addedNode.closest(SELECTORS.ENHANCING_PANEL);
                     if (panel) {
-                        console.log('[MWI Tools] Detected item added to enhancing panel');
                         await handleEnhancingPanel(panel);
                     }
                 }
@@ -180,7 +154,6 @@ function setupMutationObserver() {
                         // Get the item HRID from the panel's data
                         const itemHrid = panel.dataset.mwiItemHrid;
                         if (itemHrid) {
-                            console.log('[MWI Tools] New input detected in enhancing panel, adding listener...');
                             addInputListener(addedNode, panel, itemHrid);
                         }
                     }
@@ -209,7 +182,6 @@ function checkExistingEnhancingPanel() {
     setTimeout(() => {
         const existingPanel = document.querySelector(SELECTORS.ENHANCING_PANEL);
         if (existingPanel) {
-            console.log('[MWI Tools] Found existing enhancing panel on page');
             handleEnhancingPanel(existingPanel);
         }
     }, 500);
@@ -308,26 +280,14 @@ async function handleEnhancingPanel(panel) {
  * @param {string} itemHrid - Item HRID
  */
 function addInputListener(input, panel, itemHrid) {
-    console.log('[MWI Tools DEBUG] Adding listener to input:', {
-        tag: input.tagName,
-        type: input.type,
-        value: input.value,
-        name: input.name,
-        className: input.className,
-        parent: input.parentElement?.className
-    });
-
     // Handler that triggers the shared debounced update
     const handleInputChange = () => {
-        console.log('[MWI Tools DEBUG] Input event fired! Value:', input.value);
         triggerEnhancementUpdate(panel, itemHrid);
     };
 
     // Add change listeners
     input.addEventListener('input', handleInputChange);
     input.addEventListener('change', handleInputChange);
-
-    console.log('[MWI Tools DEBUG] Listeners attached to input');
 }
 
 /**
@@ -344,8 +304,6 @@ function setupInputObservers(panel, itemHrid) {
     inputs.forEach(input => {
         addInputListener(input, panel, itemHrid);
     });
-
-    console.log(`[MWI Tools] Set up input observers for ${inputs.length} input(s)`);
 }
 
 /**
