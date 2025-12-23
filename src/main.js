@@ -21,7 +21,7 @@ import actionTimeDisplay from './features/actions/action-time-display.js';
 import * as enhancementGearDetector from './utils/enhancement-gear-detector.js';
 import { getEnhancingParams } from './utils/enhancement-config.js';
 import * as enhancementCalculator from './utils/enhancement-calculator.js';
-import * as enhancementAudit from './utils/enhancement-audit.js';
+import * as gameMechanicsAudit from './utils/game-mechanics-audit.js';
 
 console.log('MWI Tools (Refactored) v0.4.0 - Initializing...');
 
@@ -60,10 +60,10 @@ try {
 dataManager.on('character_initialized', (data) => {
     console.log('✅ Character data loaded');
 
-    // Run enhancement mechanics audit
+    // Run game mechanics audit
     const gameData = dataManager.getInitClientData();
     if (gameData) {
-        enhancementAudit.runFullAudit(gameData);
+        gameMechanicsAudit.runFullAudit(gameData);
     }
 
     // Initialize market features after character data loads
@@ -102,10 +102,10 @@ targetWindow.MWITools = {
     enhancementGearDetector,
     getEnhancingParams,
     enhancementCalculator,
-    enhancementAudit,
+    gameMechanicsAudit,
     version: '0.4.1'
 };
 
 console.log('🔧 Debug: Access modules via MWITools (exposed to page context)');
 console.log('   Example: MWITools.dataManager.getHouseRooms()');
-console.log('   Audit: MWITools.enhancementAudit.runFullAudit(MWITools.dataManager.getInitClientData())');
+console.log('   Audit: MWITools.gameMechanicsAudit.runFullAudit(MWITools.dataManager.getInitClientData())');
