@@ -80,7 +80,19 @@ Patch release implementing guzzling bonus scaling for blessed tea in the enhance
   - Matches Enhancelator display format (2 decimal places)
   - More accurate representation of expected values
   - Example: +3 now shows "12.64" instead of "13"
-  - File: `src/features/actions/enhancement-display.js` lines 234, 274
+  - **Added thousands separator:** 1,234.56 instead of 1234.56
+  - Applied to both Attempts and Protection columns
+  - File: `src/features/actions/enhancement-display.js`
+
+**UX IMPROVEMENT:** Improved time formatting for long durations.
+
+- **Time Display Enhancements:**
+  - **>= 1 year:** "3 years 5 months 3 days"
+  - **>= 1 day:** "5 days 12h 30m"
+  - **< 1 day:** "1h 23m 45s" (unchanged)
+  - More readable for very long enhancement times
+  - Proper pluralization (1 year vs 2 years)
+  - File: `src/utils/formatters.js`
 
 **UX IMPROVEMENT:** Removed verbose console logging during normal operation.
 
