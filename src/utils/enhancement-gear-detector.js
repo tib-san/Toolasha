@@ -51,19 +51,33 @@ function getEnhancementMultiplier(itemDetails, enhancementLevel) {
  * @param {Map} equipment - Character equipment map (for backward compatibility, can be null)
  * @param {Object} itemDetailMap - Item details map from init_client_data
  * @param {Array} inventory - Character inventory array (all items including equipped)
- * @returns {Object} Best enhancing gear { tool, gloves, toolBonus, glovesBonus }
+ * @returns {Object} Best enhancing gear for each stat
  */
 export function detectEnhancingGear(equipment, itemDetailMap, inventory = null) {
     const gear = {
-        tool: null,          // Best tool item
-        toolName: null,      // Tool name for display
-        toolLevel: 0,        // Tool enhancement level
-        toolBonus: 0,        // Success rate bonus %
+        // Success rate (tool)
+        tool: null,
+        toolName: null,
+        toolLevel: 0,
+        toolBonus: 0,
 
-        gloves: null,        // Best gloves item
-        glovesName: null,    // Gloves name for display
-        glovesLevel: 0,      // Gloves enhancement level
-        glovesBonus: 0,      // Speed bonus %
+        // Speed (gloves/clothing)
+        speed: null,
+        speedName: null,
+        speedLevel: 0,
+        speedBonus: 0,
+
+        // Rare Find (clothing)
+        rareFind: null,
+        rareFindName: null,
+        rareFindLevel: 0,
+        rareFindBonus: 0,
+
+        // Experience (clothing)
+        experience: null,
+        experienceName: null,
+        experienceLevel: 0,
+        experienceBonus: 0,
     };
 
     // Get items to scan - use inventory if provided, otherwise fall back to equipment
@@ -88,7 +102,7 @@ export function detectEnhancingGear(equipment, itemDetailMap, inventory = null) 
 
         // Check for enhancing success rate (tools: celestial enhancer, etc.)
         if (stats.enhancingSuccess) {
-            const bonus = stats.enhancingSuccess * 100 * multiplier; // Convert to percentage
+            const bonus = stats.enhancingSuccess * 100 * multiplier;
             if (bonus > gear.toolBonus) {
                 gear.toolBonus = bonus;
                 gear.tool = item;
@@ -97,14 +111,36 @@ export function detectEnhancingGear(equipment, itemDetailMap, inventory = null) 
             }
         }
 
-        // Check for enhancing speed (gloves: Enhancer's Gloves, etc.)
+        // Check for enhancing speed (gloves/clothing)
         if (stats.enhancingSpeed) {
-            const bonus = stats.enhancingSpeed * 100 * multiplier; // Convert to percentage
-            if (bonus > gear.glovesBonus) {
-                gear.glovesBonus = bonus;
-                gear.gloves = item;
-                gear.glovesName = itemDetails.name;
-                gear.glovesLevel = enhancementLevel;
+            const bonus = stats.enhancingSpeed * 100 * multiplier;
+            if (bonus > gear.speedBonus) {
+                gear.speedBonus = bonus;
+                gear.speed = item;
+                gear.speedName = itemDetails.name;
+                gear.speedLevel = enhancementLevel;
+            }
+        }
+
+        // Check for enhancing rare find (clothing)
+        if (stats.enhancingRareFind) {
+            const bonus = stats.enhancingRareFind * 100 * multiplier;
+            if (bonus > gear.rareFindBonus) {
+                gear.rareFindBonus = bonus;
+                gear.rareFind = item;
+                gear.rareFindName = itemDetails.name;
+                gear.rareFindLevel = enhancementLevel;
+            }
+        }
+
+        // Check for enhancing experience (clothing)
+        if (stats.enhancingExperience) {
+            const bonus = stats.enhancingExperience * 100 * multiplier;
+            if (bonus > gear.experienceBonus) {
+                gear.experienceBonus = bonus;
+                gear.experience = item;
+                gear.experienceName = itemDetails.name;
+                gear.experienceLevel = enhancementLevel;
             }
         }
     }

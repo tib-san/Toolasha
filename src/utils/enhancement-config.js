@@ -46,8 +46,8 @@ function getAutoDetectedParams() {
     const enhancingSkill = skills.find(s => s.skillHrid === '/skills/enhancing');
     const enhancingLevel = enhancingSkill?.level || 1;
 
-    // Get Enhancing house room level (using convenience method)
-    const houseLevel = dataManager.getHouseRoomLevel('/house_rooms/enhancing');
+    // Get Laboratory house room level (enhancing uses laboratory)
+    const houseLevel = dataManager.getHouseRoomLevel('/house_rooms/laboratory');
 
     // Calculate total success rate bonus
     // Tool bonus (from equipment) + house bonus (0.5% per level) + tea level bonus
@@ -58,14 +58,20 @@ function getAutoDetectedParams() {
         enhancingLevel: enhancingLevel + teaLevelBonus,  // Base level + tea bonus
         houseLevel: houseLevel,
         toolBonus: totalSuccessBonus,                     // Tool + house combined
-        glovesBonus: gear.glovesBonus,                    // Speed bonus
+        speedBonus: gear.speedBonus,                      // Speed bonus
+        rareFindBonus: gear.rareFindBonus,                // Rare find bonus
+        experienceBonus: gear.experienceBonus,            // Experience bonus
         teas: teas,
 
         // Display info (for UI)
         toolName: gear.toolName,
         toolLevel: gear.toolLevel,
-        glovesName: gear.glovesName,
-        glovesLevel: gear.glovesLevel,
+        speedName: gear.speedName,
+        speedLevel: gear.speedLevel,
+        rareFindName: gear.rareFindName,
+        rareFindLevel: gear.rareFindLevel,
+        experienceName: gear.experienceName,
+        experienceLevel: gear.experienceLevel,
         detectedTeaBonus: teaLevelBonus,
     };
 }
@@ -79,7 +85,9 @@ function getManualParams() {
         enhancingLevel: config.getSettingValue('enhanceSim_enhancingLevel', 125),
         houseLevel: config.getSettingValue('enhanceSim_houseLevel', 6),
         toolBonus: config.getSettingValue('enhanceSim_toolBonus', 15),
-        glovesBonus: config.getSettingValue('enhanceSim_glovesBonus', 0),
+        speedBonus: config.getSettingValue('enhanceSim_speedBonus', 0),
+        rareFindBonus: config.getSettingValue('enhanceSim_rareFindBonus', 0),
+        experienceBonus: config.getSettingValue('enhanceSim_experienceBonus', 0),
         teas: {
             enhancing: config.getSettingValue('enhanceSim_enhancingTea', false),
             superEnhancing: config.getSettingValue('enhanceSim_superEnhancingTea', false),
@@ -90,8 +98,12 @@ function getManualParams() {
         // No display info for manual mode
         toolName: null,
         toolLevel: 0,
-        glovesName: null,
-        glovesLevel: 0,
+        speedName: null,
+        speedLevel: 0,
+        rareFindName: null,
+        rareFindLevel: 0,
+        experienceName: null,
+        experienceLevel: 0,
         detectedTeaBonus: 0,
     };
 }
