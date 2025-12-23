@@ -22,6 +22,7 @@ import * as enhancementGearDetector from './utils/enhancement-gear-detector.js';
 import { getEnhancingParams } from './utils/enhancement-config.js';
 import * as enhancementCalculator from './utils/enhancement-calculator.js';
 import * as gameMechanicsAudit from './utils/game-mechanics-audit.js';
+import { debugEnhancementSpeed } from './utils/debug-enhancement-speed.js';
 
 console.log('MWI Tools (Refactored) v0.4.0 - Initializing...');
 
@@ -103,9 +104,11 @@ targetWindow.MWITools = {
     getEnhancingParams,
     enhancementCalculator,
     gameMechanicsAudit,
+    debugEnhancementSpeed,
     version: '0.4.1'
 };
 
 console.log('🔧 Debug: Access modules via MWITools (exposed to page context)');
 console.log('   Example: MWITools.dataManager.getHouseRooms()');
 console.log('   Audit: MWITools.gameMechanicsAudit.runFullAudit(MWITools.dataManager.getInitClientData())');
+console.log('   Debug Speed: MWITools.debugEnhancementSpeed()');
