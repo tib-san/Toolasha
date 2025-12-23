@@ -81,10 +81,13 @@ export function detectEnhancingGear(equipment, itemDetailMap, inventory = null) 
 
     // Track best item per slot (by item level, then enhancement level)
     const slotCandidates = {
-        tool: [],    // main_hand or two_hand
+        tool: [],    // main_hand or two_hand or enhancing_tool
         body: [],    // body
         legs: [],    // legs
         hands: [],   // hands
+        neck: [],    // neck (accessories have 5× multiplier)
+        ring: [],    // ring (accessories have 5× multiplier)
+        earring: [], // earring (accessories have 5× multiplier)
     };
 
     // Search all items for enhancing bonuses and group by slot
@@ -97,9 +100,10 @@ export function detectEnhancingGear(equipment, itemDetailMap, inventory = null) 
         const multiplier = getEnhancementMultiplier(itemDetails, enhancementLevel);
         const equipmentType = itemDetails.equipmentDetail.type;
 
-        // Check if item has any enhancing stats
+        // Check if item has any enhancing-related stats (including universal skillingSpeed)
         const hasEnhancingStats = stats.enhancingSuccess || stats.enhancingSpeed ||
-                                  stats.enhancingRareFind || stats.enhancingExperience;
+                                  stats.enhancingRareFind || stats.enhancingExperience ||
+                                  stats.skillingSpeed;
 
         if (!hasEnhancingStats) continue;
 
@@ -110,7 +114,8 @@ export function detectEnhancingGear(equipment, itemDetailMap, inventory = null) 
             itemLevel: itemDetails.itemLevel || 0,
             enhancementLevel: enhancementLevel,
             toolBonus: stats.enhancingSuccess ? stats.enhancingSuccess * 100 * multiplier : 0,
-            speedBonus: stats.enhancingSpeed ? stats.enhancingSpeed * 100 * multiplier : 0,
+            speedBonus: (stats.enhancingSpeed ? stats.enhancingSpeed * 100 * multiplier : 0) +
+                       (stats.skillingSpeed ? stats.skillingSpeed * 100 * multiplier : 0),  // Add universal speed
             rareFindBonus: stats.enhancingRareFind ? stats.enhancingRareFind * 100 * multiplier : 0,
             experienceBonus: stats.enhancingExperience ? stats.enhancingExperience * 100 * multiplier : 0,
         };
@@ -126,6 +131,12 @@ export function detectEnhancingGear(equipment, itemDetailMap, inventory = null) 
             slotCandidates.legs.push(itemBonuses);
         } else if (equipmentType === '/equipment_types/hands') {
             slotCandidates.hands.push(itemBonuses);
+        } else if (equipmentType === '/equipment_types/neck') {
+            slotCandidates.neck.push(itemBonuses);
+        } else if (equipmentType === '/equipment_types/ring') {
+            slotCandidates.ring.push(itemBonuses);
+        } else if (equipmentType === '/equipment_types/earring') {
+            slotCandidates.earring.push(itemBonuses);
         }
     }
 
@@ -148,6 +159,9 @@ export function detectEnhancingGear(equipment, itemDetailMap, inventory = null) 
     const bestBody = selectBest(slotCandidates.body);
     const bestLegs = selectBest(slotCandidates.legs);
     const bestHands = selectBest(slotCandidates.hands);
+    const bestNeck = selectBest(slotCandidates.neck);
+    const bestRing = selectBest(slotCandidates.ring);
+    const bestEarring = selectBest(slotCandidates.earring);
 
     // Add bonuses from best items in each slot
     if (bestTool) {
@@ -192,6 +206,27 @@ export function detectEnhancingGear(equipment, itemDetailMap, inventory = null) 
             name: bestHands.itemDetails.name,
             enhancementLevel: bestHands.enhancementLevel,
         };
+    }
+
+    if (bestNeck) {
+        gear.toolBonus += bestNeck.toolBonus;
+        gear.speedBonus += bestNeck.speedBonus;
+        gear.rareFindBonus += bestNeck.rareFindBonus;
+        gear.experienceBonus += bestNeck.experienceBonus;
+    }
+
+    if (bestRing) {
+        gear.toolBonus += bestRing.toolBonus;
+        gear.speedBonus += bestRing.speedBonus;
+        gear.rareFindBonus += bestRing.rareFindBonus;
+        gear.experienceBonus += bestRing.experienceBonus;
+    }
+
+    if (bestEarring) {
+        gear.toolBonus += bestEarring.toolBonus;
+        gear.speedBonus += bestEarring.speedBonus;
+        gear.rareFindBonus += bestEarring.rareFindBonus;
+        gear.experienceBonus += bestEarring.experienceBonus;
     }
 
     return gear;
