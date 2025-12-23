@@ -231,7 +231,7 @@ function generateCostsByLevelTable(panel, params, itemLevel, protectFromLevel, e
 
         costData.push({
             level,
-            attempts: calc.attemptsRounded,  // Use rounded for display
+            attempts: calc.attempts,  // Use exact decimal attempts
             protection: calc.protectionCount,
             time: calc.totalTime,
             cost: totalCost,
@@ -271,7 +271,7 @@ function generateCostsByLevelTable(panel, params, itemLevel, protectFromLevel, e
 
         lines.push(`<tr style="${borderStyle}">`);
         lines.push(`<td style="padding: 6px 4px; color: #fff; font-weight: bold;">+${data.level}</td>`);
-        lines.push(`<td style="padding: 6px 4px; text-align: right; color: #ccc;">${data.attempts.toLocaleString()}</td>`);
+        lines.push(`<td style="padding: 6px 4px; text-align: right; color: #ccc;">${data.attempts.toFixed(2)}</td>`);
         lines.push(`<td style="padding: 6px 4px; text-align: right; color: ${data.protection > 0 ? '#ffa500' : '#888'};">${data.protection > 0 ? data.protection.toFixed(2) : '-'}</td>`);
 
         // Add material breakdown columns

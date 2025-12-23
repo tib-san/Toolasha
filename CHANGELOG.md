@@ -43,6 +43,19 @@ Patch release implementing guzzling bonus scaling for blessed tea in the enhance
   - Markov chain transition probabilities updated to scale blessed tea effect
   - Files: `enhancement-config.js`, `enhancement-calculator.js`, `enhancement-display.js`
 
+### Changed
+
+#### **Display Improvements**
+
+**UX IMPROVEMENT:** Show exact decimal attempts instead of rounded integers.
+
+- **Attempts Display:**
+  - Changed from rounded integers (13) to exact decimals (12.64)
+  - Matches Enhancelator display format (2 decimal places)
+  - More accurate representation of expected values
+  - Example: +3 now shows "12.64" instead of "13"
+  - File: `src/features/actions/enhancement-display.js` lines 234, 274
+
 ### Technical Details
 
 **Markov Chain Updates:**
