@@ -49,21 +49,26 @@ function getAutoDetectedParams() {
     // Get Observatory house room level (enhancing uses observatory, NOT laboratory!)
     const houseLevel = dataManager.getHouseRoomLevel('/house_rooms/observatory');
 
+    // Get Enhancing Speed community buff level
+    const communityBuffLevel = dataManager.getCommunityBuffLevel('/community_buff_types/enhancing_speed');
+    // Formula: 20% base + 0.5% per level
+    const communitySpeedBonus = communityBuffLevel > 0 ? 20 + (communityBuffLevel - 1) * 0.5 : 0;
+
     // Calculate total success rate bonus
     // Tool bonus (from equipment) + house bonus (0.05% per level)
     const houseSuccessBonus = houseLevel * 0.05;  // 0.05% per level for success
     const totalSuccessBonus = gear.toolBonus + houseSuccessBonus;
 
     // Calculate total speed bonus
-    // Speed bonus (from equipment) + house bonus (1% per level)
+    // Speed bonus (from equipment) + house bonus (1% per level) + community buff
     const houseSpeedBonus = houseLevel * 1.0;  // 1% per level for action speed
-    const totalSpeedBonus = gear.speedBonus + houseSpeedBonus;
+    const totalSpeedBonus = gear.speedBonus + houseSpeedBonus + communitySpeedBonus;
 
     return {
         enhancingLevel: enhancingLevel + teaLevelBonus,  // Base level + tea bonus
         houseLevel: houseLevel,
         toolBonus: totalSuccessBonus,                     // Tool + house combined
-        speedBonus: totalSpeedBonus,                      // Speed + house combined
+        speedBonus: totalSpeedBonus,                      // Speed + house + community combined
         rareFindBonus: gear.rareFindBonus,                // Rare find bonus
         experienceBonus: gear.experienceBonus,            // Experience bonus
         teas: teas,
@@ -74,6 +79,8 @@ function getAutoDetectedParams() {
         legsSlot: gear.legsSlot,
         handsSlot: gear.handsSlot,
         detectedTeaBonus: teaLevelBonus,
+        communityBuffLevel: communityBuffLevel,           // For display
+        communitySpeedBonus: communitySpeedBonus,         // For display
     };
 }
 

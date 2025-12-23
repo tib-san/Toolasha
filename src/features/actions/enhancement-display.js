@@ -254,6 +254,12 @@ function formatEnhancementDisplay(params, calculations, itemDetails, protectFrom
     lines.push('<div>');
     lines.push(`<div style="color: #88ff88;"><span style="color: #888;">Success:</span> +${params.toolBonus.toFixed(2)}%</div>`);
     lines.push(`<div style="color: #88ccff;"><span style="color: #888;">Speed:</span> +${params.speedBonus.toFixed(1)}%</div>`);
+
+    // Show community buff breakdown if active
+    if (params.communitySpeedBonus > 0) {
+        lines.push(`<div style="color: #aaddff; font-size: 0.8em; padding-left: 10px;"><span style="color: #666;">Community T${params.communityBuffLevel}:</span> +${params.communitySpeedBonus.toFixed(1)}%</div>`);
+    }
+
     if (params.teas.blessed) {
         // Calculate Blessed Tea bonus with Guzzling Pouch concentration
         const blessedBonus = 1.1; // Base 1.1% from Blessed Tea
