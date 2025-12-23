@@ -139,25 +139,20 @@ export function calculateEnhancement(params) {
     const M = math.inv(math.subtract(I, Q));
 
     // Expected attempts from level 0 to target
-    const attemptsArray = M.subset(
-        math.index(math.range(0, 1), math.range(0, targetLevel))
-    );
-    const attempts = math.flatten(math.row(attemptsArray, 0).valueOf())
-        .reduce((a, b) => a + b, 0);
+    // Sum all elements in first row of M up to targetLevel
+    let attempts = 0;
+    for (let i = 0; i < targetLevel; i++) {
+        attempts += M.get([0, i]);
+    }
 
     // Expected protection item uses
     let protects = 0;
     if (protectFrom > 0 && protectFrom < targetLevel) {
-        const protectAttempts = M.subset(
-            math.index(math.range(0, 1), math.range(protectFrom, targetLevel))
-        );
-        const protectAttemptsArray = typeof protectAttempts === "number"
-            ? [protectAttempts]
-            : math.flatten(math.row(protectAttempts, 0).valueOf());
-
-        protects = protectAttemptsArray
-            .map((a, i) => a * markov.get([i + protectFrom, i + protectFrom - 1]))
-            .reduce((a, b) => a + b, 0);
+        for (let i = protectFrom; i < targetLevel; i++) {
+            const timesAtLevel = M.get([0, i]);
+            const failureChance = markov.get([i, i - 1]);
+            protects += timesAtLevel * failureChance;
+        }
     }
 
     // Action time calculation
