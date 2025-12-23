@@ -99,10 +99,10 @@ function getAutoDetectedParams() {
     for (const [hrid, room] of houseRooms) {
         const level = room.level || 0;
         if (level >= 1) {
-            // Each room: 0.2% base + 0.2% per level
-            houseRareFindBonus += 0.2 + (0.2 * level);
-            // Each room: 0.05% base + 0.05% per level
-            houseWisdomBonus += 0.05 + (0.05 * level);
+            // Each room: 0.2% per level (NOT 0.2% base + 0.2% per level)
+            houseRareFindBonus += 0.2 * level;
+            // Each room: 0.05% per level (NOT 0.05% base + 0.05% per level)
+            houseWisdomBonus += 0.05 * level;
         }
     }
 
