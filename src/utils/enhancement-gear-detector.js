@@ -75,10 +75,10 @@ export function detectSkillGear(skillName, equipment, itemDetailMap, inventory =
             allStats[statName] = statValue * 100 * multiplier;
         }
 
-        // Check if item has any skill-related stats (including universal skillingSpeed)
+        // Check if item has any skill-related stats (including universal skills)
         const hasSkillStats = allStats[successStat] || allStats[speedStat] ||
                              allStats[rareFindStat] || allStats[experienceStat] ||
-                             allStats.skillingSpeed;
+                             allStats.skillingSpeed || allStats.skillingExperience;
 
         if (!hasSkillStats) continue;
 
@@ -92,7 +92,7 @@ export function detectSkillGear(skillName, equipment, itemDetailMap, inventory =
             toolBonus: allStats[successStat] || 0,
             speedBonus: (allStats[speedStat] || 0) + (allStats.skillingSpeed || 0),  // Combine speed sources
             rareFindBonus: allStats[rareFindStat] || 0,
-            experienceBonus: allStats[experienceStat] || 0,
+            experienceBonus: (allStats[experienceStat] || 0) + (allStats.skillingExperience || 0),  // Combine experience sources
             // Generic access to all stats
             allStats: allStats,
         };
