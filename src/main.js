@@ -73,7 +73,7 @@ dataManager.on('character_initialized', (data) => {
             actionTimeDisplay.initialize();
             console.log('✅ Action time display');
 
-            console.log('🎉 MWI Tools v0.4.0 - Ready!');
+            console.log('🎉 MWI Tools v0.4.1 - Ready!');
         } catch (error) {
             console.error('❌ Feature initialization failed:', error);
         }
@@ -95,7 +95,7 @@ targetWindow.MWITools = {
     enhancementGearDetector,
     getEnhancingParams,
     enhancementCalculator,
-    version: '0.4.0'
+    version: '0.4.1'
 };
 
 console.log('🔧 Debug: Access modules via MWITools (exposed to page context)');

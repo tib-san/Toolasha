@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2025-12-22
+
+### Overview
+
+Patch release with critical bug fixes for the enhancement calculator display and equipment detection system.
+
+**Status:** Development/Testing (Version < 1.0.0 = pre-release)
+
+### Fixed
+
+#### **Enhancement Calculator Display Improvements**
+
+**BUG FIX:** Multiple display and calculation issues resolved in enhancement system.
+
+- **Observatory House Room Fix:**
+  - Corrected house room reference from Laboratory → Observatory
+  - Laboratory is for Alchemy, Observatory is for Enhancing
+  - Affects success rate calculation: +0.05% per level (max +0.4% at level 8)
+  - File: `src/utils/enhancement-config.js` line 50
+
+- **Slot-Based Equipment Display:**
+  - Changed from stat-based to slot-based equipment selection
+  - Now shows best item per equipment slot (Tool, Body, Legs, Hands)
+  - Selection priority: Item level first, then enhancement level as tiebreaker
+  - Display format: "Tool: Celestial Enhancer +10"
+  - Files: `src/utils/enhancement-gear-detector.js` (complete rewrite), `src/features/actions/enhancement-display.js`
+
+- **Removed Redundant Information:**
+  - Eliminated duplicate "Expected Enhancement Costs" table
+  - Removed redundant total cost calculations
+  - Kept comprehensive "Costs by Enhancement Level" table (all 20 levels)
+  - Simplified "Materials Per Attempt" section for quick reference
+  - File: `src/features/actions/enhancement-display.js`
+
+- **Removed Verbose Debug Logging:**
+  - Cleaned up 7 verbose `[MWI Tools DEBUG]` console statements
+  - Kept important logs for initialization and errors
+  - Reduced console spam during normal operation
+  - File: `src/features/actions/panel-observer.js`
+
+### Technical Details
+
+**Enhancement Gear Detection Rewrite:**
+- Groups items by equipment slot (tool, body, legs, hands) instead of by stat type
+- Scans all items in inventory (including equipped items)
+- Returns slot objects: `{name: "Item Name", enhancementLevel: 10}`
+- Accumulates bonuses from best item in each slot
+- Handles enhancement multipliers correctly (1× for armor, 5× for accessories)
+
+**Git Commits:**
+- 9de3771: Fix: Enhancement system now shows slot-based equipment display
+- be74488: Revert "Show all equipped enhancing items instead of just one"
+- 39ce6c5: Remove redundant information from enhancement calculator display
+- 95ae424: Remove verbose debug logging
+
 ## [0.3.0] - 2025-12-22
 
 ### Overview
