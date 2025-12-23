@@ -257,8 +257,9 @@ function formatEnhancementDisplay(params, calculations, itemDetails, protectFrom
     let totalSuccess = params.toolBonus;
     let successLevelAdvantage = 0;
     if (params.enhancingLevel > itemDetails.itemLevel) {
-        // Level advantage includes house level: (enhancing + house - item) * 0.05%
-        successLevelAdvantage = (params.enhancingLevel + params.houseLevel - itemDetails.itemLevel) * 0.05;
+        // For DISPLAY breakdown: show level advantage WITHOUT house (house shown separately)
+        // Calculator correctly uses (enhancing + house - item), but we split for display
+        successLevelAdvantage = (params.enhancingLevel - itemDetails.itemLevel) * 0.05;
         totalSuccess += successLevelAdvantage;
     }
 
