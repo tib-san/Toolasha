@@ -53,7 +53,10 @@ function getAutoDetectedParams() {
 
     // Detect teas
     const teas = detectEnhancingTeas(drinkSlots, itemDetailMap);
-    const teaLevelBonus = getEnhancingTeaLevelBonus(teas);
+
+    // Get tea level bonus (base, then scale with concentration)
+    const baseTeaLevel = getEnhancingTeaLevelBonus(teas);
+    const teaLevelBonus = baseTeaLevel > 0 ? baseTeaLevel * (1 + drinkConcentration / 100) : 0;
 
     // Get tea speed bonus (base, then scale with concentration)
     const baseTeaSpeed = getEnhancingTeaSpeedBonus(teas);
