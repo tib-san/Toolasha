@@ -63,6 +63,31 @@ function calculateSuccessMultiplier(params) {
 }
 
 /**
+ * Calculate per-action time for enhancement
+ * Simple calculation that doesn't require Markov chain analysis
+ * @param {number} enhancingLevel - Effective enhancing level (includes tea bonus)
+ * @param {number} itemLevel - Item level being enhanced
+ * @param {number} speedBonus - Speed bonus % (for action time calculation)
+ * @returns {number} Per-action time in seconds
+ */
+export function calculatePerActionTime(enhancingLevel, itemLevel, speedBonus = 0) {
+    const baseActionTime = 12; // seconds
+    let speedMultiplier;
+
+    if (enhancingLevel > itemLevel) {
+        // Above item level: Get speed bonus from level advantage + equipment + house
+        // Note: speedBonus already includes house level bonus (1% per level)
+        speedMultiplier = 1 + (enhancingLevel - itemLevel + speedBonus) / 100;
+    } else {
+        // Below item level: Only equipment + house speed bonus
+        // Note: speedBonus already includes house level bonus (1% per level)
+        speedMultiplier = 1 + speedBonus / 100;
+    }
+
+    return baseActionTime / speedMultiplier;
+}
+
+/**
  * Calculate enhancement statistics using Markov Chain matrix inversion
  * @param {Object} params - Enhancement parameters
  * @param {number} params.enhancingLevel - Effective enhancing level (includes tea bonus)

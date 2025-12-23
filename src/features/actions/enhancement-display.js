@@ -7,7 +7,7 @@
 
 import dataManager from '../../core/data-manager.js';
 import { getEnhancingParams } from '../../utils/enhancement-config.js';
-import { calculateEnhancement, compareProtectionStrategies } from '../../utils/enhancement-calculator.js';
+import { calculateEnhancement, calculatePerActionTime } from '../../utils/enhancement-calculator.js';
 import { timeReadable } from '../../utils/formatters.js';
 import marketAPI from '../../api/marketplace.js';
 
@@ -85,46 +85,15 @@ export async function displayEnhancementStats(panel, itemHrid) {
         // Protection at +1 is meaningless (would drop to +0 anyway)
         const effectiveProtectFrom = protectFromLevel < 2 ? 0 : protectFromLevel;
 
-        // Calculate enhancement statistics for common targets
-        // Protection only applies when target level reaches the protection threshold
-        const calculations = {
-            target10: calculateEnhancement({
-                enhancingLevel: params.enhancingLevel,
-                houseLevel: params.houseLevel,
-                toolBonus: params.toolBonus,
-                speedBonus: params.speedBonus,
-                itemLevel: itemLevel,
-                targetLevel: 10,
-                protectFrom: (effectiveProtectFrom > 0 && 10 >= effectiveProtectFrom) ? effectiveProtectFrom : 0,
-                blessedTea: params.teas.blessed,
-                guzzlingBonus: params.guzzlingBonus
-            }),
-            target15: calculateEnhancement({
-                enhancingLevel: params.enhancingLevel,
-                houseLevel: params.houseLevel,
-                toolBonus: params.toolBonus,
-                speedBonus: params.speedBonus,
-                itemLevel: itemLevel,
-                targetLevel: 15,
-                protectFrom: (effectiveProtectFrom > 0 && 15 >= effectiveProtectFrom) ? effectiveProtectFrom : 0,
-                blessedTea: params.teas.blessed,
-                guzzlingBonus: params.guzzlingBonus
-            }),
-            target20: calculateEnhancement({
-                enhancingLevel: params.enhancingLevel,
-                houseLevel: params.houseLevel,
-                toolBonus: params.toolBonus,
-                speedBonus: params.speedBonus,
-                itemLevel: itemLevel,
-                targetLevel: 20,
-                protectFrom: (effectiveProtectFrom > 0 && 20 >= effectiveProtectFrom) ? effectiveProtectFrom : 0,
-                blessedTea: params.teas.blessed,
-                guzzlingBonus: params.guzzlingBonus
-            }),
-        };
+        // Calculate per-action time (simple calculation, no Markov chain needed)
+        const perActionTime = calculatePerActionTime(
+            params.enhancingLevel,
+            itemLevel,
+            params.speedBonus
+        );
 
         // Format and inject display
-        const html = formatEnhancementDisplay(panel, params, calculations, itemDetails, effectiveProtectFrom, itemDetails.enhancementCosts || []);
+        const html = formatEnhancementDisplay(panel, params, perActionTime, itemDetails, effectiveProtectFrom, itemDetails.enhancementCosts || []);
         injectDisplay(panel, html);
     } catch (error) {
         console.error('[MWI Tools] ❌ Error displaying enhancement stats:', error);
@@ -323,13 +292,13 @@ function getProtectFromLevelFromUI(panel) {
  * Format enhancement display HTML
  * @param {HTMLElement} panel - Enhancement action panel element (for reading protection slot)
  * @param {Object} params - Auto-detected parameters
- * @param {Object} calculations - Calculated enhancement stats
+ * @param {number} perActionTime - Per-action time in seconds
  * @param {Object} itemDetails - Item being enhanced
  * @param {number} protectFromLevel - Protection level from UI
  * @param {Array} enhancementCosts - Array of {itemHrid, count} for materials
  * @returns {string} HTML string
  */
-function formatEnhancementDisplay(panel, params, calculations, itemDetails, protectFromLevel, enhancementCosts) {
+function formatEnhancementDisplay(panel, params, perActionTime, itemDetails, protectFromLevel, enhancementCosts) {
     const lines = [];
 
     // Header
@@ -539,7 +508,7 @@ function formatEnhancementDisplay(panel, params, calculations, itemDetails, prot
         displaySpeed += (params.enhancingLevel - itemDetails.itemLevel);
     }
 
-    lines.push(`• Action time: ${calculations.target10.perActionTime.toFixed(2)}s (includes ${displaySpeed.toFixed(1)}% speed bonus)`);
+    lines.push(`• Action time: ${perActionTime.toFixed(2)}s (includes ${displaySpeed.toFixed(1)}% speed bonus)`);
     lines.push('</div>');
 
     lines.push('</div>'); // Close targets section

@@ -67,6 +67,20 @@ Patch release implementing guzzling bonus scaling for blessed tea in the enhance
   - Files: `enhancement-display.js` (3 logs), `panel-observer.js` (1 log)
   - Reduces console spam during normal use
 
+### Performance
+
+**OPTIMIZATION:** Removed redundant Markov chain calculations.
+
+- **Enhancement Calculator Optimization:**
+  - Removed 3 unused calculations (target10, target15, target20)
+  - target15 and target20 were never used
+  - target10 only used for perActionTime (simple division, doesn't need Markov chain)
+  - Added `calculatePerActionTime()` helper function for simple time calculation
+  - **Reduction:** 23 → 20 Markov chain calculations per render (~13% improvement)
+  - Each Markov chain involves expensive 20×20 matrix operations (create, invert, multiply)
+  - Files: `enhancement-calculator.js` (new helper), `enhancement-display.js` (simplified)
+  - Zero functional changes - just removes waste
+
 ### Technical Details
 
 **Markov Chain Updates:**
