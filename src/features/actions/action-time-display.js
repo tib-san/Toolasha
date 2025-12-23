@@ -237,6 +237,11 @@ class ActionTimeDisplay {
         // Build display HTML
         const lines = [];
 
+        // Action icon (matches game's icon display)
+        if (actionDetails.icon) {
+            lines.push(`<img src="${actionDetails.icon}" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 4px;" />`);
+        }
+
         // Action info
         const actionName = actionDetails.name || 'Unknown Action';
         lines.push(`<span style="color: var(--text-color-primary, #fff);">${actionName}</span>`);
