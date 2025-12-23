@@ -31,7 +31,7 @@ function getEnhancementMultiplier(itemDetails, enhancementLevel) {
         return 1;
     }
 
-    const equipmentType = itemDetails?.equipmentDetail?.equipmentType;
+    const equipmentType = itemDetails?.equipmentDetail?.type;
     const slotMultiplier = ENHANCEMENT_MULTIPLIERS[equipmentType] || 1;
 
     // Enhancement bonus table (same as original MWI Tools)
@@ -95,7 +95,7 @@ export function detectEnhancingGear(equipment, itemDetailMap, inventory = null) 
         const stats = itemDetails.equipmentDetail.noncombatStats;
         const enhancementLevel = item.enhancementLevel || 0;
         const multiplier = getEnhancementMultiplier(itemDetails, enhancementLevel);
-        const equipmentType = itemDetails.equipmentDetail.equipmentType;
+        const equipmentType = itemDetails.equipmentDetail.type;
 
         // Check if item has any enhancing stats
         const hasEnhancingStats = stats.enhancingSuccess || stats.enhancingSpeed ||
@@ -116,7 +116,9 @@ export function detectEnhancingGear(equipment, itemDetailMap, inventory = null) 
         };
 
         // Group by slot
-        if (equipmentType === '/equipment_types/main_hand' || equipmentType === '/equipment_types/two_hand') {
+        if (equipmentType === '/equipment_types/enhancing_tool' ||
+            equipmentType === '/equipment_types/main_hand' ||
+            equipmentType === '/equipment_types/two_hand') {
             slotCandidates.tool.push(itemBonuses);
         } else if (equipmentType === '/equipment_types/body') {
             slotCandidates.body.push(itemBonuses);
