@@ -29,16 +29,45 @@ export function numberFormatter(num, digits = 0) {
 /**
  * Convert seconds to human-readable time format
  * @param {number} sec - Seconds to convert
- * @returns {string} Formatted time (e.g., "1h 23m 45s" or "2.5 days")
+ * @returns {string} Formatted time (e.g., "1h 23m 45s" or "3 years 5 months 3 days")
  *
  * @example
  * timeReadable(3661) // "1h 01m 01s"
- * timeReadable(90000) // "1.0 days"
+ * timeReadable(90000) // "1 day"
+ * timeReadable(31536000) // "1 year"
+ * timeReadable(100000000) // "3 years 2 months 3 days"
  */
 export function timeReadable(sec) {
-    // For times >= 1 day, show in days
+    // For times >= 1 year, show in years/months/days
+    if (sec >= 31536000) { // 365 days
+        const years = Math.floor(sec / 31536000);
+        const remainingAfterYears = sec - (years * 31536000);
+        const months = Math.floor(remainingAfterYears / 2592000); // 30 days
+        const remainingAfterMonths = remainingAfterYears - (months * 2592000);
+        const days = Math.floor(remainingAfterMonths / 86400);
+
+        const parts = [];
+        if (years > 0) parts.push(`${years} year${years !== 1 ? 's' : ''}`);
+        if (months > 0) parts.push(`${months} month${months !== 1 ? 's' : ''}`);
+        if (days > 0) parts.push(`${days} day${days !== 1 ? 's' : ''}`);
+
+        return parts.join(' ');
+    }
+
+    // For times >= 1 day, show in days/hours/minutes
     if (sec >= 86400) {
-        return Number(sec / 86400).toFixed(1) + " days";
+        const days = Math.floor(sec / 86400);
+        const remainingAfterDays = sec - (days * 86400);
+        const hours = Math.floor(remainingAfterDays / 3600);
+        const remainingAfterHours = remainingAfterDays - (hours * 3600);
+        const minutes = Math.floor(remainingAfterHours / 60);
+
+        const parts = [];
+        if (days > 0) parts.push(`${days} day${days !== 1 ? 's' : ''}`);
+        if (hours > 0) parts.push(`${hours}h`);
+        if (minutes > 0) parts.push(`${minutes}m`);
+
+        return parts.join(' ');
     }
 
     // For times < 1 day, show as HH:MM:SS

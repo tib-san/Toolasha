@@ -8,8 +8,20 @@
 import dataManager from '../../core/data-manager.js';
 import { getEnhancingParams } from '../../utils/enhancement-config.js';
 import { calculateEnhancement, calculatePerActionTime } from '../../utils/enhancement-calculator.js';
-import { timeReadable } from '../../utils/formatters.js';
+import { timeReadable, numberFormatter } from '../../utils/formatters.js';
 import marketAPI from '../../api/marketplace.js';
+
+/**
+ * Format a number with thousands separator and 2 decimal places
+ * @param {number} num - Number to format
+ * @returns {string} Formatted number (e.g., "1,234.56")
+ */
+function formatAttempts(num) {
+    return new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(num);
+}
 
 /**
  * Get protection item HRID from the Protection slot in the UI
@@ -237,8 +249,8 @@ function generateCostsByLevelTable(panel, params, itemLevel, protectFromLevel, e
 
         lines.push(`<tr style="${borderStyle}">`);
         lines.push(`<td style="padding: 6px 4px; color: #fff; font-weight: bold;">+${data.level}</td>`);
-        lines.push(`<td style="padding: 6px 4px; text-align: right; color: #ccc;">${data.attempts.toFixed(2)}</td>`);
-        lines.push(`<td style="padding: 6px 4px; text-align: right; color: ${data.protection > 0 ? '#ffa500' : '#888'};">${data.protection > 0 ? data.protection.toFixed(2) : '-'}</td>`);
+        lines.push(`<td style="padding: 6px 4px; text-align: right; color: #ccc;">${formatAttempts(data.attempts)}</td>`);
+        lines.push(`<td style="padding: 6px 4px; text-align: right; color: ${data.protection > 0 ? '#ffa500' : '#888'};">${data.protection > 0 ? formatAttempts(data.protection) : '-'}</td>`);
 
         // Add material breakdown columns
         materialNames.forEach(matName => {
