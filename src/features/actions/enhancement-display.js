@@ -124,7 +124,7 @@ export async function displayEnhancementStats(panel, itemHrid) {
         };
 
         // Format and inject display
-        const html = formatEnhancementDisplay(params, calculations, itemDetails, effectiveProtectFrom, itemDetails.enhancementCosts || []);
+        const html = formatEnhancementDisplay(panel, params, calculations, itemDetails, effectiveProtectFrom, itemDetails.enhancementCosts || []);
         injectDisplay(panel, html);
         console.log('[MWI Tools] ✅ Enhancement calculator displayed successfully!');
     } catch (error) {
@@ -252,6 +252,7 @@ function getProtectFromLevelFromUI(panel) {
 
 /**
  * Format enhancement display HTML
+ * @param {HTMLElement} panel - Enhancement action panel element (for reading protection slot)
  * @param {Object} params - Auto-detected parameters
  * @param {Object} calculations - Calculated enhancement stats
  * @param {Object} itemDetails - Item being enhanced
@@ -259,7 +260,7 @@ function getProtectFromLevelFromUI(panel) {
  * @param {Array} enhancementCosts - Array of {itemHrid, count} for materials
  * @returns {string} HTML string
  */
-function formatEnhancementDisplay(params, calculations, itemDetails, protectFromLevel, enhancementCosts) {
+function formatEnhancementDisplay(panel, params, calculations, itemDetails, protectFromLevel, enhancementCosts) {
     const lines = [];
 
     // Header
