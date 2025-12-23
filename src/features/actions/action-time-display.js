@@ -209,7 +209,30 @@ class ActionTimeDisplay {
             ? `${(totalTimeSeconds / 86400).toFixed(1)} days`
             : timeReadable(totalTimeSeconds);
 
-        const clockTime = `${String(completionTime.getHours()).padStart(2, '0')}:${String(completionTime.getMinutes()).padStart(2, '0')}:${String(completionTime.getSeconds()).padStart(2, '0')}`;
+        // Format completion time
+        const now = new Date();
+        const isToday = completionTime.toDateString() === now.toDateString();
+
+        let clockTime;
+        if (isToday) {
+            // Today: Just show time in 12-hour format
+            clockTime = completionTime.toLocaleString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            });
+        } else {
+            // Future date: Show date and time in 12-hour format
+            clockTime = completionTime.toLocaleString('en-US', {
+                month: 'numeric',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            });
+        }
 
         // Build display HTML
         const lines = [];
@@ -218,9 +241,9 @@ class ActionTimeDisplay {
         const actionName = actionDetails.name || 'Unknown Action';
         lines.push(`<span style="color: var(--text-color-primary, #fff);">${actionName}</span>`);
 
-        // Queue size
+        // Queue size (with thousand separators)
         if (action.hasMaxCount) {
-            lines.push(` <span style="color: var(--text-color-secondary, #888);">(${queueSize} queued)</span>`);
+            lines.push(` <span style="color: var(--text-color-secondary, #888);">(${queueSize.toLocaleString()} queued)</span>`);
         } else {
             lines.push(` <span style="color: var(--text-color-secondary, #888);">(∞)</span>`);
         }
@@ -231,7 +254,7 @@ class ActionTimeDisplay {
 
             // Time per action and actions/hour on same line (simplified - no percentages)
             lines.push(`<span style="color: var(--text-color-secondary, #888);">`);
-            lines.push(`${actionTime.toFixed(1)}s/action · ${actionsPerHour.toFixed(0)}/hr`);
+            lines.push(`${actionTime.toFixed(2)}s/action · ${actionsPerHour.toFixed(0)}/hr`);
             lines.push('</span><br>');
 
             // Total time and completion time
