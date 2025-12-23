@@ -30,13 +30,11 @@ class MarketAPI {
      * @returns {Promise<Object|null>} Market data object or null if failed
      */
     async fetch(forceFetch = false) {
-        console.log('[MarketAPI] Fetching market data...');
 
         // Check cache first (unless force fetch)
         if (!forceFetch) {
             const cached = this.getCachedData();
             if (cached) {
-                console.log('[MarketAPI] Using cached data');
                 this.marketData = cached.data;
                 this.lastFetchTimestamp = cached.timestamp;
                 return this.marketData;
@@ -52,7 +50,6 @@ class MarketAPI {
                 this.cacheData(response);
                 this.marketData = response.marketData;
                 this.lastFetchTimestamp = response.timestamp;
-                console.log('[MarketAPI] ✅ Fetched fresh data');
                 return this.marketData;
             }
         } catch (error) {
@@ -116,7 +113,6 @@ class MarketAPI {
         const age = now - cachedTimestamp;
 
         if (age > this.CACHE_DURATION) {
-            console.log(`[MarketAPI] Cache expired (${Math.round(age / 1000 / 60)} minutes old)`);
             return null;
         }
 
@@ -133,7 +129,6 @@ class MarketAPI {
     cacheData(data) {
         storage.setJSON(this.CACHE_KEY_DATA, data);
         storage.set(this.CACHE_KEY_TIMESTAMP, Date.now());
-        console.log('[MarketAPI] Data cached');
     }
 
     /**

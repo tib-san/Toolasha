@@ -36,13 +36,10 @@ class DataManager {
      * Call this after game loads
      */
     initialize() {
-        console.log('[Data Manager] Initializing...');
-
         // Load static game data using official API
         try {
             if (typeof localStorageUtil !== 'undefined') {
                 this.initClientData = localStorageUtil.getInitClientData();
-                console.log('[Data Manager] ✅ Loaded init_client_data via official API');
             } else {
                 console.warn('[Data Manager] localStorageUtil not available yet');
             }
@@ -58,7 +55,6 @@ class DataManager {
     setupMessageHandlers() {
         // Handle init_character_data (player data on login/refresh)
         this.webSocketHook.on('init_character_data', (data) => {
-            console.log('[Data Manager] Received init_character_data');
             this.characterData = data;
             this.characterSkills = data.characterSkills;
             this.characterItems = data.characterItems;
@@ -78,8 +74,6 @@ class DataManager {
 
         // Handle actions_updated (action queue changes)
         this.webSocketHook.on('actions_updated', (data) => {
-            console.log('[Data Manager] Actions updated');
-
             // Update action list
             for (const action of data.endCharacterActions) {
                 if (action.isDone === false) {
@@ -108,8 +102,6 @@ class DataManager {
 
         // Handle items_updated (inventory/equipment changes)
         this.webSocketHook.on('items_updated', (data) => {
-            console.log('[Data Manager] Items updated');
-
             if (data.endCharacterItems) {
                 this.updateEquipmentMap(data.endCharacterItems);
             }
@@ -119,7 +111,6 @@ class DataManager {
 
         // Handle action_type_consumable_slots_updated (when user changes tea assignments)
         this.webSocketHook.on('action_type_consumable_slots_updated', (data) => {
-            console.log('[Data Manager] Consumable slots updated');
 
             // Update drink slots map with new consumables
             if (data.actionTypeDrinkSlotsMap) {
@@ -131,7 +122,6 @@ class DataManager {
 
         // Handle consumable_buffs_updated (when buffs expire/refresh)
         this.webSocketHook.on('consumable_buffs_updated', (data) => {
-            console.log('[Data Manager] Consumable buffs updated');
 
             // Buffs updated - next hover will show updated values
             this.emit('buffs_updated', data);
@@ -139,7 +129,6 @@ class DataManager {
 
         // Handle house_rooms_updated (when user upgrades house rooms)
         this.webSocketHook.on('house_rooms_updated', (data) => {
-            console.log('[Data Manager] House rooms updated');
 
             // Update house room map with new levels
             if (data.characterHouseRoomMap) {
@@ -151,7 +140,6 @@ class DataManager {
 
         // Handle skills_updated (when user gains skill levels)
         this.webSocketHook.on('skills_updated', (data) => {
-            console.log('[Data Manager] Skills updated');
 
             // Update character skills with new levels
             if (data.characterSkills) {
@@ -192,7 +180,6 @@ class DataManager {
             this.characterHouseRooms.set(room.houseRoomHrid, room);
         }
 
-        console.log(`[Data Manager] House rooms loaded: ${this.characterHouseRooms.size} rooms`);
     }
 
     /**
@@ -209,7 +196,6 @@ class DataManager {
             this.actionTypeDrinkSlotsMap.set(actionTypeHrid, drinks || []);
         }
 
-        console.log(`[Data Manager] Drink slots loaded: ${this.actionTypeDrinkSlotsMap.size} action types`);
     }
 
     /**

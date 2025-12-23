@@ -67,6 +67,19 @@ Patch release implementing guzzling bonus scaling for blessed tea in the enhance
   - Files: `enhancement-display.js` (3 logs), `panel-observer.js` (1 log)
   - Reduces console spam during normal use
 
+**MAJOR CLEANUP:** Removed 54 verbose console statements across all modules (~41% reduction).
+
+- **Console Spam Elimination:**
+  - Removed all initialization success messages ("✅ Module loaded", "🎉 Ready!")
+  - Removed all feature status logs ("Initializing...", "Started", "Disabled")
+  - Removed all WebSocket message type logs ("Received: init_character_data")
+  - Removed all market fetch status logs ("Fetching...", "Using cached data")
+  - **Kept all error/warning logs** (37 statements) for debugging
+  - **Debug utilities commented out** (not auto-run, available manually via console)
+  - **Reduction:** 132 → 78 console statements (54 removed, 41% cleanup)
+  - Files: `main.js`, `websocket.js`, `data-manager.js`, `marketplace.js`, `panel-observer.js`, all tooltip/feature modules
+  - Result: Clean console output during normal operation, critical errors still visible
+
 ### Performance
 
 **OPTIMIZATION:** Removed redundant Markov chain calculations.

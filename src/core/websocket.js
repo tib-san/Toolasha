@@ -22,8 +22,6 @@ class WebSocketHook {
             return;
         }
 
-        console.log('[WebSocket Hook] Installing...');
-
         // Get the original data property getter
         const dataProperty = Object.getOwnPropertyDescriptor(MessageEvent.prototype, "data");
         this.originalGet = dataProperty.get;
@@ -67,7 +65,6 @@ class WebSocketHook {
         Object.defineProperty(MessageEvent.prototype, "data", dataProperty);
 
         this.isHooked = true;
-        console.log('[WebSocket Hook] ✅ Installed successfully');
     }
 
     /**
@@ -78,9 +75,6 @@ class WebSocketHook {
         try {
             const data = JSON.parse(message);
             const messageType = data.type;
-
-            // Log message type (for debugging)
-            console.log(`[WebSocket] Received: ${messageType}`);
 
             // Call registered handlers for this message type
             const handlers = this.messageHandlers.get(messageType) || [];
@@ -116,7 +110,6 @@ class WebSocketHook {
             this.messageHandlers.set(messageType, []);
         }
         this.messageHandlers.get(messageType).push(handler);
-        console.log(`[WebSocket Hook] Registered handler for: ${messageType}`);
     }
 
     /**

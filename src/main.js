@@ -21,10 +21,9 @@ import actionTimeDisplay from './features/actions/action-time-display.js';
 import * as enhancementGearDetector from './utils/enhancement-gear-detector.js';
 import { getEnhancingParams } from './utils/enhancement-config.js';
 import * as enhancementCalculator from './utils/enhancement-calculator.js';
-import * as gameMechanicsAudit from './utils/game-mechanics-audit.js';
-import { debugEnhancementSpeed } from './utils/debug-enhancement-speed.js';
-
-console.log('MWI Tools (Refactored) v0.4.0 - Initializing...');
+// Debug utilities - only available via window.MWITools, not auto-run
+// import * as gameMechanicsAudit from './utils/game-mechanics-audit.js';
+// import { debugEnhancementSpeed } from './utils/debug-enhancement-speed.js';
 
 // CRITICAL: Install WebSocket hook FIRST, before game connects
 webSocketHook.install();
@@ -39,49 +38,32 @@ try {
     // Test formatters
     numberFormatter(1500);
     timeReadable(3661);
-    console.log('✅ Formatters');
 
     // Test storage
     storage.set('test_key', 'test_value');
     storage.getJSON('test_json');
-    console.log('✅ Storage');
 
     // Test config
     config.getSetting('totalActionTime');
-    console.log('✅ Config');
 
     // Test utilities
     efficiency.calculateEfficiency(150);
     dom.createColoredText('Test', 'main');
-    console.log('✅ Utilities');
 } catch (error) {
     console.error('❌ Module test failed:', error);
 }
 
 dataManager.on('character_initialized', (data) => {
-    console.log('✅ Character data loaded');
-
-    // Run game mechanics audit
-    const gameData = dataManager.getInitClientData();
-    if (gameData) {
-        gameMechanicsAudit.runFullAudit(gameData);
-    }
-
     // Initialize market features after character data loads
     setTimeout(async () => {
         try {
             await tooltipPrices.initialize();
             await expectedValueCalculator.initialize();
             await tooltipConsumables.initialize();
-            console.log('✅ Market features');
 
             initActionPanelObserver();
-            console.log('✅ Action panel observer');
 
             actionTimeDisplay.initialize();
-            console.log('✅ Action time display');
-
-            console.log('🎉 MWI Tools v0.4.1 - Ready!');
         } catch (error) {
             console.error('❌ Feature initialization failed:', error);
         }
@@ -103,12 +85,8 @@ targetWindow.MWITools = {
     enhancementGearDetector,
     getEnhancingParams,
     enhancementCalculator,
-    gameMechanicsAudit,
-    debugEnhancementSpeed,
+    // Debug utilities available manually via console
+    // gameMechanicsAudit,
+    // debugEnhancementSpeed,
     version: '0.4.2'
 };
-
-console.log('🔧 Debug: Access modules via MWITools (exposed to page context)');
-console.log('   Example: MWITools.dataManager.getHouseRooms()');
-console.log('   Audit: MWITools.gameMechanicsAudit.runFullAudit(MWITools.dataManager.getInitClientData())');
-console.log('   Debug Speed: MWITools.debugEnhancementSpeed()');

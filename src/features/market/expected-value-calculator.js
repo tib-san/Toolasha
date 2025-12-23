@@ -41,7 +41,6 @@ class ExpectedValueCalculator {
 
         // Wait for market data to load
         if (!marketAPI.isLoaded()) {
-            console.log('[ExpectedValueCalculator] Waiting for market data...');
             await marketAPI.fetch(true); // Force fresh fetch on init
         }
 
@@ -49,7 +48,6 @@ class ExpectedValueCalculator {
         this.calculateNestedContainers();
 
         this.isInitialized = true;
-        console.log('[ExpectedValueCalculator] ✅ Initialized with', this.containerCache.size, 'containers');
         return true;
     }
 
@@ -318,7 +316,6 @@ class ExpectedValueCalculator {
     invalidateCache() {
         this.containerCache.clear();
         this.isInitialized = false;
-        console.log('[ExpectedValueCalculator] Cache invalidated');
 
         // Re-initialize if data is available
         if (dataManager.getInitClientData() && marketAPI.isLoaded()) {

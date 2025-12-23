@@ -26,13 +26,11 @@ class TooltipPrices {
     async initialize() {
         // Check if feature is enabled
         if (!config.getSetting('itemTooltip_prices')) {
-            console.log('[TooltipPrices] Feature disabled');
             return;
         }
 
         // Wait for market data to load
         if (!marketAPI.isLoaded()) {
-            console.log('[TooltipPrices] Waiting for market data...');
             await marketAPI.fetch(true); // Force fresh fetch on init
         }
 
@@ -42,7 +40,6 @@ class TooltipPrices {
         // Set up MutationObserver to watch for tooltips
         this.setupObserver();
 
-        console.log('[TooltipPrices] ✅ Initialized');
     }
 
     /**
@@ -110,7 +107,6 @@ class TooltipPrices {
         });
 
         this.isActive = true;
-        console.log('[TooltipPrices] Observer started');
     }
 
     /**
@@ -701,7 +697,6 @@ class TooltipPrices {
         }
 
         this.isActive = false;
-        console.log('[TooltipPrices] Disabled');
     }
 }
 

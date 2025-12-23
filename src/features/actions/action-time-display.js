@@ -42,7 +42,6 @@ class ActionTimeDisplay {
         // Check if feature is enabled
         const enabled = config.getSettingValue('totalActionTime', true);
         if (!enabled) {
-            console.log('[ActionTimeDisplay] Feature disabled in settings');
             return;
         }
 
@@ -54,7 +53,6 @@ class ActionTimeDisplay {
         dataManager.on('action_completed', () => this.updateDisplay());
 
         this.isInitialized = true;
-        console.log('[ActionTimeDisplay] Initialized');
     }
 
     /**
@@ -104,7 +102,6 @@ class ActionTimeDisplay {
             actionNameContainer.nextSibling
         );
 
-        console.log('[ActionTimeDisplay] Display panel created');
     }
 
     /**

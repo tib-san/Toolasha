@@ -171,8 +171,6 @@ function setupMutationObserver() {
         attributeOldValue: true,  // Track old values
         attributeFilter: ['value', 'class']  // Only watch value and class attributes
     });
-
-    console.log('[MWI Tools] Action panel observer initialized (watching childList + attributes)');
 }
 
 /**
@@ -292,8 +290,6 @@ async function handleEnhancingPanel(panel) {
     // Get item details
     const itemDetails = gameData.itemDetailMap[itemHrid];
     if (!itemDetails) return;
-
-    console.log(`[MWI Tools] Detected enhancing: ${itemName} (${itemHrid})`);
 
     // Store itemHrid on panel for later reference (when new inputs are added)
     panel.dataset.mwiItemHrid = itemHrid;

@@ -24,13 +24,11 @@ class TooltipConsumables {
     async initialize() {
         // Check if feature is enabled
         if (!config.getSetting('showConsumTips')) {
-            console.log('[TooltipConsumables] Feature disabled');
             return;
         }
 
         // Wait for market data to load (needed for cost calculations)
         if (!marketAPI.isLoaded()) {
-            console.log('[TooltipConsumables] Waiting for market data...');
             await marketAPI.fetch(true);
         }
 
@@ -40,7 +38,6 @@ class TooltipConsumables {
         // Set up MutationObserver to watch for tooltips
         this.setupObserver();
 
-        console.log('[TooltipConsumables] ✅ Initialized');
     }
 
     /**
@@ -113,7 +110,6 @@ class TooltipConsumables {
         });
 
         this.isActive = true;
-        console.log('[TooltipConsumables] Observer started');
     }
 
     /**
@@ -321,7 +317,6 @@ class TooltipConsumables {
         }
 
         this.isActive = false;
-        console.log('[TooltipConsumables] Disabled');
     }
 }
 

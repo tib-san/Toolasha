@@ -22,7 +22,6 @@ function getProtectionItemFromUI(panel) {
         const protectionContainer = panel.querySelector('[class*="protectionItemInputContainer"]');
 
         if (!protectionContainer) {
-            console.log('[MWI Tools] No protection container found');
             return null;
         }
 
@@ -69,7 +68,6 @@ export async function displayEnhancementStats(panel, itemHrid) {
         // Get item details directly (itemHrid is passed from panel observer)
         const itemDetails = gameData.itemDetailMap[itemHrid];
         if (!itemDetails) {
-            console.log(`[MWI Tools] Item not found: ${itemHrid}`);
             return;
         }
 
