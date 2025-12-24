@@ -698,6 +698,11 @@ async function displayGatheringProfit(panel, actionHrid) {
 
     costsDiv.appendChild(drinkCostsSection);
 
+    // Net Profit Section (Revenue - Costs)
+    const netProfitDiv = document.createElement('div');
+    const profitColor = profit >= 0 ? '#4ade80' : '#f87171'; // green if positive, red if negative
+    netProfitDiv.innerHTML = `<div style="font-weight: 500; color: ${profitColor}; margin-top: 12px; margin-bottom: 4px;">Net Profit: ${formatWithSeparator(profit)}/hr</div>`;
+
     // Modifiers Section
     const modifiersDiv = document.createElement('div');
     modifiersDiv.style.cssText = `
@@ -747,6 +752,7 @@ async function displayGatheringProfit(panel, actionHrid) {
     // Assemble Detailed Breakdown
     detailsContent.appendChild(revenueDiv);
     detailsContent.appendChild(costsDiv);
+    detailsContent.appendChild(netProfitDiv);
     detailsContent.appendChild(modifiersDiv);
 
     // Create "Detailed Breakdown" collapsible
