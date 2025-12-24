@@ -287,7 +287,9 @@ export async function calculateGatheringProfit(actionHrid) {
                 itemsPerHour: processedItemsPerHour,
                 dropRate: drop.dropRate * processingBonus,
                 priceEach: processedPriceAfterTax,
-                revenuePerHour: processedItemsPerHour * processedPriceAfterTax
+                revenuePerHour: processedItemsPerHour * processedPriceAfterTax,
+                isProcessed: true, // Flag to show processing percentage
+                processingChance: processingBonus // Store the processing chance (e.g., 0.15 for 15%)
             });
         } else {
             // No processing - simple calculation

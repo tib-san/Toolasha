@@ -628,7 +628,15 @@ async function displayGatheringProfit(panel, actionHrid) {
             const decimals = output.itemsPerHour < 1 ? 2 : 1;
             const line = document.createElement('div');
             line.style.marginLeft = '8px';
-            line.textContent = `• ${output.name}: ${output.itemsPerHour.toFixed(decimals)}/hr @ ${formatWithSeparator(output.priceEach)} each → ${formatWithSeparator(Math.round(output.revenuePerHour))}/hr`;
+
+            // Show processing percentage for processed items
+            if (output.isProcessed && output.processingChance) {
+                const processingPercent = (output.processingChance * 100).toFixed(1);
+                line.textContent = `• ${output.name}: (${processingPercent}%) ${output.itemsPerHour.toFixed(decimals)}/hr @ ${formatWithSeparator(output.priceEach)} each → ${formatWithSeparator(Math.round(output.revenuePerHour))}/hr`;
+            } else {
+                line.textContent = `• ${output.name}: ${output.itemsPerHour.toFixed(decimals)}/hr @ ${formatWithSeparator(output.priceEach)} each → ${formatWithSeparator(Math.round(output.revenuePerHour))}/hr`;
+            }
+
             baseOutputContent.appendChild(line);
         }
     }
