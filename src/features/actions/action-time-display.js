@@ -422,12 +422,41 @@ class ActionTimeDisplay {
             let accumulatedTime = 0;
             let hasInfinite = false;
 
-            // Process each queued action
-            currentActions.forEach((actionObj, index) => {
-                if (index >= actionDivs.length) return;
+            // First, calculate time for current action (index 0) to include in total
+            // but don't display it in the queue tooltip
+            if (currentActions.length > 0) {
+                const currentAction = currentActions[0];
+                const actionDetails = dataManager.getActionDetails(currentAction.actionHrid);
+
+                if (actionDetails) {
+                    const count = currentAction.maxCount - currentAction.currentCount;
+                    const isInfinite = count === 0 || currentAction.actionHrid.includes('/combat/');
+
+                    if (isInfinite) {
+                        hasInfinite = true;
+                    } else {
+                        const timeData = this.calculateActionTime(actionDetails);
+                        if (timeData) {
+                            const { actionTime, totalEfficiency } = timeData;
+                            const efficiencyMultiplier = 1 + (totalEfficiency / 100);
+                            const actualActionsNeeded = count / efficiencyMultiplier;
+                            const totalTime = actualActionsNeeded * actionTime;
+                            accumulatedTime += totalTime;
+                        }
+                    }
+                }
+            }
+
+            // Now process queued actions (starting from index 1)
+            // Map to actionDivs (which only show queued items, not current)
+            for (let i = 1; i < currentActions.length; i++) {
+                const actionObj = currentActions[i];
+                const divIndex = i - 1; // Queue divs are offset by 1 (no div for current action)
+
+                if (divIndex >= actionDivs.length) break;
 
                 const actionDetails = dataManager.getActionDetails(actionObj.actionHrid);
-                if (!actionDetails) return;
+                if (!actionDetails) continue;
 
                 // Calculate count remaining
                 const count = actionObj.maxCount - actionObj.currentCount;
@@ -439,7 +468,7 @@ class ActionTimeDisplay {
 
                 // Calculate action time
                 const timeData = this.calculateActionTime(actionDetails);
-                if (!timeData) return;
+                if (!timeData) continue;
 
                 const { actionTime, totalEfficiency } = timeData;
 
@@ -484,13 +513,13 @@ class ActionTimeDisplay {
                 }
 
                 // Inject into action div (append to first child div)
-                const firstChild = actionDivs[index].querySelector('div');
+                const firstChild = actionDivs[divIndex].querySelector('div');
                 if (firstChild) {
                     firstChild.appendChild(timeDiv);
                 }
-            });
+            }
 
-            // Add total time at bottom
+            // Add total time at bottom (includes current action + all queued)
             const totalDiv = document.createElement('div');
             totalDiv.id = 'mwi-queue-total-time';
             totalDiv.style.cssText = `
