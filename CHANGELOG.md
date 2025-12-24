@@ -9,6 +9,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### **Level Progress Calculator**
+
+**NEW FEATURE:** Action panels now display comprehensive level progression tracking with XP breakdown and time estimates.
+
+- **Collapsed Summary:**
+  - Shows time to next level (e.g., "2.5 days to Level 51")
+  - Quick at-a-glance reference for leveling progress
+
+- **Expanded View:**
+  - **Current Progress:** "Level 100 | 26.5% to Level 101"
+    - Simplified single-line format
+    - Progress calculated as: (XP gained this level) / (XP needed for this level)
+    - Matches game's native progress calculation
+
+  - **XP Per Action:**
+    - Format: "55.0 base → 75.4 (×1.37)"
+    - Shows base XP from action data
+    - Shows modified XP after all bonuses applied
+    - Displays total multiplier
+
+  - **Comprehensive XP Bonus Breakdown:**
+    - Total XP Bonus displayed at top (e.g., "+37.1%")
+    - Individual sources listed with percentages:
+      - **Celestial Shears:** Skill-specific equipment XP (e.g., +4.0% Foraging XP)
+      - **Philosopher's Equipment:** General wisdom bonus (+3.0% base, scales 5× with enhancement for accessories)
+      - **House Rooms:** +0.05% per level, all rooms contribute (e.g., +0.6% for 12 total levels)
+      - **Community Buff:** 20% base + 0.5% per tier (max 29.5% at T20)
+      - **Wisdom Tea:** 12% base, scales with Drink Concentration (e.g., +13.5% with Guzzling Pouch +8)
+    - Shows enhancement levels for equipped items (e.g., "Philosopher's Necklace +10")
+
+  - **Progress to Next Level:**
+    - Actions to level: Number of actions needed
+    - Time to level: Human-readable time estimate
+    - XP/hour and XP/day: Combined single-line format "18,912 | 453,878"
+
+- **XP Calculation Formula:**
+  - Skilling: `Final XP = Base XP × (1 + Total Wisdom + Charm Experience)`
+  - All XP sources are additive (Wisdom + Charm XP)
+  - Uses modified XP for all downstream calculations (actions needed, XP/hour, etc.)
+
+- **Technical Implementation:**
+  - NEW: `src/utils/experience-parser.js` (287 lines)
+    - `parseEquipmentWisdom()` - Philosopher's items (skillingExperience stat)
+    - `parseCharmExperience()` - Skill-specific XP (e.g., foragingExperience)
+    - `parseHouseRoomWisdom()` - +0.05% per house level
+    - `parseCommunityBuffWisdom()` - 20% + 0.5% per tier
+    - `parseConsumableWisdom()` - Wisdom Tea/Coffee with DC scaling
+    - `calculateExperienceMultiplier()` - Combines all sources with breakdown
+  - Modified: `src/features/actions/quick-input-buttons.js`
+    - `createLevelProgressSection()` - Creates collapsible level progress display
+    - Added summary parameter to `createCollapsibleSection()` for collapsed summaries
+    - Removed visual progress bar (game already has one on side panel)
+
+- **Files:**
+  - NEW: `src/utils/experience-parser.js` (287 lines)
+  - Modified: `src/features/actions/quick-input-buttons.js`
+  - Modified: `src/main.js` (import experience parser)
+
+**Result:** Complete level progression tracking showing exactly when you'll level up, how much XP you're gaining per hour, and detailed breakdown of all XP bonus sources.
+
 #### **Progressive Disclosure Profit Display (Option C)**
 
 **UX IMPROVEMENT:** Complete redesign of gathering profit display with nested collapsible sections.
@@ -132,6 +192,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Result:** Base Output now correctly displays item breakdowns with prices
 - **File:** `src/features/actions/gathering-profit.js`
 
+#### **Level Progress Calculator Fixes**
+
+**BUG FIXES:** Multiple issues corrected in XP calculation and display.
+
+- **Null Drink Slots Error:**
+  - **Issue:** `parseConsumableWisdom()` crashed when drink slots contained null entries
+  - **Fix:** Added null check: `if (!drink || !drink.itemHrid) continue;`
+  - **File:** `src/utils/experience-parser.js`
+
+- **Backwards XP Display:**
+  - **Issue:** Showing "40.1 base → 55" when it should be "55 base → 75.4"
+  - **Root Cause:** XP multiplier calculated too late, dividing instead of multiplying
+  - **Fix:**
+    - Moved `calculateExperienceMultiplier()` before calculations
+    - Changed to: `modifiedXP = baseXP × totalMultiplier`
+    - Used modified XP for all downstream calculations (actions needed, XP/hour)
+  - **Example:** Star Fruit with 37.1% bonus: 55 base → 75.4 modified
+  - **File:** `src/features/actions/quick-input-buttons.js`
+
+- **Progress Percentage Calculation:**
+  - **Issue:** Progress calculated as `currentXP / xpForNextLevel` (total XP vs. threshold)
+  - **Fix:** Changed to `(xpGainedThisLevel) / (xpNeededThisLevel)` (matches game's display)
+  - **Example:** Level 50 (10,000 XP) with 12,000 current XP → 40% progress (not 80%)
+  - **File:** `src/features/actions/quick-input-buttons.js`
+
 ### Changed
 
 #### **Profit Display Improvements**
@@ -158,6 +243,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Essence Find % with essence drops only
   - Rare Find % with rare find drops only
   - Eliminates confusion about which bonuses affect which items
+
+#### **Level Progress Display Simplification**
+
+**UX IMPROVEMENTS:** Streamlined level progress display for better readability and consistency.
+
+- **Removed Visual Progress Bar:**
+  - Eliminated Unicode progress bar (████████░░░░░░░░░░░░░░░░░░░░)
+  - Game already shows progress bar on side panel (no duplication needed)
+  - Kept percentage text: "26.5% to Level 101"
+
+- **Simplified Current Level Display:**
+  - Combined two lines into one: "Level 100 | 26.5% to Level 101"
+  - Removed XP numbers (10,371,822/11,404,976)
+  - More concise and easier to scan
+
+- **Streamlined Progress-to-Level Section:**
+  - Removed horizontal separator bar (visual clutter)
+  - Removed "At current rate:" header (redundant)
+  - Combined XP rates into single line: "XP/hour: 18,912 | XP/day: 453,878"
+  - Changed "Daily gain: 453,878 XP (0.3 levels)" to simpler "XP/day: 453,878"
+  - Cleaner, more compact layout
+
+- **Added Collapsed Summary:**
+  - Shows time to next level when section collapsed
+  - Format: "2.5 days to Level 51" or "45m 30s to Level 32"
+  - Quick at-a-glance reference without expanding section
+
+- **File:** `src/features/actions/quick-input-buttons.js`
 
 ## [0.4.5] - 2025-12-23
 

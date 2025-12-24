@@ -238,15 +238,32 @@ All efficiency sources are automatically detected from character data - no manua
   - `calculateActionMetrics()` computes real-time duration and efficiency
   - Full efficiency system: speed, level, house, tea, equipment
   - Simple white button styling matching original MWI Tools
-  - Organized in collapsible sections (⏱ Action Speed & Time, ⚡ Quick Queue Setup)
+  - Organized in collapsible sections (⏱ Action Speed & Time, 📈 Level Progress, ⚡ Quick Queue Setup)
   - Works on all action types (gathering, production, combat)
+
+  - **Level Progress Calculator:**
+    - Collapsed summary: Shows time to next level (e.g., "2.5 days to Level 51")
+    - Current level and progress: "Level 100 | 26.5% to Level 101"
+    - XP per action: Base → Modified (with multiplier)
+    - Comprehensive XP bonus breakdown:
+      - Equipment skill-specific XP (e.g., Celestial Shears +4.0% Foraging XP)
+      - Philosopher's Equipment wisdom (+3.0% at base, scales with enhancement)
+      - House Rooms (+0.05% per level, all rooms contribute)
+      - Community Buff (20% base + 0.5% per tier, max 29.5% at T20)
+      - Wisdom Tea/Coffee (12% base, scales with Drink Concentration)
+    - Actions to level calculation
+    - Time to level estimation
+    - XP/hour and XP/day rates (hourly | daily format)
+    - Uses modified XP for all calculations (accounts for all bonuses)
+    - Formula: `Final XP = Base XP × (1 + Total Wisdom + Charm Experience)`
+    - All sources are additive for skilling XP
 
 **Action Panel Features Summary:**
 - ✅ **Gathering profit calculator** - Comprehensive economic analysis for Foraging, Woodcutting, Milking
 - ✅ **Total action time** - Current action display in header + queue tooltip with individual/cumulative times
 - ✅ **Quick input buttons** - Preset buttons (10, 100, 1000, Max) for fast queue input with React _valueTracker integration
-- ❌ **Level progression calculator** - Not yet implemented
-- ❌ **XP per hour display** - Not yet implemented
+- ✅ **Level progression calculator** - Real-time XP tracking with comprehensive bonus breakdown
+- ✅ **XP per hour display** - Hourly and daily XP gain calculations
 
 #### Remaining Features
 - [ ] Networth calculation
