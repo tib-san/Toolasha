@@ -698,11 +698,6 @@ async function displayGatheringProfit(panel, actionHrid) {
 
     costsDiv.appendChild(drinkCostsSection);
 
-    // Net Profit Section (Revenue - Costs)
-    const netProfitDiv = document.createElement('div');
-    const profitColor = profit >= 0 ? '#4ade80' : '#f87171'; // green if positive, red if negative
-    netProfitDiv.innerHTML = `<div style="font-weight: 500; color: ${profitColor}; margin-top: 12px; margin-bottom: 4px;">Net Profit: ${formatWithSeparator(profit)}/hr</div>`;
-
     // Modifiers Section
     const modifiersDiv = document.createElement('div');
     modifiersDiv.style.cssText = `
@@ -749,10 +744,9 @@ async function displayGatheringProfit(panel, actionHrid) {
 
     modifiersDiv.innerHTML = modifierLines.join('');
 
-    // Assemble Detailed Breakdown
+    // Assemble Detailed Breakdown (WITHOUT net profit - that goes in top level)
     detailsContent.appendChild(revenueDiv);
     detailsContent.appendChild(costsDiv);
-    detailsContent.appendChild(netProfitDiv);
     detailsContent.appendChild(modifiersDiv);
 
     // Create "Detailed Breakdown" collapsible
@@ -760,6 +754,17 @@ async function displayGatheringProfit(panel, actionHrid) {
     topLevelContent.innerHTML = `
         <div style="margin-bottom: 4px;">Actions: ${profitData.actionsPerHour.toFixed(1)}/hr | Efficiency: +${profitData.totalEfficiency.toFixed(1)}%</div>
     `;
+
+    // Add Net Profit line at top level (always visible when Profitability is expanded)
+    const profitColor = profit >= 0 ? '#4ade80' : '#f87171'; // green if positive, red if negative
+    const netProfitLine = document.createElement('div');
+    netProfitLine.style.cssText = `
+        font-weight: 500;
+        color: ${profitColor};
+        margin-bottom: 8px;
+    `;
+    netProfitLine.textContent = `Net Profit: ${formatWithSeparator(profit)}/hr`;
+    topLevelContent.appendChild(netProfitLine);
 
     const detailedBreakdownSection = createCollapsibleSection(
         '📊',
@@ -775,7 +780,7 @@ async function displayGatheringProfit(panel, actionHrid) {
     // Create main profit section
     const profitSection = createCollapsibleSection(
         '💰',
-        'Profitability (Gathering)',
+        'Profitability',
         summary,
         topLevelContent,
         false,
