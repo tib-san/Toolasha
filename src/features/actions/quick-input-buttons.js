@@ -17,6 +17,7 @@ import { parseEquipmentSpeedBonuses, parseEquipmentEfficiencyBonuses } from '../
 import { parseTeaEfficiency, getDrinkConcentration, parseActionLevelBonus } from '../../utils/tea-parser.js';
 import { calculateHouseEfficiency } from '../../utils/house-efficiency.js';
 import { stackAdditive } from '../../utils/efficiency.js';
+import { timeReadable } from '../../utils/formatters.js';
 
 /**
  * QuickInputButtons class manages quick input button injection
@@ -115,6 +116,55 @@ class QuickInputButtons {
                 return;
             }
 
+            // Create total time display div (inserted before buttons)
+            const totalTimeDiv = document.createElement('div');
+            totalTimeDiv.className = 'mwi-total-time-display';
+            totalTimeDiv.style.cssText = `
+                margin-top: 4px;
+                margin-bottom: 4px;
+                text-align: left;
+                color: var(--text-color-main, #6fb8e8);
+                font-weight: 500;
+            `;
+
+            // Function to update total time display
+            const updateTotalTime = () => {
+                const queueCount = parseInt(numberInput.value) || 0;
+                if (queueCount > 0) {
+                    // Account for efficiency reducing actions needed
+                    const actualActionsNeeded = queueCount / efficiencyMultiplier;
+                    const totalSeconds = actualActionsNeeded * actionTime;
+                    totalTimeDiv.textContent = `Total time: ${timeReadable(totalSeconds)}`;
+                } else {
+                    totalTimeDiv.textContent = 'Total time: 0s';
+                }
+            };
+
+            // Initial update
+            updateTotalTime();
+
+            // Watch for input changes using MutationObserver (game uses attribute mutations)
+            const inputObserver = new MutationObserver(() => {
+                updateTotalTime();
+            });
+
+            inputObserver.observe(numberInput, {
+                attributes: true,
+                attributeFilter: ['value']
+            });
+
+            // Also listen to input/change events for manual typing
+            numberInput.addEventListener('input', updateTotalTime);
+            numberInput.addEventListener('change', updateTotalTime);
+
+            // Listen to panel clicks (buttons, etc.)
+            panel.addEventListener('click', () => {
+                setTimeout(updateTotalTime, 50);
+            });
+
+            // Insert total time display
+            inputContainer.insertAdjacentElement('afterend', totalTimeDiv);
+
             // Create button container
             const buttonContainer = document.createElement('div');
             buttonContainer.className = 'mwi-quick-input-buttons';
@@ -163,8 +213,8 @@ class QuickInputButtons {
 
             buttonContainer.appendChild(document.createTextNode(' times'));
 
-            // Insert buttons inside the panel, after the input container
-            inputContainer.insertAdjacentElement('afterend', buttonContainer);
+            // Insert buttons after total time display
+            totalTimeDiv.insertAdjacentElement('afterend', buttonContainer);
 
         } catch (error) {
             console.error('[MWI Tools] Error injecting quick input buttons:', error);
