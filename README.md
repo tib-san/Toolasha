@@ -220,6 +220,16 @@ All efficiency sources are automatically detected from character data - no manua
   - Market tax: 2% selling fee applied to all revenue
   - Returns: profitPerHour, profitPerDay, revenuePerHour, drinkCostPerHour, actionsPerHour, efficiency breakdown, bonus revenue details, gathering/processing breakdowns
 
+- **quick-input-buttons.js** - Fast queue setup with preset buttons ✅
+  - Preset buttons: 10, 100, 1,000, Max (currently 10,000)
+  - Positioned inside action panel modal, below queue input field
+  - Uses React's `_valueTracker` for proper state updates
+  - `setInputValue()` mimics original `reactInputTriggerHack()` implementation
+  - Saves old value → sets new value → updates tracker → dispatches event
+  - React recognizes change and updates component state immediately
+  - Simple white button styling matching original MWI Tools
+  - Works on all action types (gathering, production, combat)
+
 **Action Panel Features Summary:**
 - ✅ **Gathering profit calculator** - Comprehensive economic analysis for Foraging, Woodcutting, Milking
 - ✅ **Total action time** - Current action display in header + queue tooltip with individual/cumulative times

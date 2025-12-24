@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### **Quick Input Buttons**
+
+**NEW FEATURE:** Action panels now include quick input buttons for fast queue setup.
+
+- **Preset Buttons:**
+  - 10, 100, 1,000 actions
+  - Max button (currently set to 10,000)
+  - Format: "Do [10] [100] [1,000] [Max] times"
+
+- **Positioning:**
+  - Buttons appear inside the action panel modal
+  - Located directly below the queue input field
+  - Matches original MWI Tools positioning exactly
+
+- **React Integration:**
+  - Uses React's internal `_valueTracker` for proper state updates
+  - `setInputValue()` function mimics original `reactInputTriggerHack()`
+  - Saves old value, sets new value, updates tracker, dispatches event
+  - React recognizes the DOM value change and updates component state
+
+- **Technical Implementation:**
+  - MutationObserver watches for `[class*="SkillActionDetail_skillActionDetail"]` panels
+  - Finds input via `querySelector('input[type="number"]')` with fallbacks
+  - Positions after `numberInput.parentNode.parentNode.parentNode` container
+  - Simple white button styling matching original (1px 6px padding, #fff background)
+
+- **Files:**
+  - NEW: `src/features/actions/quick-input-buttons.js` (245 lines)
+  - Modified: `src/main.js` (import, initialize, export to window.MWITools)
+  - Modified: `README.md` (feature status update)
+
+**Result:** Fast queue input without manual typing. Click a button and React updates the input value immediately.
+
 ## [0.4.5] - 2025-12-23
 
 ### Overview
