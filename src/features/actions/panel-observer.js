@@ -796,7 +796,7 @@ async function displayGatheringProfit(panel, actionHrid) {
         color: ${profitColor};
         margin-bottom: 8px;
     `;
-    netProfitLine.textContent = `Net Profit: ${formatWithSeparator(profit)}/hr`;
+    netProfitLine.textContent = `Net Profit: ${formatWithSeparator(profit)}/hr, ${formatWithSeparator(profitPerDay)}/day`;
     topLevelContent.appendChild(netProfitLine);
 
     const detailedBreakdownSection = createCollapsibleSection(
