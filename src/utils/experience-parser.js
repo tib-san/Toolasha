@@ -152,6 +152,8 @@ export function parseConsumableWisdom(drinkSlots, itemDetailMap, drinkConcentrat
     let totalWisdom = 0;
 
     for (const drink of drinkSlots) {
+        if (!drink || !drink.itemHrid) continue; // Skip empty slots
+
         const itemDetails = itemDetailMap[drink.itemHrid];
         if (!itemDetails?.consumableDetail) continue;
 
