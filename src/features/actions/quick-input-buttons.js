@@ -626,29 +626,30 @@ class QuickInputButtons {
 
             // XP breakdown (if any bonuses exist)
             if (xpData.totalWisdom > 0 || xpData.charmExperience > 0) {
-                const breakdownParts = [];
-                if (xpData.breakdown.equipmentWisdom > 0) {
-                    breakdownParts.push(`${xpData.breakdown.equipmentWisdom.toFixed(1)}% equipment`);
-                }
-                if (xpData.breakdown.houseWisdom > 0) {
-                    breakdownParts.push(`${xpData.breakdown.houseWisdom.toFixed(1)}% house`);
-                }
-                if (xpData.breakdown.communityWisdom > 0) {
-                    breakdownParts.push(`${xpData.breakdown.communityWisdom.toFixed(1)}% community`);
-                }
-                if (xpData.breakdown.consumableWisdom > 0) {
-                    breakdownParts.push(`${xpData.breakdown.consumableWisdom.toFixed(1)}% tea`);
-                }
-                if (xpData.charmExperience > 0) {
-                    breakdownParts.push(`${xpData.charmExperience.toFixed(1)}% charm`);
+                // Wisdom breakdown
+                if (xpData.totalWisdom > 0) {
+                    lines.push(`  Wisdom: +${xpData.totalWisdom.toFixed(1)}%`);
+                    if (xpData.breakdown.equipmentWisdom > 0) {
+                        lines.push(`    • Equipment: +${xpData.breakdown.equipmentWisdom.toFixed(1)}%`);
+                    }
+                    if (xpData.breakdown.houseWisdom > 0) {
+                        lines.push(`    • House: +${xpData.breakdown.houseWisdom.toFixed(1)}%`);
+                    }
+                    if (xpData.breakdown.communityWisdom > 0) {
+                        lines.push(`    • Community: +${xpData.breakdown.communityWisdom.toFixed(1)}%`);
+                    }
+                    if (xpData.breakdown.consumableWisdom > 0) {
+                        lines.push(`    • Tea: +${xpData.breakdown.consumableWisdom.toFixed(1)}%`);
+                    }
                 }
 
-                if (breakdownParts.length > 0) {
-                    lines.push(`  → Wisdom: +${xpData.totalWisdom.toFixed(1)}%${xpData.charmExperience > 0 ? `, Charm: +${xpData.charmExperience.toFixed(1)}%` : ''}`);
-                    lines.push(`  → (${breakdownParts.join(', ')})`);
+                // Charm experience breakdown
+                if (xpData.charmExperience > 0) {
+                    lines.push(`  Charm Experience: +${xpData.charmExperience.toFixed(1)}%`);
                 }
             }
 
+            lines.push('');
             lines.push(`Actions to level: ${formatWithSeparator(actionsNeeded)} actions`);
             lines.push(`Time to level: ${timeReadable(timeNeeded)}`);
             lines.push('');
