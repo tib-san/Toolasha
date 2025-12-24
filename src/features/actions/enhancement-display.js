@@ -98,6 +98,16 @@ export async function displayEnhancementStats(panel, itemHrid) {
         // Detect protection item once (avoid repeated DOM queries)
         const protectionItemHrid = getProtectionItemFromUI(panel);
 
+        // Check for Philosopher's Mirror - calculator doesn't apply (100% success, different cost model)
+        if (protectionItemHrid === '/items/philosophers_mirror') {
+            // Remove existing calculator if present
+            const existing = panel.querySelector('#mwi-enhancement-stats');
+            if (existing) {
+                existing.remove();
+            }
+            return; // Exit - Philosopher's Mirror uses different mechanics
+        }
+
         // Calculate per-action time (simple calculation, no Markov chain needed)
         const perActionTime = calculatePerActionTime(
             params.enhancingLevel,
