@@ -76,11 +76,12 @@ class QuickInputButtons {
      * @param {string} id - Unique ID for the section
      * @param {string} icon - Icon/emoji for the section
      * @param {string} title - Section title
+     * @param {string} summary - Summary text (shown when collapsed)
      * @param {HTMLElement} content - Content element to show/hide
      * @param {boolean} defaultOpen - Whether section starts open
      * @returns {HTMLElement} Section container
      */
-    createCollapsibleSection(id, icon, title, content, defaultOpen = true) {
+    createCollapsibleSection(id, icon, title, summary, content, defaultOpen = true) {
         const section = document.createElement('div');
         section.className = 'mwi-collapsible-section';
         section.style.cssText = `
@@ -115,6 +116,19 @@ class QuickInputButtons {
         header.appendChild(arrow);
         header.appendChild(label);
 
+        // Create summary (shown when collapsed)
+        const summaryDiv = document.createElement('div');
+        summaryDiv.style.cssText = `
+            margin-left: 16px;
+            margin-top: 2px;
+            color: var(--text-color-secondary, #888);
+            font-size: 0.9em;
+            display: ${defaultOpen ? 'none' : 'block'};
+        `;
+        if (summary) {
+            summaryDiv.textContent = summary;
+        }
+
         // Create content wrapper
         const contentWrapper = document.createElement('div');
         contentWrapper.className = 'mwi-section-content';
@@ -129,10 +143,16 @@ class QuickInputButtons {
         header.addEventListener('click', () => {
             const isOpen = contentWrapper.style.display === 'block';
             contentWrapper.style.display = isOpen ? 'none' : 'block';
+            if (summary) {
+                summaryDiv.style.display = isOpen ? 'block' : 'none';
+            }
             arrow.textContent = isOpen ? '▶' : '▼';
         });
 
         section.appendChild(header);
+        if (summary) {
+            section.appendChild(summaryDiv);
+        }
         section.appendChild(contentWrapper);
 
         return section;
@@ -266,6 +286,7 @@ class QuickInputButtons {
                 'speed-time',
                 '⏱',
                 'Action Speed & Time',
+                null, // No summary
                 speedContent,
                 true
             );
@@ -324,6 +345,7 @@ class QuickInputButtons {
                 'quick-queue',
                 '⚡',
                 'Quick Queue Setup',
+                null, // No summary
                 queueContent,
                 true
             );
@@ -619,11 +641,6 @@ class QuickInputButtons {
             lines.push(`Progress: ${progressPercent.toFixed(1)}% to Level ${nextLevel}`);
             lines.push('');
 
-            // Progress bar
-            const progressBar = this.createProgressBar(progressPercent);
-            lines.push(`<div style="font-family: monospace; color: var(--text-color-main, #6fb8e8);">${progressBar}</div>`);
-            lines.push('');
-
             // Action details
             lines.push(`XP per action: ${formatWithSeparator(baseXP.toFixed(1))} base → ${formatWithSeparator(modifiedXP.toFixed(1))} (×${xpData.totalMultiplier.toFixed(2)})`);
 
@@ -678,11 +695,15 @@ class QuickInputButtons {
 
             content.innerHTML = lines.join('<br>');
 
+            // Create summary for collapsed view (time to next level)
+            const summary = `${timeReadable(timeNeeded)} to Level ${nextLevel}`;
+
             // Create collapsible section
             return this.createCollapsibleSection(
                 'level-progress',
                 '📈',
                 'Level Progress',
+                summary,
                 content,
                 true
             );
@@ -690,19 +711,6 @@ class QuickInputButtons {
             console.error('[MWI Tools] Error creating level progress section:', error);
             return null;
         }
-    }
-
-    /**
-     * Create progress bar visualization
-     * @param {number} percent - Progress percentage (0-100)
-     * @returns {string} Unicode progress bar
-     */
-    createProgressBar(percent) {
-        const barLength = 30;
-        const filled = Math.floor((percent / 100) * barLength);
-        const empty = barLength - filled;
-
-        return '█'.repeat(filled) + '░'.repeat(empty);
     }
 }
 
