@@ -17,7 +17,7 @@ import { parseEquipmentSpeedBonuses, parseEquipmentEfficiencyBonuses } from '../
 import { parseTeaEfficiency, getDrinkConcentration, parseActionLevelBonus } from '../../utils/tea-parser.js';
 import { calculateHouseEfficiency } from '../../utils/house-efficiency.js';
 import { stackAdditive } from '../../utils/efficiency.js';
-import { timeReadable } from '../../utils/formatters.js';
+import { timeReadable, formatWithSeparator } from '../../utils/formatters.js';
 
 /**
  * QuickInputButtons class manages quick input button injection
@@ -269,7 +269,13 @@ class QuickInputButtons {
                 true
             );
 
-            // ===== SECTION 2: Quick Queue Setup =====
+            // ===== SECTION 2: Level Progress =====
+            const levelProgressSection = this.createLevelProgressSection(
+                actionDetails,
+                actionTime
+            );
+
+            // ===== SECTION 3: Quick Queue Setup =====
             const queueContent = document.createElement('div');
             queueContent.style.cssText = `
                 color: var(--text-color-secondary, #888);
@@ -323,7 +329,12 @@ class QuickInputButtons {
 
             // Insert sections
             inputContainer.insertAdjacentElement('afterend', speedSection);
-            speedSection.insertAdjacentElement('afterend', queueSection);
+            if (levelProgressSection) {
+                speedSection.insertAdjacentElement('afterend', levelProgressSection);
+                levelProgressSection.insertAdjacentElement('afterend', queueSection);
+            } else {
+                speedSection.insertAdjacentElement('afterend', queueSection);
+            }
 
         } catch (error) {
             console.error('[MWI Tools] Error injecting quick input buttons:', error);
@@ -515,6 +526,136 @@ class QuickInputButtons {
             console.error('[MWI Tools] Error calculating max value:', error);
             return 10000;
         }
+    }
+
+    /**
+     * Create level progress section
+     * @param {Object} actionDetails - Action details from game data
+     * @param {number} actionTime - Time per action in seconds
+     * @returns {HTMLElement|null} Level progress section or null if not applicable
+     */
+    createLevelProgressSection(actionDetails, actionTime) {
+        try {
+            // Get XP information from action
+            const experienceGain = actionDetails.experienceGain;
+            if (!experienceGain || !experienceGain.skillHrid || experienceGain.value <= 0) {
+                return null; // No XP gain for this action
+            }
+
+            const skillHrid = experienceGain.skillHrid;
+            const xpPerAction = experienceGain.value;
+
+            // Get character skills
+            const skills = dataManager.getSkills();
+            if (!skills) {
+                return null;
+            }
+
+            // Find the skill
+            const skill = skills.find(s => s.skillHrid === skillHrid);
+            if (!skill) {
+                return null;
+            }
+
+            // Get level experience table
+            const gameData = dataManager.getInitClientData();
+            const levelExperienceTable = gameData?.levelExperienceTable;
+            if (!levelExperienceTable) {
+                return null;
+            }
+
+            // Current level and XP
+            const currentLevel = skill.level;
+            const currentXP = skill.experience || 0;
+
+            // XP needed for next level
+            const nextLevel = currentLevel + 1;
+            const xpForNextLevel = levelExperienceTable[nextLevel];
+
+            if (!xpForNextLevel) {
+                // Max level reached
+                return null;
+            }
+
+            // Calculate progress
+            const xpNeeded = xpForNextLevel - currentXP;
+            const progressPercent = (currentXP / xpForNextLevel) * 100;
+
+            // Calculate actions and time needed
+            const actionsNeeded = Math.ceil(xpNeeded / xpPerAction);
+            const timeNeeded = actionsNeeded * actionTime;
+
+            // Calculate rates
+            const actionsPerHour = 3600 / actionTime;
+            const xpPerHour = actionsPerHour * xpPerAction;
+            const xpPerDay = xpPerHour * 24;
+
+            // Calculate daily level progress
+            const xpForCurrentLevel = levelExperienceTable[currentLevel] || 0;
+            const xpForLevelRange = xpForNextLevel - xpForCurrentLevel;
+            const dailyLevelProgress = xpPerDay / xpForLevelRange;
+
+            // Create content
+            const content = document.createElement('div');
+            content.style.cssText = `
+                color: var(--text-color-secondary, #888);
+                font-size: 0.9em;
+                line-height: 1.6;
+            `;
+
+            const lines = [];
+
+            // Current level and XP
+            lines.push(`Current: Level ${currentLevel} (${formatWithSeparator(currentXP)}/${formatWithSeparator(xpForNextLevel)} XP)`);
+            lines.push(`Progress: ${progressPercent.toFixed(1)}% to Level ${nextLevel}`);
+            lines.push('');
+
+            // Progress bar
+            const progressBar = this.createProgressBar(progressPercent);
+            lines.push(`<div style="font-family: monospace; color: var(--text-color-main, #6fb8e8);">${progressBar}</div>`);
+            lines.push('');
+
+            // Action details
+            lines.push(`XP per action: ${formatWithSeparator(xpPerAction)}`);
+            lines.push(`Actions to level: ${formatWithSeparator(actionsNeeded)} actions`);
+            lines.push(`Time to level: ${timeReadable(timeNeeded)}`);
+            lines.push('');
+
+            // Separator
+            lines.push('<div style="border-top: 1px solid var(--text-color-secondary, #888); opacity: 0.3; margin: 8px 0;"></div>');
+
+            // Rates
+            lines.push('<div style="color: var(--text-color-primary, #fff); font-weight: 500; margin-bottom: 4px;">At current rate:</div>');
+            lines.push(`• XP/hour: ${formatWithSeparator(Math.round(xpPerHour))}`);
+            lines.push(`• Daily gain: ${formatWithSeparator(Math.round(xpPerDay))} XP (${dailyLevelProgress.toFixed(1)} levels)`);
+
+            content.innerHTML = lines.join('<br>');
+
+            // Create collapsible section
+            return this.createCollapsibleSection(
+                'level-progress',
+                '📈',
+                'Level Progress',
+                content,
+                true
+            );
+        } catch (error) {
+            console.error('[MWI Tools] Error creating level progress section:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Create progress bar visualization
+     * @param {number} percent - Progress percentage (0-100)
+     * @returns {string} Unicode progress bar
+     */
+    createProgressBar(percent) {
+        const barLength = 30;
+        const filled = Math.floor((percent / 100) * barLength);
+        const empty = barLength - filled;
+
+        return '█'.repeat(filled) + '░'.repeat(empty);
     }
 }
 
