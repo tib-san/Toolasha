@@ -235,10 +235,8 @@ class ActionTimeDisplay {
         const completionTime = new Date();
         completionTime.setSeconds(completionTime.getSeconds() + totalTimeSeconds);
 
-        // Format time strings
-        const timeStr = totalTimeSeconds >= 86400
-            ? `${(totalTimeSeconds / 86400).toFixed(1)} days`
-            : timeReadable(totalTimeSeconds);
+        // Format time strings (timeReadable handles days/hours/minutes properly)
+        const timeStr = timeReadable(totalTimeSeconds);
 
         // Format completion time
         const now = new Date();
