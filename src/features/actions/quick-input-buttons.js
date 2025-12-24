@@ -77,7 +77,7 @@ class QuickInputButtons {
     injectButtons(panel) {
         try {
             // Check if already injected
-            if (panel.querySelector('.mwi-quick-input-buttons')) {
+            if (panel.querySelector('.mwi-quick-input-buttons') || panel.querySelector('.mwi-speed-breakdown')) {
                 return;
             }
 
@@ -116,7 +116,45 @@ class QuickInputButtons {
                 return;
             }
 
-            // Create total time display div (inserted before buttons)
+            // Create speed breakdown display
+            const speedBreakdownDiv = document.createElement('div');
+            speedBreakdownDiv.className = 'mwi-speed-breakdown';
+            speedBreakdownDiv.style.cssText = `
+                margin-top: 4px;
+                margin-bottom: 4px;
+                text-align: left;
+                color: var(--text-color-secondary, #888);
+                font-size: 0.85em;
+                line-height: 1.4;
+            `;
+
+            // Get equipment details for display
+            const equipment = dataManager.getEquipment();
+            const itemDetailMap = dataManager.getInitClientData()?.itemDetailMap || {};
+
+            // Calculate speed breakdown
+            const baseTime = actionDetails.baseTimeCost / 1e9;
+            const speedBonus = parseEquipmentSpeedBonuses(
+                equipment,
+                actionDetails.type,
+                itemDetailMap
+            );
+
+            // Build speed breakdown text
+            const speedLines = [];
+            speedLines.push(`<span style="color: var(--text-color-primary, #fff);">Action Speed:</span>`);
+            speedLines.push(`  Base time: ${baseTime.toFixed(2)}s`);
+            if (speedBonus > 0) {
+                speedLines.push(`  Speed bonus: +${(speedBonus * 100).toFixed(1)}%`);
+            }
+            speedLines.push(`  <span style="color: var(--text-color-primary, #fff);">Final time: ${actionTime.toFixed(2)}s/action (${(3600 / actionTime).toFixed(0)}/hr)</span>`);
+
+            speedBreakdownDiv.innerHTML = speedLines.join('<br>');
+
+            // Insert speed breakdown
+            inputContainer.insertAdjacentElement('afterend', speedBreakdownDiv);
+
+            // Create total time display div (inserted after speed breakdown)
             const totalTimeDiv = document.createElement('div');
             totalTimeDiv.className = 'mwi-total-time-display';
             totalTimeDiv.style.cssText = `
@@ -170,8 +208,8 @@ class QuickInputButtons {
                 setTimeout(updateTotalTime, 50);
             });
 
-            // Insert total time display
-            inputContainer.insertAdjacentElement('afterend', totalTimeDiv);
+            // Insert total time display after speed breakdown
+            speedBreakdownDiv.insertAdjacentElement('afterend', totalTimeDiv);
 
             // Create button container
             const buttonContainer = document.createElement('div');
