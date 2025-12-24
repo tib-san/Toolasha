@@ -9,6 +9,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### **Progressive Disclosure Profit Display (Option C)**
+
+**UX IMPROVEMENT:** Complete redesign of gathering profit display with nested collapsible sections.
+
+- **Collapsed Summary:**
+  - Shows profit/hr and profit/day only (no revenue/costs breakdown)
+  - Format: `985,313/hr, 23,647,512/day`
+  - Clean and concise for quick reference
+
+- **Progressive Disclosure Structure:**
+  ```
+  ▼ 💰 Profitability
+    Actions: 334.1/hr | Efficiency: +33.2%
+    Net Profit: 985,313/hr (always visible when expanded)
+
+    ▼ 📊 Detailed Breakdown
+      Revenue: 1,061,249/hr
+        ▶ Base Output: 763,133/hr (1 item)
+        ▶ Essence Drops: 16,035/hr (1 item, 10.0% essence find)
+        ▶ Rare Finds: 282,081/hr (2 items, 2.4% rare find)
+
+      Costs: 75,936/hr
+        ▶ Drink Costs: 75,936/hr (2 drinks)
+
+      Modifiers:
+        • Efficiency: +33.2% (20% level, 11.2% tea, 2.0% equip)
+        • Gathering Quantity: +29.5% (29.5% community)
+  ```
+
+- **Key Features:**
+  - Net Profit line always visible at top level (not hidden in Detailed Breakdown)
+  - Color-coded profit (green if positive, red if negative)
+  - Split bonus drops into Essence Drops and Rare Finds subsections
+  - Essence Find % only shown with essence drops (not misleading)
+  - Rare Find % only shown with rare find drops
+  - Each subsection independently collapsible
+  - Pattern: "Subtotal first, detailed breakdown nested below"
+
+- **Files Modified:**
+  - `src/features/actions/panel-observer.js` (complete rewrite of displayGatheringProfit)
+  - `src/features/actions/gathering-profit.js` (added priceEach and revenuePerHour to baseOutputs)
+
 #### **Quick Input Buttons**
 
 **NEW FEATURE:** Action panels now include quick input buttons for fast queue setup with real-time total time display.
@@ -16,8 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Total Time Display:**
   - Shows "Total time: [duration]" above buttons
   - Updates automatically when input changes
-  - Format: "1 day 5h 45m" using timeReadable()
-  - Accounts for efficiency reducing actions needed
+  - Format: "1h 23m 45s" using timeReadable()
+  - Simple calculation: actions × actionTime (efficiency affects OUTPUT, not time)
   - Blue color matching game's main theme
 
 - **Two-Row Layout:**
@@ -32,15 +74,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     ```
 
 - **Time-Based Calculation:**
-  - Formula: `actionCount = Math.round((hours * 60 * 60 * efficiency) / actionDuration)`
-  - Accounts for: equipment speed bonuses, level efficiency, house rooms, tea buffs
-  - Example: "1 hour" button calculates how many actions fit in 1 hour with your current stats
+  - Formula: `actionCount = Math.round((hours × 3600) / actionTime)`
+  - Example: "1 hour" button calculates how many actions fit in 1 hour
   - Dynamically adjusts based on character state (gear, skills, buffs)
+  - **CRITICAL:** Input box is for NUMBER OF ACTIONS (not output items)
 
 - **Positioning:**
   - Buttons appear inside the action panel modal
   - Located directly below the queue input field
-  - Matches original MWI Tools positioning exactly
+  - Organized in collapsible sections
 
 - **React Integration:**
   - Uses React's internal `_valueTracker` for proper state updates
@@ -48,21 +90,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Saves old value, sets new value, updates tracker, dispatches event
   - React recognizes the DOM value change and updates component state
 
-- **Technical Implementation:**
-  - MutationObserver watches for `[class*="SkillActionDetail_skillActionDetail"]` panels
-  - Input monitoring: MutationObserver on `value` attribute + input/change events
-  - Positions after `numberInput.parentNode.parentNode.parentNode` container
-  - Simple white button styling matching original (1px 6px padding, #fff background)
-  - `calculateActionMetrics()` computes real-time action duration and efficiency
-  - `getActionDetailsByName()` looks up action from display name
-  - Full efficiency system integration (speed, level, house, tea, equipment)
-
 - **Files:**
-  - NEW: `src/features/actions/quick-input-buttons.js` (437 lines)
+  - NEW: `src/features/actions/quick-input-buttons.js` (520 lines)
   - Modified: `src/main.js` (import, initialize, export to window.MWITools)
-  - Modified: `README.md` (feature status update)
 
-**Result:** Fast queue input with both time-based and count-based options plus real-time feedback. Click "1 hour" and see exactly how long it will take. Type any number and immediately see the total duration.
+**Result:** Fast queue input with both time-based and count-based options plus real-time feedback. Click "1 hour" and see exactly how long it will take.
+
+### Fixed
+
+#### **Rare Find Calculation Correction**
+
+**BUG FIX:** House room rare find bonus was incorrectly including 0.2% base bonus.
+
+- **Previous Formula:** 0.2% base + (totalLevels × 0.2%) = 2.6% for 12 levels ❌
+- **Correct Formula:** totalLevels × 0.2% = 2.4% for 12 levels ✓
+- **Maximum:** 64 levels (8 rooms × 8 levels) × 0.2% = 12.8%
+- **Source:** Game data and wiki documentation confirm no base bonus
+- **File:** `src/utils/house-efficiency.js`
+
+#### **Time Calculation Fixes**
+
+**CRITICAL BUG FIX:** Total time and time-based buttons were incorrectly using efficiency in calculations.
+
+- **Root Cause:** Misunderstood that input is for ACTIONS, not output items
+- **Key Insight:** Efficiency affects OUTPUT (items per action), not TIME or action count
+- **Previous Behavior:**
+  - Total Time: 1 action ÷ 1.33 efficiency × 14.35s = 10s ❌
+  - Time buttons: 1hr × 1.33 efficiency ÷ 14.35s = 334 actions ❌
+- **Correct Behavior:**
+  - Total Time: 1 action × 14.35s = 14.35s ✓
+  - Time buttons: 1hr (3600s) ÷ 14.35s = 251 actions ✓
+- **Example:** 100 actions at 14.35s = 1,435s total time, outputs 133 items (with 33% efficiency)
+- **File:** `src/features/actions/quick-input-buttons.js`
+
+#### **Base Output Display Fix**
+
+**BUG FIX:** Base Output showing 0/hr due to missing price and revenue fields.
+
+- **Issue:** baseOutputs array lacked priceEach and revenuePerHour fields
+- **Fix:** Added both fields to all baseOutputs entries (processing and non-processing paths)
+- **Result:** Base Output now correctly displays item breakdowns with prices
+- **File:** `src/features/actions/gathering-profit.js`
+
+### Changed
+
+#### **Profit Display Improvements**
+
+**UX IMPROVEMENTS:** Multiple enhancements to profit display clarity and organization.
+
+- **Simplified Collapsed Summary:**
+  - Removed revenue and costs from collapsed state
+  - Shows only profit/hr and profit/day
+  - More concise and easier to read at a glance
+
+- **Net Profit Positioning:**
+  - Moved from inside Detailed Breakdown to top level
+  - Always visible when Profitability section expanded
+  - Color-coded: green if positive, red if negative
+
+- **Title Simplification:**
+  - Changed from "Profitability (Gathering)" to just "Profitability"
+  - Cleaner appearance
+
+- **Bonus Drops Split:**
+  - Separated into "Essence Drops" and "Rare Finds" subsections
+  - Each shows only relevant bonus percentage
+  - Essence Find % with essence drops only
+  - Rare Find % with rare find drops only
+  - Eliminates confusion about which bonuses affect which items
 
 ## [0.4.5] - 2025-12-23
 

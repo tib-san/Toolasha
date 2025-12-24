@@ -208,15 +208,18 @@ All efficiency sources are automatically detected from character data - no manua
 - **gathering-profit.js** - Comprehensive gathering profit calculator ✅
   - `calculateGatheringProfit(actionHrid)` - Calculate hourly and daily profit
   - **Supports all gathering skills:** Foraging, Woodcutting, Milking
+  - **Progressive disclosure display:** Nested collapsible sections (Option C pattern)
+    - Collapsed: Shows profit/hr and profit/day only
+    - Expanded: Net profit at top level, detailed breakdown nested below
+    - Split bonus drops: Essence Drops and Rare Finds as separate subsections
   - Accounts for: Drop table items, market prices, drink costs, equipment speed, efficiency bonuses
   - Efficiency sources: Level advantage, house rooms, tea buffs, equipment stats
   - **Gathering Quantity:** Tea (15% base) + Community Buff (20-29.5%) with detailed breakdown
   - **Processing Tea:** 15% conversion chance with value gain per proc (raw → processed items)
   - **Gourmet Tea integration:** Bonus items for production skills (not gathering)
-  - **Essence drops:** Essence drops with Essence Find equipment bonus
-  - **Rare find drops:** Detailed breakdown with drop rates and items/hour
-  - **Bonus revenue display:** Item-by-item breakdown with rates and revenue
-  - Rare Find sources: Equipment + house rooms (combined, additive)
+  - **Essence drops:** Separate subsection with Essence Find equipment bonus
+  - **Rare find drops:** Separate subsection with Rare Find bonus (equipment + house rooms)
+  - **Rare Find calculation:** totalLevels × 0.2% (12 house levels = 2.4%, max 12.8% at 64 levels)
   - Market tax: 2% selling fee applied to all revenue
   - Returns: profitPerHour, profitPerDay, revenuePerHour, drinkCostPerHour, actionsPerHour, efficiency breakdown, bonus revenue details, gathering/processing breakdowns
 
@@ -225,7 +228,8 @@ All efficiency sources are automatically detected from character data - no manua
   - **Two-row layout:**
     - Time-based: 0.5, 1, 2, 3, 4, 5, 6, 10, 12, 24 hours
     - Count-based: 10, 100, 1,000, Max (10,000)
-  - **Time calculation:** `(hours * 3600 * efficiency) / actionDuration`
+  - **Time calculation:** `(hours × 3600) / actionTime` (efficiency affects OUTPUT, not time)
+  - **CRITICAL:** Input box is for NUMBER OF ACTIONS, not output items
   - **Auto-updates:** MutationObserver on input value attribute + input/change events
   - Dynamically adjusts for character state (gear, skills, buffs)
   - Positioned inside action panel modal, below queue input field
@@ -234,6 +238,7 @@ All efficiency sources are automatically detected from character data - no manua
   - `calculateActionMetrics()` computes real-time duration and efficiency
   - Full efficiency system: speed, level, house, tea, equipment
   - Simple white button styling matching original MWI Tools
+  - Organized in collapsible sections (⏱ Action Speed & Time, ⚡ Quick Queue Setup)
   - Works on all action types (gathering, production, combat)
 
 **Action Panel Features Summary:**
