@@ -259,15 +259,96 @@ async function handleActionPanel(panel) {
 }
 
 /**
+ * Check if we're on the "Enhance" tab (not "Current Action" tab)
+ * @param {HTMLElement} panel - Enhancing panel element
+ * @returns {boolean} True if on Enhance tab
+ */
+function isEnhanceTabActive(panel) {
+    // Walk up the DOM to find the parent that contains tab buttons
+    // Based on diagnostic: tabs are 3 levels up in EnhancingPanel_enhancingAction__2GJtD
+    let current = panel;
+    let depth = 0;
+    const maxDepth = 5;
+
+    let tabButtons = [];
+
+    while (current && depth < maxDepth) {
+        const buttons = Array.from(current.querySelectorAll('button[role="tab"]'));
+        const foundTabs = buttons.filter(btn => {
+            const text = btn.textContent.trim();
+            return text === 'Enhance' || text === 'Current Action';
+        });
+
+        if (foundTabs.length === 2) {
+            tabButtons = foundTabs;
+            break;
+        }
+
+        current = current.parentElement;
+        depth++;
+    }
+
+    if (tabButtons.length !== 2) {
+        // Can't find tabs, default to showing calculator
+        return true;
+    }
+
+    // Find the "Current Action" tab and check if it's active
+    const currentActionTab = tabButtons.find(btn => btn.textContent.trim() === 'Current Action');
+
+    if (!currentActionTab) {
+        // No Current Action tab found, show calculator
+        return true;
+    }
+
+    // Check multiple reliable indicators (from diagnostic output):
+    // 1. aria-selected="true" (most reliable)
+    if (currentActionTab.getAttribute('aria-selected') === 'true') {
+        return false; // Current Action is active, DON'T show calculator
+    }
+
+    // 2. CSS class "Mui-selected"
+    if (currentActionTab.classList.contains('Mui-selected')) {
+        return false;
+    }
+
+    // 3. tabindex="0" (active tabs have 0, inactive have -1)
+    if (currentActionTab.getAttribute('tabindex') === '0') {
+        return false;
+    }
+
+    // If none of the above, assume Enhance tab is active
+    return true;
+}
+
+/**
  * Handle enhancing panel appearance
  * @param {HTMLElement} panel - Enhancing panel element
  */
 async function handleEnhancingPanel(panel) {
     if (!panel) return;
 
+    // Only show calculator on "Enhance" tab, not "Current Action" tab
+    if (!isEnhanceTabActive(panel)) {
+        return;
+    }
+
     // Find the output element that shows the enhanced item
     const outputsSection = panel.querySelector(SELECTORS.ENHANCING_OUTPUT);
     if (!outputsSection) {
+        return;
+    }
+
+    // Check if there's actually an item selected (not just placeholder)
+    // When no item is selected, the outputs section exists but has no item icon
+    const itemIcon = outputsSection.querySelector('svg[role="img"], img');
+    if (!itemIcon) {
+        // No item icon = no item selected, don't show calculator
+        // Remove existing calculator display if present
+        const existingDisplay = panel.querySelector('#mwi-enhancement-stats');
+        if (existingDisplay) {
+            existingDisplay.remove();
+        }
         return;
     }
 

@@ -173,11 +173,12 @@ function generateCostsByLevelTable(panel, params, itemLevel, protectFromLevel, e
                 const itemCost = quantity * itemPrice;
                 materialCost += itemCost;
 
-                // Store breakdown by item name with quantity
+                // Store breakdown by item name with quantity and unit price
                 const itemName = itemDetail?.name || cost.itemHrid;
                 materialBreakdown[itemName] = {
                     cost: itemCost,
-                    quantity: quantity
+                    quantity: quantity,
+                    unitPrice: itemPrice
                 };
             });
         }
@@ -200,7 +201,8 @@ function generateCostsByLevelTable(panel, params, itemLevel, protectFromLevel, e
                 const protectionName = protectionItemDetail?.name || protectionItemHrid;
                 materialBreakdown[protectionName] = {
                     cost: protectionCost,
-                    quantity: calc.protectionCount
+                    quantity: calc.protectionCount,
+                    unitPrice: protectionPrice
                 };
             }
         }
@@ -257,10 +259,12 @@ function generateCostsByLevelTable(panel, params, itemLevel, protectFromLevel, e
             const matData = data.breakdown[matName];
             if (matData && matData.cost > 0) {
                 const cost = Math.round(matData.cost).toLocaleString();
+                const unitPrice = Math.round(matData.unitPrice).toLocaleString();
                 const qty = matData.quantity % 1 === 0 ?
                     Math.round(matData.quantity).toLocaleString() :
-                    matData.quantity.toFixed(2);
-                lines.push(`<td style="padding: 6px 4px; text-align: right; color: #ccc;">${cost} (${qty}×)</td>`);
+                    matData.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                // Format as: quantity × unit price → total cost
+                lines.push(`<td style="padding: 6px 4px; text-align: right; color: #ccc;">${qty} × ${unitPrice} → ${cost}</td>`);
             } else {
                 lines.push(`<td style="padding: 6px 4px; text-align: right; color: #888;">-</td>`);
             }
@@ -478,7 +482,10 @@ function formatEnhancementDisplay(panel, params, perActionTime, itemDetails, pro
             }
 
             const totalCost = cost.count * itemPrice;
-            lines.push(`<div style="font-size: 0.85em; color: #ccc;">${cost.count}× ${itemName} <span style="color: #888;">(@${itemPrice.toLocaleString()} → ${totalCost.toLocaleString()})</span></div>`);
+            const formattedCount = Number.isInteger(cost.count) ?
+                cost.count.toLocaleString() :
+                cost.count.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            lines.push(`<div style="font-size: 0.85em; color: #ccc;">${formattedCount}× ${itemName} <span style="color: #888;">(@${itemPrice.toLocaleString()} → ${totalCost.toLocaleString()})</span></div>`);
         });
 
         // Show protection item cost if protection is active (level 2+) AND item is equipped

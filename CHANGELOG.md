@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2025-12-23
+
+### Overview
+
+Patch release fixing enhancement calculator display issues and improving material cost formatting.
+
+**Status:** Development/Testing (Version < 1.0.0 = pre-release)
+
+### Fixed
+
+#### **Enhancement Calculator Display Fixes**
+
+**BUG FIX:** Enhancement calculator now only appears on the "Enhance" tab and when an item is selected.
+
+- **Tab Detection Fix:**
+  - Calculator no longer appears on "Current Action" tab
+  - Uses reliable Material-UI indicators: `aria-selected`, `Mui-selected` class, and `tabindex`
+  - Walks up DOM tree to find tab buttons using `button[role="tab"]` selector
+  - File: `src/features/actions/panel-observer.js` lines 261-322
+
+- **Item Selection Check:**
+  - Calculator no longer appears when no item is selected (empty state)
+  - Checks for item icon presence in outputs section
+  - Removes existing calculator display when switching to empty state
+  - File: `src/features/actions/panel-observer.js` lines 327-338
+
+### Changed
+
+#### **Material Cost Format Improvements**
+
+**UX IMPROVEMENT:** Material breakdown now shows complete pricing information.
+
+- **Material Breakdown Format:**
+  - Changed from `256,249 (189.81×)` to `189.81 × 1,350 → 256,249`
+  - Format: `quantity × unit price → total cost`
+  - Shows all three values: how many items, price per item, total cost
+  - File: `src/features/actions/enhancement-display.js` lines 257-271
+
+- **Thousands Separators:**
+  - Added `unitPrice` to breakdown object for display
+  - Applied `toLocaleString()` to all quantities, unit prices, and costs
+  - Handles both integer and decimal quantities with proper fraction digits
+  - File: `src/features/actions/enhancement-display.js` lines 172-182, 200-206
+
+**Technical Details:**
+- Tab detection uses triple-check approach: aria-selected, CSS class, tabindex
+- Material breakdown stores quantity, unit price, and total cost for each material
+- Diagnostic script created for future tab detection debugging (`tab-detection-diagnostic.js`)
+
 ## [0.4.2] - 2025-12-23
 
 ### Overview
