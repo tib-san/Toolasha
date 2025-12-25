@@ -128,14 +128,14 @@ export function parseTeaEfficiency(actionTypeHrid, activeDrinks, itemDetailMap, 
  * @param {Array} activeDrinks - Array of active drink items from actionTypeDrinkSlotsMap
  * @param {Object} itemDetailMap - Item details from init_client_data
  * @param {number} drinkConcentration - Drink Concentration stat (as decimal, e.g., 0.12 for 12%)
- * @returns {Array<{name: string, efficiency: number}>} Array of tea contributions
+ * @returns {Array<{name: string, efficiency: number, baseEfficiency: number, dcContribution: number}>} Array of tea contributions
  *
  * @example
  * // With Efficiency Tea (10% base) and Ultra Cheesesmithing Tea (6% base) with 12% DC:
  * parseTeaEfficiencyBreakdown("/action_types/cheesesmithing", activeDrinks, items, 0.12)
  * // Returns: [
- * //   { name: "Efficiency Tea", efficiency: 11.2 },
- * //   { name: "Ultra Cheesesmithing Tea", efficiency: 6.72 }
+ * //   { name: "Efficiency Tea", efficiency: 11.2, baseEfficiency: 10.0, dcContribution: 1.2 },
+ * //   { name: "Ultra Cheesesmithing Tea", efficiency: 6.72, baseEfficiency: 6.0, dcContribution: 0.72 }
  * // ]
  */
 export function parseTeaEfficiencyBreakdown(actionTypeHrid, activeDrinks, itemDetailMap, drinkConcentration = 0) {
@@ -165,30 +165,35 @@ export function parseTeaEfficiencyBreakdown(actionTypeHrid, activeDrinks, itemDe
             continue; // Not a consumable or has no buffs
         }
 
-        let teaEfficiency = 0;
+        let baseEfficiency = 0;
+        let totalEfficiency = 0;
 
         // Check each buff on this tea
         for (const buff of itemDetails.consumableDetail.buffs) {
             // Generic efficiency buff (e.g., Efficiency Tea)
             if (buff.typeHrid === '/buff_types/efficiency') {
-                const baseEfficiency = buff.flatBoost * 100; // Convert to percentage
-                const scaledEfficiency = baseEfficiency * (1 + drinkConcentration);
-                teaEfficiency += scaledEfficiency;
+                const baseValue = buff.flatBoost * 100; // Convert to percentage
+                const scaledValue = baseValue * (1 + drinkConcentration);
+                baseEfficiency += baseValue;
+                totalEfficiency += scaledValue;
             }
             // Skill-specific level buff (e.g., Brewing Tea: +3 Brewing levels)
             // Level bonuses translate to efficiency: +1 level = +1% efficiency
             else if (buff.typeHrid === skillLevelBuffType) {
-                const levelBonus = buff.flatBoost;
-                const scaledBonus = levelBonus * (1 + drinkConcentration);
-                teaEfficiency += scaledBonus;
+                const baseValue = buff.flatBoost;
+                const scaledValue = baseValue * (1 + drinkConcentration);
+                baseEfficiency += baseValue;
+                totalEfficiency += scaledValue;
             }
         }
 
         // Only add to breakdown if this tea contributes efficiency
-        if (teaEfficiency > 0) {
+        if (totalEfficiency > 0) {
             teaBreakdown.push({
                 name: itemDetails.name,
-                efficiency: teaEfficiency
+                efficiency: totalEfficiency,
+                baseEfficiency: baseEfficiency,
+                dcContribution: totalEfficiency - baseEfficiency
             });
         }
     }

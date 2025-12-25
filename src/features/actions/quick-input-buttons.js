@@ -252,6 +252,10 @@ class QuickInputButtons {
             if (efficiencyBreakdown.teaBreakdown && efficiencyBreakdown.teaBreakdown.length > 0) {
                 for (const tea of efficiencyBreakdown.teaBreakdown) {
                     speedLines.push(`  - ${tea.name}: +${tea.efficiency.toFixed(1)}%`);
+                    // Show DC contribution as sub-line if > 0
+                    if (tea.dcContribution > 0) {
+                        speedLines.push(`    - Drink Concentration: +${tea.dcContribution.toFixed(1)}%`);
+                    }
                 }
             }
             if (efficiencyBreakdown.communityEfficiency > 0) {

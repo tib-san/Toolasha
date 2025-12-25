@@ -55,13 +55,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Moved efficiency breakdown** from Profitability/Modifiers to this section
   - **Individual tea breakdown** instead of lumping teas together:
     - Each active tea shown on its own line with contribution percentage
-    - Example: "Efficiency Tea: +11.2%", "Ultra Cheesesmithing Tea: +6.7%"
+    - **Drink Concentration contribution shown as sub-line** for each tea
+    - Example: "Efficiency Tea: +11.2%" with sub-line "Drink Concentration: +1.2%"
+    - Example: "Ultra Cheesesmithing Tea: +6.7%" with sub-line "Drink Concentration: +0.7%"
     - No longer shows "Tea: +17.9%" lumped together
   - **Detailed component display:**
     - Level efficiency with levels above requirement
     - House efficiency with room name and level (e.g., "Forge level 1")
     - Equipment efficiency percentage
     - Individual teas with their contributions (broken out)
+    - Drink Concentration sub-line for each tea (if > 0)
     - Community efficiency with tier level (e.g., "Production Efficiency T20")
   - **Format:**
     ```
@@ -70,7 +73,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       - House: +13.5% (Forge level 8)
       - Equipment: +2.0%
       - Efficiency Tea: +11.2%
+        - Drink Concentration: +1.2%
       - Ultra Cheesesmithing Tea: +6.7%
+        - Drink Concentration: +0.7%
       - Community: +2.2% (Production Efficiency T1)
     ```
   - Each component on separate line with specific details
@@ -93,13 +98,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Cleaner, less cluttered summary
 
 - **Files Modified:**
-  - `src/features/actions/quick-input-buttons.js` (lines 17, 236-260, 468-552)
+  - `src/features/actions/quick-input-buttons.js` (lines 17, 252-260, 468-552)
     - Imported `parseTeaEfficiencyBreakdown` function
     - Enhanced `calculateActionMetrics()` to use tea breakdown and return `teaBreakdown` array
-    - Display each tea on separate line instead of lumped "Tea: +X%"
-  - `src/utils/tea-parser.js` (lines 125-197)
+    - Display each tea on separate line with DC contribution sub-line
+  - `src/utils/tea-parser.js` (lines 125-202)
     - Added `parseTeaEfficiencyBreakdown()` function
-    - Returns array of `{name, efficiency}` objects for each active tea
+    - Returns array of `{name, efficiency, baseEfficiency, dcContribution}` objects
+    - Tracks both base efficiency and DC scaling for detailed display
   - `src/features/actions/panel-observer.js` (lines 1039-1053, 1089-1119, 1121-1125)
     - Embedded Artisan info in Material Costs lines
     - Removed efficiency from Modifiers section
