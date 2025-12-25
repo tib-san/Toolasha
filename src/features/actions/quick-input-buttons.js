@@ -776,7 +776,7 @@ class QuickInputButtons {
 
                 // Equipment wisdom (e.g., Philosopher's Necklace skillingExperience)
                 if (xpData.breakdown.equipmentWisdom > 0) {
-                    lines.push(`    • Philosopher's Equipment: +${xpData.breakdown.equipmentWisdom.toFixed(1)}%`);
+                    lines.push(`    • Philosopher's Necklace: +${xpData.breakdown.equipmentWisdom.toFixed(1)}%`);
                 }
 
                 // House rooms

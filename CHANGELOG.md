@@ -228,7 +228,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Total XP Bonus displayed at top (e.g., "+37.1%")
     - Individual sources listed with percentages:
       - **Celestial Shears:** Skill-specific equipment XP (e.g., +4.0% Foraging XP)
-      - **Philosopher's Equipment:** General wisdom bonus (+3.0% base, scales 5× with enhancement for accessories)
+      - **Philosopher's Necklace:** General wisdom bonus (+3.0% base, scales 5× with enhancement for accessories)
       - **House Rooms:** +0.05% per level, all rooms contribute (e.g., +0.6% for 12 total levels)
       - **Community Buff:** 20% base + 0.5% per tier (max 29.5% at T20)
       - **Wisdom Tea:** 12% base, scales with Drink Concentration (e.g., +13.5% with Guzzling Pouch +8)

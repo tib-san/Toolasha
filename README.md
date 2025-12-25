@@ -263,7 +263,7 @@ All efficiency sources are automatically detected from character data - no manua
     - XP per action: Base → Modified (with multiplier)
     - Comprehensive XP bonus breakdown:
       - Equipment skill-specific XP (e.g., Celestial Shears +4.0% Foraging XP)
-      - Philosopher's Equipment wisdom (+3.0% at base, scales with enhancement)
+      - Philosopher's Necklace wisdom (+3.0% at base, scales with enhancement)
       - House Rooms (+0.05% per level, all rooms contribute)
       - Community Buff (20% base + 0.5% per tier, max 29.5% at T20)
       - Wisdom Tea/Coffee (12% base, scales with Drink Concentration)
