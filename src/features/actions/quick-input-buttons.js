@@ -14,7 +14,7 @@
 
 import dataManager from '../../core/data-manager.js';
 import { parseEquipmentSpeedBonuses, parseEquipmentEfficiencyBonuses } from '../../utils/equipment-parser.js';
-import { parseTeaEfficiency, parseTeaEfficiencyBreakdown, getDrinkConcentration, parseActionLevelBonus, parseArtisanBonus } from '../../utils/tea-parser.js';
+import { parseTeaEfficiency, parseTeaEfficiencyBreakdown, getDrinkConcentration, parseActionLevelBonus, parseActionLevelBonusBreakdown, parseArtisanBonus } from '../../utils/tea-parser.js';
 import { calculateHouseEfficiency } from '../../utils/house-efficiency.js';
 import { stackAdditive } from '../../utils/efficiency.js';
 import { timeReadable, formatWithSeparator } from '../../utils/formatters.js';
@@ -239,6 +239,17 @@ class QuickInputButtons {
             // Detailed efficiency breakdown
             if (efficiencyBreakdown.levelEfficiency > 0) {
                 speedLines.push(`  - Level: +${efficiencyBreakdown.levelEfficiency.toFixed(1)}% (${efficiencyBreakdown.skillLevel} levels above requirement)`);
+
+                // Show Action Level bonus teas that raise the effective requirement
+                if (efficiencyBreakdown.actionLevelBreakdown && efficiencyBreakdown.actionLevelBreakdown.length > 0) {
+                    for (const tea of efficiencyBreakdown.actionLevelBreakdown) {
+                        speedLines.push(`    - ${tea.name} raises requirement: +${tea.actionLevel.toFixed(1)} levels`);
+                        // Show DC contribution as sub-line if > 0
+                        if (tea.dcContribution > 0) {
+                            speedLines.push(`      - Drink Concentration: +${tea.dcContribution.toFixed(1)} levels`);
+                        }
+                    }
+                }
             }
             if (efficiencyBreakdown.houseEfficiency > 0) {
                 // Get house room name
@@ -507,6 +518,13 @@ class QuickInputButtons {
             drinkConcentration
         );
 
+        // Get Action Level bonus breakdown (individual teas)
+        const actionLevelBreakdown = parseActionLevelBonusBreakdown(
+            activeDrinks,
+            itemDetailMap,
+            drinkConcentration
+        );
+
         // Calculate efficiency components
         const effectiveRequirement = baseRequirement + actionLevelBonus;
         const levelEfficiency = Math.max(0, skillLevel - effectiveRequirement);
@@ -553,6 +571,7 @@ class QuickInputButtons {
                 skillLevel,
                 baseRequirement,
                 actionLevelBonus,
+                actionLevelBreakdown, // Individual Action Level bonus teas
                 effectiveRequirement
             }
         };

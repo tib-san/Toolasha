@@ -59,8 +59,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Example: "Efficiency Tea: +11.2%" with sub-line "Drink Concentration: +1.2%"
     - Example: "Ultra Cheesesmithing Tea: +6.7%" with sub-line "Drink Concentration: +0.7%"
     - No longer shows "Tea: +17.9%" lumped together
+  - **Action Level bonus tea display:**
+    - Shows teas that raise effective requirement (e.g., Artisan Tea)
+    - Displays as indented sub-line under Level efficiency
+    - Shows base Action Level bonus and DC contribution separately
+    - Example: "Artisan Tea raises requirement: +5.6 levels" with sub-line "Drink Concentration: +0.6 levels"
+    - Makes relationship between Action Level bonuses and level efficiency explicit
   - **Detailed component display:**
     - Level efficiency with levels above requirement
+    - Action Level bonus teas with DC breakdown (if present)
     - House efficiency with room name and level (e.g., "Forge level 1")
     - Equipment efficiency percentage
     - Individual teas with their contributions (broken out)
@@ -70,6 +77,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     ```
     Efficiency: +123.7% → Output: ×2.24 (561/hr)
       - Level: +100.0% (100 levels above requirement)
+        - Artisan Tea raises requirement: +5.6 levels
+          - Drink Concentration: +0.6 levels
       - House: +13.5% (Forge level 8)
       - Equipment: +2.0%
       - Efficiency Tea: +11.2%
@@ -98,14 +107,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Cleaner, less cluttered summary
 
 - **Files Modified:**
-  - `src/features/actions/quick-input-buttons.js` (lines 17, 252-260, 468-552)
-    - Imported `parseTeaEfficiencyBreakdown` function
-    - Enhanced `calculateActionMetrics()` to use tea breakdown and return `teaBreakdown` array
+  - `src/features/actions/quick-input-buttons.js` (lines 17, 240-253, 503-567)
+    - Imported `parseTeaEfficiencyBreakdown` and `parseActionLevelBonusBreakdown` functions
+    - Enhanced `calculateActionMetrics()` to use tea breakdown and Action Level breakdown
+    - Returns `teaBreakdown` and `actionLevelBreakdown` arrays in efficiencyBreakdown
     - Display each tea on separate line with DC contribution sub-line
-  - `src/utils/tea-parser.js` (lines 125-202)
+    - Display Action Level bonus teas under Level efficiency with DC breakdown
+  - `src/utils/tea-parser.js` (lines 125-202, 330-392)
     - Added `parseTeaEfficiencyBreakdown()` function
     - Returns array of `{name, efficiency, baseEfficiency, dcContribution}` objects
-    - Tracks both base efficiency and DC scaling for detailed display
+    - Added `parseActionLevelBonusBreakdown()` function
+    - Returns array of `{name, actionLevel, baseActionLevel, dcContribution}` objects
+    - Tracks both base values and DC scaling for detailed display
   - `src/features/actions/panel-observer.js` (lines 1039-1053, 1089-1119, 1121-1125)
     - Embedded Artisan info in Material Costs lines
     - Removed efficiency from Modifiers section

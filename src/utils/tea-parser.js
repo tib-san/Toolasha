@@ -328,6 +328,70 @@ export function parseActionLevelBonus(activeDrinks, itemDetailMap, drinkConcentr
 }
 
 /**
+ * Parse Action Level bonus with breakdown by individual tea
+ * @param {Array} activeDrinks - Array of active drink items from actionTypeDrinkSlotsMap
+ * @param {Object} itemDetailMap - Item details from init_client_data
+ * @param {number} drinkConcentration - Drink Concentration stat (as decimal, e.g., 0.12 for 12%)
+ * @returns {Array<{name: string, actionLevel: number, baseActionLevel: number, dcContribution: number}>} Array of tea contributions
+ *
+ * @example
+ * // With Artisan Tea (+5 Action Level base) and 12% Drink Concentration:
+ * parseActionLevelBonusBreakdown(activeDrinks, items, 0.12)
+ * // Returns: [
+ * //   { name: "Artisan Tea", actionLevel: 5.6, baseActionLevel: 5.0, dcContribution: 0.6 }
+ * // ]
+ */
+export function parseActionLevelBonusBreakdown(activeDrinks, itemDetailMap, drinkConcentration = 0) {
+    if (!activeDrinks || activeDrinks.length === 0) {
+        return []; // No active teas
+    }
+
+    if (!itemDetailMap) {
+        return []; // Missing required data
+    }
+
+    const teaBreakdown = [];
+
+    // Process each active tea/drink
+    for (const drink of activeDrinks) {
+        if (!drink || !drink.itemHrid) {
+            continue; // Empty slot
+        }
+
+        const itemDetails = itemDetailMap[drink.itemHrid];
+        if (!itemDetails || !itemDetails.consumableDetail || !itemDetails.consumableDetail.buffs) {
+            continue; // Not a consumable or has no buffs
+        }
+
+        let baseActionLevel = 0;
+        let totalActionLevel = 0;
+
+        // Check each buff on this tea
+        for (const buff of itemDetails.consumableDetail.buffs) {
+            // Action Level buff (e.g., Artisan Tea: +5 Action Level)
+            if (buff.typeHrid === '/buff_types/action_level') {
+                const baseValue = buff.flatBoost;
+                const scaledValue = baseValue * (1 + drinkConcentration);
+                baseActionLevel += baseValue;
+                totalActionLevel += scaledValue;
+            }
+        }
+
+        // Only add to breakdown if this tea contributes action level
+        if (totalActionLevel > 0) {
+            teaBreakdown.push({
+                name: itemDetails.name,
+                actionLevel: totalActionLevel,
+                baseActionLevel: baseActionLevel,
+                dcContribution: totalActionLevel - baseActionLevel
+            });
+        }
+    }
+
+    return teaBreakdown;
+}
+
+/**
  * Parse Gathering bonus from active tea buffs
  * @param {Array} activeDrinks - Array of active drink items from actionTypeDrinkSlotsMap
  * @param {Object} itemDetailMap - Item details from init_client_data
