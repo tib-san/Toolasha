@@ -20,6 +20,10 @@ import { calculateGatheringProfit } from './features/actions/gathering-profit.js
 import { calculateProductionProfit } from './features/actions/production-profit.js';
 import actionTimeDisplay from './features/actions/action-time-display.js';
 import quickInputButtons from './features/actions/quick-input-buttons.js';
+import abilityBookCalculator from './features/abilities/ability-book-calculator.js';
+import equipmentLevelDisplay from './features/ui/equipment-level-display.js';
+import zoneIndices from './features/combat/zone-indices.js';
+import combatScore from './features/profile/combat-score.js';
 import * as enhancementGearDetector from './utils/enhancement-gear-detector.js';
 import { getEnhancingParams } from './utils/enhancement-config.js';
 import * as enhancementCalculator from './utils/enhancement-calculator.js';
@@ -67,6 +71,10 @@ dataManager.on('character_initialized', (data) => {
 
             actionTimeDisplay.initialize();
             quickInputButtons.initialize();
+            abilityBookCalculator.initialize();
+            equipmentLevelDisplay.initialize();
+            zoneIndices.initialize();
+            combatScore.initialize();
         } catch (error) {
             console.error('❌ Feature initialization failed:', error);
         }
@@ -87,6 +95,10 @@ targetWindow.MWITools = {
     storage,
     actionTimeDisplay,
     quickInputButtons,
+    abilityBookCalculator,
+    equipmentLevelDisplay,
+    zoneIndices,
+    combatScore,
     enhancementGearDetector,
     getEnhancingParams,
     enhancementCalculator,

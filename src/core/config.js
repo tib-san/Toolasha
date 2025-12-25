@@ -99,6 +99,56 @@ class Config {
                 desc: "Use pricing mode for expected value calculations (same as profit calculator). [Depends on the previous selection]",
                 isTrue: true,
             },
+            enhanceSim_autoDetect: {
+                id: "enhanceSim_autoDetect",
+                desc: "Enhancement tooltips: Auto-detect your current stats (true) or use market defaults (false). Most players should use market defaults to see realistic professional enhancer costs.",
+                isTrue: false,
+            },
+            enhanceSim_enhancingLevel: {
+                id: "enhanceSim_enhancingLevel",
+                desc: "Enhancement skill level for cost calculations (default: 125 - professional enhancer level).",
+                value: 125,
+            },
+            enhanceSim_houseLevel: {
+                id: "enhanceSim_houseLevel",
+                desc: "Observatory house room level (default: 6 - realistic market level, max: 8).",
+                value: 6,
+            },
+            enhanceSim_toolBonus: {
+                id: "enhanceSim_toolBonus",
+                desc: "Tool success bonus percentage (default: 19.35 = Celestial Enhancer +10).",
+                value: 19.35,
+            },
+            enhanceSim_speedBonus: {
+                id: "enhanceSim_speedBonus",
+                desc: "Speed bonus percentage (default: 0 - not critical for cost calculations).",
+                value: 0,
+            },
+            enhanceSim_blessedTea: {
+                id: "enhanceSim_blessedTea",
+                desc: "Blessed Tea active (default: true - professional enhancers use it to reduce attempts).",
+                isTrue: true,
+            },
+            enhanceSim_ultraEnhancingTea: {
+                id: "enhanceSim_ultraEnhancingTea",
+                desc: "Ultra Enhancing Tea active (default: true - provides +12 skill levels).",
+                isTrue: true,
+            },
+            enhanceSim_superEnhancingTea: {
+                id: "enhanceSim_superEnhancingTea",
+                desc: "Super Enhancing Tea active (default: false - Ultra is better).",
+                isTrue: false,
+            },
+            enhanceSim_enhancingTea: {
+                id: "enhanceSim_enhancingTea",
+                desc: "Enhancing Tea active (default: false - Ultra is better).",
+                isTrue: false,
+            },
+            enhanceSim_drinkConcentration: {
+                id: "enhanceSim_drinkConcentration",
+                desc: "Drink Concentration percentage (default: 10.32 = Guzzling Pouch +10).",
+                value: 10.32,
+            },
             profitCalc_pricingMode: {
                 id: "profitCalc_pricingMode",
                 desc: "Profit calculation pricing mode: 'conservative' = instant trading (Ask/Bid), 'hybrid' = instant buy + sell orders (Ask/Ask), 'optimistic' = patient trading (Bid/Ask).",
@@ -152,6 +202,11 @@ class Config {
             skillbook: {
                 id: "skillbook",
                 desc: "Item dictionary of skill books: Number of books needed to reach target skill level.",
+                isTrue: true,
+            },
+            combatScore: {
+                id: "combatScore",
+                desc: "Profile panel: Combat readiness score based on houses, abilities, and equipment.",
                 isTrue: true,
             },
             ThirdPartyLinks: {
