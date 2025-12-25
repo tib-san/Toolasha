@@ -134,34 +134,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-#### **Action Level Bonus Drink Concentration Scaling**
+#### **Action Level Bonus Floor Mechanic**
 
-**CRITICAL BUG FIX:** Action Level bonuses (e.g., Artisan Tea) do NOT scale with Drink Concentration.
+**CRITICAL BUG FIX:** Action Level bonuses (e.g., Artisan Tea) scale with Drink Concentration but get floored when calculating effective requirement.
 
 - **Previous Behavior (WRONG):**
-  - Artisan Tea: +5 base Action Level → +5.645 with 12% DC
-  - effectiveRequirement = 21 + 5.645 = 26.645
+  - Artisan Tea: +5 base Action Level → +5.645 with 12.9% DC
+  - effectiveRequirement = 21 + 5.645 = 26.645 (used fractional value)
   - levelEfficiency = 100 - 26.645 = 73.355%
   - **Total efficiency: 123.655% (0.645% too low)**
 
 - **Correct Behavior (FIXED):**
-  - Artisan Tea: +5 Action Level (NO DC scaling)
-  - effectiveRequirement = 21 + 5 = 26
+  - Artisan Tea: +5 base Action Level → +5.645 with 12.9% DC (scales with DC)
+  - effectiveRequirement = 21 + Math.floor(5.645) = 21 + 5 = 26 (floored)
   - levelEfficiency = 100 - 26 = 74.000%
-  - **Total efficiency: 124.300% (matches game)**
+  - **Total efficiency: 124.300% (matches game exactly)**
 
 - **Root Cause:**
-  - Incorrectly applied DC scaling to `/buff_types/action_level` buffs
-  - All other tea effects (efficiency, artisan, gourmet) correctly scale with DC
-  - Action Level is the ONLY buff type that doesn't scale
+  - Action Level bonuses DO scale with Drink Concentration (like all other buffs)
+  - However, effective requirement uses floored value because you can't have fractional level requirements
+  - This is mechanically consistent: all buffs scale the same way, but level requirements must be integers
 
 - **Fix:**
-  - `parseActionLevelBonus()` now passes 0 for drinkConcentration
-  - `parseActionLevelBonusBreakdown()` sets dcContribution to always 0
-  - Display no longer shows DC sub-line for Action Level bonuses
-  - Files: `src/utils/tea-parser.js` (lines 324-392)
+  - `parseActionLevelBonus()` scales with DC (line 324-330)
+  - `parseActionLevelBonusBreakdown()` tracks base and DC contributions (line 345-394)
+  - `calculateActionMetrics()` applies Math.floor() to actionLevelBonus in effectiveRequirement calculation (line 554)
+  - Display shows full precision (5.645) with DC breakdown, but game mechanics use floored value (5)
+  - Files: `src/utils/tea-parser.js`, `src/features/actions/quick-input-buttons.js`
 
-**Result:** Efficiency calculations now match game exactly (verified with 3 decimal precision).
+**Result:** Efficiency calculations now match game exactly (verified with 3 decimal precision: 124.300%).
 
 #### **Community Buff Efficiency Integration in Quick Input Buttons**
 

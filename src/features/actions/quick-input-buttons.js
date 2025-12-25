@@ -550,7 +550,8 @@ class QuickInputButtons {
         );
 
         // Calculate efficiency components
-        const effectiveRequirement = baseRequirement + actionLevelBonus;
+        // Action Level bonuses scale with DC but get floored (can't have fractional level requirements)
+        const effectiveRequirement = baseRequirement + Math.floor(actionLevelBonus);
         const levelEfficiency = Math.max(0, skillLevel - effectiveRequirement);
         const houseEfficiency = calculateHouseEfficiency(actionDetails.type);
         const equipmentEfficiency = parseEquipmentEfficiencyBonuses(

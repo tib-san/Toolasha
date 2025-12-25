@@ -313,17 +313,18 @@ export function parseProcessingBonus(activeDrinks, itemDetailMap, drinkConcentra
  * Parse Action Level bonus from active tea buffs
  * @param {Array} activeDrinks - Array of active drink items from actionTypeDrinkSlotsMap
  * @param {Object} itemDetailMap - Item details from init_client_data
- * @param {number} drinkConcentration - Drink Concentration stat (NOT used for Action Level - doesn't scale)
- * @returns {number} Action Level bonus as flat number (e.g., 5.0 for +5 levels)
+ * @param {number} drinkConcentration - Drink Concentration stat (as decimal, e.g., 0.12 for 12%)
+ * @returns {number} Action Level bonus as flat number (e.g., 5.645 for +5.645 levels, floored to 5 when used)
  *
  * @example
- * // With Artisan Tea (+5 Action Level base):
- * parseActionLevelBonus(activeDrinks, items, drinkConcentration)
- * // Returns: 5.0 (Action Level does NOT scale with DC)
+ * // With Artisan Tea (+5 Action Level base) and 12% Drink Concentration:
+ * parseActionLevelBonus(activeDrinks, items, 0.129)
+ * // Returns: 5.645 (scales with DC, but game floors this to 5 when calculating requirement)
  */
 export function parseActionLevelBonus(activeDrinks, itemDetailMap, drinkConcentration = 0) {
-    // Action Level bonuses do NOT scale with Drink Concentration
-    return parseTeaBuff(activeDrinks, itemDetailMap, 0, {
+    // Action Level DOES scale with DC (like all other buffs)
+    // However, the game floors the result when calculating effective requirement
+    return parseTeaBuff(activeDrinks, itemDetailMap, drinkConcentration, {
         buffTypeHrids: ['/buff_types/action_level']
     });
 }
@@ -332,13 +333,14 @@ export function parseActionLevelBonus(activeDrinks, itemDetailMap, drinkConcentr
  * Parse Action Level bonus with breakdown by individual tea
  * @param {Array} activeDrinks - Array of active drink items from actionTypeDrinkSlotsMap
  * @param {Object} itemDetailMap - Item details from init_client_data
- * @param {number} drinkConcentration - Drink Concentration stat (NOT used - Action Level doesn't scale)
+ * @param {number} drinkConcentration - Drink Concentration stat (as decimal, e.g., 0.12 for 12%)
  * @returns {Array<{name: string, actionLevel: number, baseActionLevel: number, dcContribution: number}>} Array of tea contributions
  *
  * @example
- * // With Artisan Tea (+5 Action Level base):
- * parseActionLevelBonusBreakdown(activeDrinks, items, drinkConcentration)
- * // Returns: [{ name: "Artisan Tea", actionLevel: 5.0, baseActionLevel: 5.0, dcContribution: 0.0 }]
+ * // With Artisan Tea (+5 Action Level base) and 12.9% Drink Concentration:
+ * parseActionLevelBonusBreakdown(activeDrinks, items, 0.129)
+ * // Returns: [{ name: "Artisan Tea", actionLevel: 5.645, baseActionLevel: 5.0, dcContribution: 0.645 }]
+ * // Note: Game floors actionLevel to 5 when calculating requirement, but we show full precision
  */
 export function parseActionLevelBonusBreakdown(activeDrinks, itemDetailMap, drinkConcentration = 0) {
     if (!activeDrinks || activeDrinks.length === 0) {
@@ -370,8 +372,8 @@ export function parseActionLevelBonusBreakdown(activeDrinks, itemDetailMap, drin
             // Action Level buff (e.g., Artisan Tea: +5 Action Level)
             if (buff.typeHrid === '/buff_types/action_level') {
                 const baseValue = buff.flatBoost;
-                // Action Level does NOT scale with Drink Concentration
-                const scaledValue = baseValue; // No DC scaling
+                // Action Level DOES scale with DC (like all other buffs)
+                const scaledValue = baseValue * (1 + drinkConcentration);
                 baseActionLevel += baseValue;
                 totalActionLevel += scaledValue;
             }
@@ -383,7 +385,7 @@ export function parseActionLevelBonusBreakdown(activeDrinks, itemDetailMap, drin
                 name: itemDetails.name,
                 actionLevel: totalActionLevel,
                 baseActionLevel: baseActionLevel,
-                dcContribution: 0 // Always 0 - Action Level doesn't scale with DC
+                dcContribution: totalActionLevel - baseActionLevel
             });
         }
     }
