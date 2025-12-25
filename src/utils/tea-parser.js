@@ -313,16 +313,17 @@ export function parseProcessingBonus(activeDrinks, itemDetailMap, drinkConcentra
  * Parse Action Level bonus from active tea buffs
  * @param {Array} activeDrinks - Array of active drink items from actionTypeDrinkSlotsMap
  * @param {Object} itemDetailMap - Item details from init_client_data
- * @param {number} drinkConcentration - Drink Concentration stat (as decimal, e.g., 0.12 for 12%)
- * @returns {number} Action Level bonus as flat number (e.g., 5.6 for +5.6 levels)
+ * @param {number} drinkConcentration - Drink Concentration stat (NOT used for Action Level - doesn't scale)
+ * @returns {number} Action Level bonus as flat number (e.g., 5.0 for +5 levels)
  *
  * @example
- * // With Artisan Tea (+5 Action Level base) and 12% Drink Concentration:
- * parseActionLevelBonus(activeDrinks, items, 0.12)
- * // Returns: 5.6 (+5 × 1.12 = 5.6 levels)
+ * // With Artisan Tea (+5 Action Level base):
+ * parseActionLevelBonus(activeDrinks, items, drinkConcentration)
+ * // Returns: 5.0 (Action Level does NOT scale with DC)
  */
 export function parseActionLevelBonus(activeDrinks, itemDetailMap, drinkConcentration = 0) {
-    return parseTeaBuff(activeDrinks, itemDetailMap, drinkConcentration, {
+    // Action Level bonuses do NOT scale with Drink Concentration
+    return parseTeaBuff(activeDrinks, itemDetailMap, 0, {
         buffTypeHrids: ['/buff_types/action_level']
     });
 }
@@ -331,15 +332,13 @@ export function parseActionLevelBonus(activeDrinks, itemDetailMap, drinkConcentr
  * Parse Action Level bonus with breakdown by individual tea
  * @param {Array} activeDrinks - Array of active drink items from actionTypeDrinkSlotsMap
  * @param {Object} itemDetailMap - Item details from init_client_data
- * @param {number} drinkConcentration - Drink Concentration stat (as decimal, e.g., 0.12 for 12%)
+ * @param {number} drinkConcentration - Drink Concentration stat (NOT used - Action Level doesn't scale)
  * @returns {Array<{name: string, actionLevel: number, baseActionLevel: number, dcContribution: number}>} Array of tea contributions
  *
  * @example
- * // With Artisan Tea (+5 Action Level base) and 12% Drink Concentration:
- * parseActionLevelBonusBreakdown(activeDrinks, items, 0.12)
- * // Returns: [
- * //   { name: "Artisan Tea", actionLevel: 5.6, baseActionLevel: 5.0, dcContribution: 0.6 }
- * // ]
+ * // With Artisan Tea (+5 Action Level base):
+ * parseActionLevelBonusBreakdown(activeDrinks, items, drinkConcentration)
+ * // Returns: [{ name: "Artisan Tea", actionLevel: 5.0, baseActionLevel: 5.0, dcContribution: 0.0 }]
  */
 export function parseActionLevelBonusBreakdown(activeDrinks, itemDetailMap, drinkConcentration = 0) {
     if (!activeDrinks || activeDrinks.length === 0) {
@@ -371,7 +370,8 @@ export function parseActionLevelBonusBreakdown(activeDrinks, itemDetailMap, drin
             // Action Level buff (e.g., Artisan Tea: +5 Action Level)
             if (buff.typeHrid === '/buff_types/action_level') {
                 const baseValue = buff.flatBoost;
-                const scaledValue = baseValue * (1 + drinkConcentration);
+                // Action Level does NOT scale with Drink Concentration
+                const scaledValue = baseValue; // No DC scaling
                 baseActionLevel += baseValue;
                 totalActionLevel += scaledValue;
             }
@@ -383,7 +383,7 @@ export function parseActionLevelBonusBreakdown(activeDrinks, itemDetailMap, drin
                 name: itemDetails.name,
                 actionLevel: totalActionLevel,
                 baseActionLevel: baseActionLevel,
-                dcContribution: totalActionLevel - baseActionLevel
+                dcContribution: 0 // Always 0 - Action Level doesn't scale with DC
             });
         }
     }
