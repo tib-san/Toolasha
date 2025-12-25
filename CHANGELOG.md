@@ -132,6 +132,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Result:** Efficiency information consolidated in one place (Action Speed & Time) with detailed breakdown, while material costs show embedded Artisan savings inline. No information lost, better organization.
 
+#### **Code Organization: Split Profit Display Functions**
+
+**REFACTORING:** Extracted profit display logic from `panel-observer.js` into dedicated `profit-display.js` module for better maintainability.
+
+- **New Module Created:**
+  - `src/features/actions/profit-display.js` (583 lines)
+  - Contains `displayGatheringProfit()` and `displayProductionProfit()` functions
+  - Handles all profit display UI rendering logic
+  - Reuses shared `createCollapsibleSection()` from `ui-components.js`
+
+- **panel-observer.js Simplified:**
+  - Removed 656 lines of display code (53% reduction)
+  - Now focuses on orchestration and panel detection
+  - Imports display functions from `profit-display.js`
+  - Cleaner separation of concerns: orchestration vs presentation
+
+- **Files Modified:**
+  - `src/features/actions/panel-observer.js` (1,236 → 580 lines)
+    - Added import: `displayGatheringProfit, displayProductionProfit`
+    - Removed inline display function implementations
+    - Updated function calls to pass `SELECTORS.DROP_TABLE` parameter
+  - `src/features/actions/profit-display.js` (NEW - 583 lines)
+    - Extracted complete display logic for gathering and production profits
+    - Maintains all existing functionality and UI structure
+
+**Result:** Better code organization with clear separation between panel detection/orchestration (panel-observer.js) and profit display rendering (profit-display.js). Easier to maintain and test each concern independently.
+
 ### Fixed
 
 #### **Action Level Bonus Floor Mechanic**
