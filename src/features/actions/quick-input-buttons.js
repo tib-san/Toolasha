@@ -234,7 +234,7 @@ class QuickInputButtons {
 
             // Add Efficiency breakdown
             speedLines.push(''); // Empty line
-            speedLines.push(`<span style="font-weight: 500; color: var(--text-color-primary, #fff);">Efficiency: +${totalEfficiency.toFixed(1)}% → Output: ×${efficiencyMultiplier.toFixed(2)} (${Math.round((3600 / actionTime) * efficiencyMultiplier)}/hr)</span>`);
+            speedLines.push(`<span style="font-weight: 500; color: var(--text-color-primary, #fff);">Efficiency: +${totalEfficiency.toFixed(3)}% → Output: ×${efficiencyMultiplier.toFixed(2)} (${Math.round((3600 / actionTime) * efficiencyMultiplier)}/hr)</span>`);
 
             // Detailed efficiency breakdown
             if (efficiencyBreakdown.levelEfficiency > 0 || (efficiencyBreakdown.actionLevelBreakdown && efficiencyBreakdown.actionLevelBreakdown.length > 0)) {
@@ -277,24 +277,25 @@ class QuickInputButtons {
             if (efficiencyBreakdown.houseEfficiency > 0) {
                 // Get house room name
                 const houseRoomName = this.getHouseRoomName(actionDetails.type);
-                speedLines.push(`  - House: +${efficiencyBreakdown.houseEfficiency.toFixed(1)}% (${houseRoomName})`);
+                speedLines.push(`  - House: +${efficiencyBreakdown.houseEfficiency.toFixed(3)}% (${houseRoomName})`);
             }
             if (efficiencyBreakdown.equipmentEfficiency > 0) {
-                speedLines.push(`  - Equipment: +${efficiencyBreakdown.equipmentEfficiency.toFixed(1)}%`);
+                speedLines.push(`  - Equipment: +${efficiencyBreakdown.equipmentEfficiency.toFixed(3)}%`);
             }
-            // Break out individual teas instead of lumping them together
+            // Break out individual teas - show BASE efficiency on main line, DC as sub-line
             if (efficiencyBreakdown.teaBreakdown && efficiencyBreakdown.teaBreakdown.length > 0) {
                 for (const tea of efficiencyBreakdown.teaBreakdown) {
-                    speedLines.push(`  - ${tea.name}: +${tea.efficiency.toFixed(1)}%`);
+                    // Show BASE efficiency (without DC scaling) on main line
+                    speedLines.push(`  - ${tea.name}: +${tea.baseEfficiency.toFixed(3)}%`);
                     // Show DC contribution as sub-line if > 0
                     if (tea.dcContribution > 0) {
-                        speedLines.push(`    - Drink Concentration: +${tea.dcContribution.toFixed(1)}%`);
+                        speedLines.push(`    - Drink Concentration: +${tea.dcContribution.toFixed(3)}%`);
                     }
                 }
             }
             if (efficiencyBreakdown.communityEfficiency > 0) {
                 const communityBuffLevel = dataManager.getCommunityBuffLevel('/community_buff_types/production_efficiency');
-                speedLines.push(`  - Community: +${efficiencyBreakdown.communityEfficiency.toFixed(1)}% (Production Efficiency T${communityBuffLevel})`);
+                speedLines.push(`  - Community: +${efficiencyBreakdown.communityEfficiency.toFixed(3)}% (Production Efficiency T${communityBuffLevel})`);
             }
 
             // Total time (dynamic)
