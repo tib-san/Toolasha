@@ -29,6 +29,7 @@ import taskProfitDisplay from './features/tasks/task-profit-display.js';
 import * as enhancementGearDetector from './utils/enhancement-gear-detector.js';
 import { getEnhancingParams } from './utils/enhancement-config.js';
 import * as enhancementCalculator from './utils/enhancement-calculator.js';
+import TaskRerollDiagnostic from '../diagnostics/task-reroll-diagnostic.js';
 // Debug utilities - only available via window.MWITools, not auto-run
 // import * as gameMechanicsAudit from './utils/game-mechanics-audit.js';
 // import { debugEnhancementSpeed } from './utils/debug-enhancement-speed.js';
@@ -88,6 +89,10 @@ dataManager.on('character_initialized', (data) => {
 // Expose modules to window for debugging/testing
 // Use unsafeWindow for userscript managers (Tampermonkey/Violentmonkey)
 const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+
+// Create diagnostic instance
+const taskRerollDiagnostic = new TaskRerollDiagnostic();
+
 targetWindow.MWITools = {
     dataManager,
     profitCalculator,
@@ -97,6 +102,7 @@ targetWindow.MWITools = {
     marketAPI,
     config,
     storage,
+    websocket: webSocketHook, // Expose websocket for diagnostics
     actionTimeDisplay,
     quickInputButtons,
     abilityBookCalculator,
@@ -108,6 +114,13 @@ targetWindow.MWITools = {
     enhancementGearDetector,
     getEnhancingParams,
     enhancementCalculator,
+    // Diagnostic tools
+    diagnostics: {
+        taskReroll: taskRerollDiagnostic,
+        // Convenience methods
+        startTaskRerollDiagnostic: () => taskRerollDiagnostic.start(),
+        stopTaskRerollDiagnostic: () => taskRerollDiagnostic.stop()
+    },
     // Debug utilities available manually via console
     // gameMechanicsAudit,
     // debugEnhancementSpeed,
