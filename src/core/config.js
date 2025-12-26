@@ -184,6 +184,11 @@ class Config {
                 desc: "Top right corner of key/fragment icons: Corresponding combat zone index number. [Depends on the previous selection]",
                 isTrue: true,
             },
+            alchemyItemDimming: {
+                id: "alchemyItemDimming",
+                desc: "Alchemy panel: Dim items that require higher Alchemy level than you have.",
+                isTrue: true,
+            },
             marketFilter: {
                 id: "marketFilter",
                 desc: "Marketplace: Filter by equipment level, class, slot.",

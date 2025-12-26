@@ -22,6 +22,7 @@ import actionTimeDisplay from './features/actions/action-time-display.js';
 import quickInputButtons from './features/actions/quick-input-buttons.js';
 import abilityBookCalculator from './features/abilities/ability-book-calculator.js';
 import equipmentLevelDisplay from './features/ui/equipment-level-display.js';
+import alchemyItemDimming from './features/ui/alchemy-item-dimming.js';
 import zoneIndices from './features/combat/zone-indices.js';
 import combatScore from './features/profile/combat-score.js';
 import taskProfitDisplay from './features/tasks/task-profit-display.js';
@@ -74,6 +75,7 @@ dataManager.on('character_initialized', (data) => {
             quickInputButtons.initialize();
             abilityBookCalculator.initialize();
             equipmentLevelDisplay.initialize();
+            alchemyItemDimming.initialize();
             zoneIndices.initialize();
             combatScore.initialize();
             taskProfitDisplay.initialize();
@@ -99,6 +101,7 @@ targetWindow.MWITools = {
     quickInputButtons,
     abilityBookCalculator,
     equipmentLevelDisplay,
+    alchemyItemDimming,
     zoneIndices,
     combatScore,
     taskProfitDisplay,

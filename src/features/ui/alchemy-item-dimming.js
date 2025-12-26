@@ -1,0 +1,168 @@
+/**
+ * Alchemy Item Dimming
+ * Dims items in alchemy panel that require higher level than player has
+ * Player must have Alchemy level >= itemLevel to perform alchemy actions
+ */
+
+import config from '../../core/config.js';
+import dataManager from '../../core/data-manager.js';
+
+/**
+ * AlchemyItemDimming class dims items based on level requirements
+ */
+class AlchemyItemDimming {
+    constructor() {
+        this.observer = null;
+        this.isActive = false;
+        this.processedDivs = new WeakSet(); // Track already-processed divs
+    }
+
+    /**
+     * Initialize the alchemy item dimming
+     */
+    initialize() {
+        // Check if feature is enabled
+        if (!config.getSetting('alchemyItemDimming')) {
+            return;
+        }
+
+        // Set up MutationObserver to watch for alchemy panel changes
+        this.observer = new MutationObserver((mutations) => {
+            // Only process if we see actual node additions
+            let shouldProcess = false;
+            for (const mutation of mutations) {
+                if (mutation.addedNodes.length > 0) {
+                    shouldProcess = true;
+                    break;
+                }
+            }
+
+            if (shouldProcess) {
+                this.processAlchemyItems();
+            }
+        });
+
+        // Watch for new elements anywhere in the page
+        this.observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+
+        // Process any existing items on page
+        this.processAlchemyItems();
+
+        this.isActive = true;
+    }
+
+    /**
+     * Process all items in the alchemy panel
+     */
+    processAlchemyItems() {
+        // Check if alchemy panel is open
+        const alchemyPanel = this.findAlchemyPanel();
+        if (!alchemyPanel) {
+            return;
+        }
+
+        // Get player's Alchemy level
+        const skills = dataManager.getSkills();
+        if (!skills) {
+            return;
+        }
+
+        const alchemySkill = skills.find(s => s.skillHrid === '/skills/alchemy');
+        const playerAlchemyLevel = alchemySkill?.level || 1;
+
+        // Find all item icon divs within the alchemy panel
+        const iconDivs = alchemyPanel.querySelectorAll('div.Item_itemContainer__x7kH1 div.Item_item__2De2O.Item_clickable__3viV6');
+
+        for (const div of iconDivs) {
+            // Skip if already processed
+            if (this.processedDivs.has(div)) {
+                continue;
+            }
+
+            // Get the use element inside this div
+            const useElement = div.querySelector('use');
+            if (!useElement) {
+                continue;
+            }
+
+            const href = useElement.getAttribute('href');
+            if (!href) {
+                continue;
+            }
+
+            // Extract item HRID (e.g., "#cheese_sword" -> "/items/cheese_sword")
+            const hrefName = href.split('#')[1];
+            const itemHrid = `/items/${hrefName}`;
+
+            // Get item details
+            const itemDetails = dataManager.getItemDetails(itemHrid);
+            if (!itemDetails) {
+                continue;
+            }
+
+            // Get item's alchemy level requirement
+            const itemLevel = itemDetails.itemLevel || 0;
+
+            // Apply dimming if player level is too low
+            if (playerAlchemyLevel < itemLevel) {
+                div.style.opacity = '0.5';
+                div.style.pointerEvents = 'auto'; // Still clickable
+                div.classList.add('mwi-alchemy-dimmed');
+            } else {
+                // Remove dimming if level is now sufficient (player leveled up)
+                div.style.opacity = '1';
+                div.classList.remove('mwi-alchemy-dimmed');
+            }
+
+            // Mark as processed
+            this.processedDivs.add(div);
+        }
+    }
+
+    /**
+     * Find the alchemy panel in the DOM
+     * @returns {Element|null} Alchemy panel element or null
+     */
+    findAlchemyPanel() {
+        // The alchemy item selector is a MuiTooltip dropdown with ItemSelector_menu class
+        // It appears when clicking in the "Alchemize Item" box
+        const itemSelectorMenus = document.querySelectorAll('div.ItemSelector_menu__12sEM');
+
+        // Return the first one found (only one should be visible at a time)
+        if (itemSelectorMenus.length > 0) {
+            return itemSelectorMenus[0];
+        }
+
+        return null;
+    }
+
+    /**
+     * Disable the feature
+     */
+    disable() {
+        if (this.observer) {
+            this.observer.disconnect();
+            this.observer = null;
+        }
+
+        // Remove all dimming effects
+        const dimmedItems = document.querySelectorAll('.mwi-alchemy-dimmed');
+        for (const item of dimmedItems) {
+            item.style.opacity = '1';
+            item.classList.remove('mwi-alchemy-dimmed');
+        }
+
+        // Clear processed tracking
+        this.processedDivs = new WeakSet();
+
+        this.isActive = false;
+    }
+}
+
+// Create and export singleton instance
+const alchemyItemDimming = new AlchemyItemDimming();
+
+export default alchemyItemDimming;

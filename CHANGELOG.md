@@ -9,6 +9,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### **Alchemy Item Dimming**
+
+**NEW FEATURE:** Automatically dims items in the alchemy item selector that require higher Alchemy level than the player has.
+
+- **Functionality:**
+  - Appears when opening the alchemy item selector (Transmute, Decompose, Coinify tabs)
+  - Compares player's Alchemy level to each item's `itemLevel` requirement
+  - Dims items with 0.5 opacity when player level is too low
+  - Items remain clickable (pointer-events: auto) for tooltip inspection
+  - Auto-updates when player levels up via WebSocket character data updates
+
+- **Visual Style:**
+  - Dimmed items: 0.5 opacity (moderately dim, still visible)
+  - CSS class added: `mwi-alchemy-dimmed`
+  - No tooltip, red border, or other indicators at this time
+
+- **Technical Implementation:**
+  - NEW: `src/features/ui/alchemy-item-dimming.js` (168 lines)
+    - MutationObserver watches for alchemy item selector dropdown appearance
+    - Detects `div.ItemSelector_menu__12sEM` (Material-UI tooltip dropdown)
+    - Processes item icons: `div.Item_itemContainer__x7kH1 div.Item_item__2De2O.Item_clickable__3viV6`
+    - WeakSet tracking prevents duplicate processing
+    - Extracts item HRID from SVG `use` element href attribute
+    - Looks up item details from dataManager to get `itemLevel`
+  - Modified: `src/core/config.js` (lines 187-191)
+    - Added `alchemyItemDimming` setting (enabled by default)
+  - Modified: `src/main.js` (lines 25, 78, 104)
+    - Import, initialization, export to window.MWITools
+
+- **Configuration:**
+  - `alchemyItemDimming` - Enable/disable alchemy item dimming (default: true)
+
+- **Data Source:**
+  - Uses `dataManager.getSkills()` to get player's Alchemy level
+  - Uses `dataManager.getItemDetails(itemHrid)` to get item level requirement
+  - Skill HRID: `/skills/alchemy`
+  - Item level field: `itemLevel` (NOT `equipmentDetail.levelRequirements`)
+
+**Result:** Players can quickly identify which items are available for alchemy actions at their current level without hovering over each item.
+
 #### **Task Profit Calculator**
 
 **NEW FEATURE:** Shows total profit for gathering and production tasks (task rewards + action profit) directly on task cards.
