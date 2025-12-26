@@ -67,9 +67,10 @@ class ProfitCalculator {
     /**
      * Calculate profit for a crafted item
      * @param {string} itemHrid - Item HRID
-     * @returns {Object|null} Profit data or null if not craftable
+     * @returns {Promise<Object|null>} Profit data or null if not craftable
      */
-    calculateProfit(itemHrid) {
+    async calculateProfit(itemHrid) {
+
         // Get item details
         const itemDetails = dataManager.getItemDetails(itemHrid);
         if (!itemDetails) {
@@ -94,6 +95,7 @@ class ProfitCalculator {
             return null;
         }
 
+
         // Calculate base action time
         // Game uses NANOSECONDS (1e9 = 1 second)
         const baseTime = actionDetails.baseTimeCost / 1e9; // Convert nanoseconds to seconds
@@ -114,6 +116,7 @@ class ProfitCalculator {
         // Get active drinks for this action type
         const activeDrinks = dataManager.getActionDrinkSlots(actionDetails.type);
 
+
         // Calculate Action Level bonus from teas (e.g., Artisan Tea: +5 Action Level)
         // This lowers the effective requirement, not increases skill level
         const actionLevelBonus = parseActionLevelBonus(
@@ -127,6 +130,7 @@ class ProfitCalculator {
         const baseRequirement = actionDetails.levelRequirement?.level || 1;
         const effectiveRequirement = baseRequirement + actionLevelBonus;
         const levelEfficiency = Math.max(0, skillLevel - effectiveRequirement);
+
         const houseEfficiency = calculateHouseEfficiency(actionDetails.type);
 
         // Calculate equipment efficiency bonus
@@ -168,6 +172,7 @@ class ProfitCalculator {
         // Get community buff bonus (Production Efficiency)
         const communityBuffLevel = dataManager.getCommunityBuffLevel('/community_buff_types/production_efficiency');
         const communityEfficiency = this.calculateCommunityBuffBonus(communityBuffLevel, actionDetails.type);
+
 
         // Total efficiency bonus (all sources additive)
         const efficiencyBonus = levelEfficiency + houseEfficiency + equipmentEfficiency + teaEfficiency + communityEfficiency;
@@ -257,19 +262,22 @@ class ProfitCalculator {
         // Total costs per hour (materials + teas)
         const totalCostPerHour = materialCostPerHour + totalTeaCostPerHour;
 
-        // Profit per hour (revenue - total costs)
-        const profitPerHour = revenuePerHour - totalCostPerHour;
-
-        // Profit per item (for display)
-        const profitPerItem = profitPerHour / totalItemsPerHour;
-
-        // Calculate bonus revenue from essence and rare find drops
+        // Calculate bonus revenue from essence and rare find drops (before profit calculation)
         const bonusRevenue = calculateBonusRevenue(
             actionDetails,
             actionsPerHour,
             characterEquipment,
             itemDetailMap
         );
+
+        // Apply efficiency multiplier to bonus revenue (efficiency repeats the action, including bonus rolls)
+        const efficiencyBoostedBonusRevenue = (bonusRevenue?.totalBonusRevenue || 0) * efficiencyMultiplier;
+
+        // Profit per hour (revenue + bonus revenue - total costs)
+        const profitPerHour = revenuePerHour + efficiencyBoostedBonusRevenue - totalCostPerHour;
+
+        // Profit per item (for display)
+        const profitPerItem = profitPerHour / totalItemsPerHour;
 
         return {
             itemName: itemDetails.name,
@@ -290,6 +298,7 @@ class ProfitCalculator {
             priceAfterTax,            // Output price after 2% tax (bid or ask based on mode)
             profitPerItem,
             profitPerHour,
+            profitPerDay: profitPerHour * 24,  // Profit per day
             bonusRevenue,             // Bonus revenue from essences and rare finds
             efficiencyBonus,         // Total efficiency
             levelEfficiency,          // Level advantage efficiency

@@ -71,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Total:** Task Rewards + Action Profit
 
 - **Display Format:**
-  - **Collapsed:** `💰 Total Profit: 23,600 ▸`
+  - **Collapsed:** `💰 23,600 | ⏱ 2h 15m ▸` (shows time estimate for task completion)
   - **Expanded (click to view):**
     ```
     Task Profit Breakdown
@@ -241,6 +241,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+#### **Task Profit Calculator - Time Estimate Display**
+
+**UX IMPROVEMENT:** Task card profit display now shows estimated time to complete the task.
+
+- **Previous Display:** `💰 Total Profit: 23,600 ▸`
+- **Current Display:** `💰 23,600 | ⏱ 2h 15m ▸` (Option B: compact format)
+
+- **Functionality:**
+  - Calculates time based on task quantity and actions per hour
+  - Uses same `timeReadable()` formatter as quick input buttons
+  - Formula: `totalSeconds = (taskQuantity / actionsPerHour) * 3600`
+  - Shows "???" if time cannot be calculated
+
+- **Display Behavior:**
+  - Time estimate appears in both collapsed and expanded states
+  - Format maintained when toggling breakdown on/off
+  - Example: "2h 15m" for 2 hours 15 minutes
+  - Example: "45m 30s" for 45 minutes 30 seconds
+  - Example: "5 days 12h 30m" for longer durations
+
+- **Files Modified:**
+  - `src/features/tasks/task-profit-display.js` (lines 8, 207-214, 223, 264)
+    - Imported `timeReadable` formatter
+    - Added time calculation before profit line display
+    - Updated profit line format to Option B (compact with time)
+    - Updated toggle handler to maintain format
+
+**Result:** Players can now see at a glance both the profit and time investment required for each task before accepting it.
+
 #### **Ability Book Calculator Display Formatting**
 
 **UX IMPROVEMENT:** Books needed now displays with thousands separators for better readability.
@@ -334,6 +363,166 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **Result:** Players can instantly see equipment levels without hovering, making gear management and progression tracking much faster.
 
 ### Fixed
+
+#### **Production Profit Calculator - Bonus Revenue Integration**
+
+**BUG FIX:** Fixed discrepancy between item tooltip and action panel profitability displays caused by bonus revenue not being included in core profit calculation.
+
+- **Root Cause:**
+  - `profit-calculator.js` calculated bonus revenue AFTER `profitPerHour` (line 272)
+  - `profitPerHour` did NOT include essence and rare find drop revenue
+  - **Item tooltips:** Displayed `profitPerHour` directly (missing bonus revenue)
+  - **Action panel:** Manually added `bonusRevenue` to `profitPerHour` (workaround)
+  - **Result:** Tooltip showed worse profit than action panel by amount of bonus revenue
+
+- **Example Impact:**
+  - Azure Enhancer: Tooltip -2,363,827/hr vs Panel -2,323,604/hr (40K/hr difference)
+  - Burble Shears: Tooltip -404,112/hr vs Panel -354,607/hr (49K/hr difference)
+  - Discrepancy = bonus revenue from essences/rare finds (~40-50K/hr for these actions)
+
+- **Fix Implementation:**
+  - Moved `calculateBonusRevenue()` call BEFORE `profitPerHour` calculation
+  - Applied efficiency multiplier to bonus revenue (consistency with gathering)
+  - Included bonus revenue in `profitPerHour`: `revenue + bonusRevenue - costs`
+  - Removed manual bonus revenue addition from action panel display
+
+- **Files Modified:**
+  - `src/features/market/profit-calculator.js` (lines 265-280)
+    - Moved bonus revenue calculation before profit calculation
+    - Added efficiency multiplier to bonus revenue
+    - Included bonus revenue in profitPerHour formula
+  - `src/features/actions/profit-display.js` (lines 312-318)
+    - Removed manual `+ bonusRevenueTotal` from profit calculation
+    - Added comment explaining bonus revenue is now included
+
+**Result:** Item tooltips and action panel now show identical profitability values, both including bonus revenue from essence and rare find drops.
+
+#### **Gathering Efficiency Handling in Task Profit Calculator**
+
+**BUG FIX:** Fixed critical inconsistency in efficiency handling between gathering and production profit calculators that caused incorrect task profit calculations.
+
+- **Root Cause:**
+  - **Gathering actions:** Applied efficiency multiplier to `actionsPerHour`, then calculated revenue
+  - **Production actions:** Kept `actionsPerHour` as base rate, applied efficiency to item outputs
+  - **Task profit calculator:** Used `profitPerHour / actionsPerHour` to get per-action profit
+  - **Result:** Gathering task profits were underestimated by factor of `(1 + efficiency%)`
+
+- **Example Impact:**
+  - Milking with 150% efficiency (2.5× multiplier)
+  - 100 coins/hour profit, 100 base actions/hour
+  - **Before:** Task profit for 10 actions = 100 ÷ 250 × 10 = **4 coins** ❌
+  - **After:** Task profit for 10 actions = 100 ÷ 100 × 10 = **10 coins** ✓
+
+- **Fix Implementation:**
+  - Changed gathering to match production pattern
+  - `actionsPerHour` now represents base rate (without efficiency)
+  - Efficiency multiplier applied to item outputs instead
+  - Added `efficiencyMultiplier` field to return object for clarity
+
+- **Changes Made:**
+  - Applied efficiency to all item calculations (raw, processed, gourmet, bonus revenue)
+  - Updated comments to reflect new efficiency handling
+  - Ensured consistent behavior across gathering and production skills
+
+- **Files Modified:**
+  - `src/features/actions/gathering-profit.js` (lines 197-375)
+    - Removed efficiency multiplication from `actionsPerHour`
+    - Applied `efficiencyMultiplier` to all item quantity calculations
+    - Added `efficiencyMultiplier` to return object
+
+**Result:** Gathering and production now handle efficiency identically, task profit calculations are accurate, and tooltip displays remain unchanged.
+
+#### **Combat Score Calculator - Token-Based Back Slot Valuation**
+
+**BUG FIX:** Fixed combat score calculation for untradeable back slot items (capes/cloaks/quivers) by implementing token-based valuation matching MCS behavior.
+
+- **Root Cause:**
+  - Untradeable back slot items purchased with dungeon tokens had no market data
+  - No crafting recipe exists for these items
+  - Equipment score calculation returned 0 for Chimerical Quiver, Sinister Cape, Enchanted Cloak
+  - **Result:** Players with best-in-slot back items showed artificially low combat scores
+
+- **Example Impact:**
+  - Enchanted Cloak: Valued at 0 instead of ~324M (27,000 tokens × 12K per token)
+  - Chimerical Quiver: Valued at 0 instead of ~367M (35,000 tokens × 10.5K per token)
+  - Sinister Cape: Valued at 0 instead of ~270M (27,000 tokens × 10K per token)
+  - Impact: 270M-367M undervaluation of combat score
+
+- **Fix Implementation:**
+  - Added `CAPE_ITEM_TOKEN_DATA` constant with hardcoded token costs and shop items
+  - Created `calculateTokenBasedItemValue()` function:
+    - Finds best value per token from shop items (uses market ask price)
+    - Calculates total value: `bestValuePerToken × tokenCost`
+  - Modified `calculateEquipmentScore()` to check token-based items first before market prices
+  - Matches MCS implementation exactly
+
+- **Token Shop Items Used for Valuation:**
+  - **Chimerical Quiver:** Griffin Leather (600), Manticore Sting (1000), Jackalope Antler (1200), Dodocamel Plume (3000), Griffin Talon (3000)
+  - **Sinister Cape:** Acrobat's Ribbon (2000), Magician's Cloth (2000), Chaotic Chain (3000), Cursed Ball (3000)
+  - **Enchanted Cloak:** Royal Cloth (2000), Knight's Ingot (2000), Bishop's Scroll (2000), Regal Jewel (3000), Sundering Jewel (3000)
+
+- **Files Modified:**
+  - `src/features/profile/score-calculator.js` (lines 20-50)
+    - Added CAPE_ITEM_TOKEN_DATA constant with all three items
+  - `src/features/profile/score-calculator.js` (lines 168-192)
+    - Added calculateTokenBasedItemValue() function
+  - `src/features/profile/score-calculator.js` (lines 228-296)
+    - Modified calculateEquipmentScore() to check token-based items first
+    - Added console logging for token-based valuation
+    - Wrapped existing market price logic in else block
+
+**Result:** Combat score now correctly values untradeable back slot items based on dungeon token cost and token shop item market prices, matching MCS behavior exactly.
+
+#### **Max Button Upgrade Item Detection**
+
+**BUG FIX:** Max button now correctly looks up upgrade items at base enhancement level (+0).
+
+- **Root Cause:**
+  - Upgrade recipes require base item at enhancement level 0
+  - Items with different enhancement levels are separate inventory slots
+  - `.find()` returned first matching HRID regardless of enhancement level
+  - Example: Found Cheese Sword +1 (count: 1) instead of Cheese Sword +0 (count: 3)
+  - **Result:** Max button used wrong enhancement slot count
+
+- **Example Impact:**
+  - Player has cheese_sword inventory:
+    - +0 enhancement: count **3** ← correct slot for crafting
+    - +1 enhancement: count 1
+    - +2 enhancement: count 1
+  - Crafting Verdant Sword requires Cheese Sword +0
+  - **Before:** Max button found +1 slot, returned 1
+  - **After:** Max button finds +0 slot, returns 3
+
+- **Fix Implementation:**
+  - Added `enhancementLevel === 0` check to upgrade item lookup
+  - Uses count from correct enhancement slot only
+  - Does not sum across enhancement levels (they are separate items)
+  - Artisan Tea reduction still applies to effective requirement
+
+- **Files Modified:**
+  - `src/features/actions/quick-input-buttons.js` (lines 655-672)
+    - Added enhancementLevel filter to upgrade item lookup
+
+**Result:** Max button now correctly finds base enhancement level (+0) items for upgrade recipes and uses that slot's count.
+
+#### **Production Profit Calculator - Bonus Revenue Null Check**
+
+**BUG FIX:** Fixed crash when calculating profit for actions without essence or rare find drops.
+
+- **Root Cause:**
+  - `calculateBonusRevenue()` returns null for actions with no essence/rare drops
+  - Attempted to access `bonusRevenue.totalBonusRevenue` without null check
+  - **Result:** TypeError broke all tooltips and action profit displays
+
+- **Fix Implementation:**
+  - Added optional chaining with fallback: `(bonusRevenue?.totalBonusRevenue || 0)`
+  - Safely handles null bonus revenue (multiplies 0 by efficiency)
+  - No change to behavior for actions with bonus drops
+
+- **Files Modified:**
+  - `src/features/market/profit-calculator.js` (line 274)
+
+**Result:** Tooltips and action profit displays now work correctly for all action types, including those without bonus drops.
 
 #### **Equipment Level Display Implementation**
 

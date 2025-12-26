@@ -283,7 +283,13 @@ class Config {
             // Merge saved settings with defaults
             for (const option of Object.values(saved)) {
                 if (this.settingsMap.hasOwnProperty(option.id)) {
-                    this.settingsMap[option.id].isTrue = option.isTrue;
+                    // Load both isTrue (boolean settings) and value (numeric/string settings)
+                    if (option.hasOwnProperty('isTrue')) {
+                        this.settingsMap[option.id].isTrue = option.isTrue;
+                    }
+                    if (option.hasOwnProperty('value')) {
+                        this.settingsMap[option.id].value = option.value;
+                    }
                 }
             }
         }

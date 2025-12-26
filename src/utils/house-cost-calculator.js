@@ -35,12 +35,28 @@ export function calculateHouseBuildCost(houseRoomHrid, currentLevel) {
 
         // Add cost for each material required at this level
         for (const item of levelUpgrades) {
+            // Special case: Coins have face value of 1 (no market price)
+            if (item.itemHrid === '/items/coin') {
+                const itemCost = item.count * 1;
+                totalCost += itemCost;
+                continue;
+            }
+
             const prices = marketAPI.getPrice(item.itemHrid, 0);
             if (!prices) continue;
 
-            // Use weighted average (ask + bid) / 2 to match MCS
-            const ask = prices.ask || 0;
-            const bid = prices.bid || 0;
+            // Match MCS behavior: if one price is positive and other is negative, use positive for both
+            let ask = prices.ask;
+            let bid = prices.bid;
+
+            if (ask > 0 && bid < 0) {
+                bid = ask;
+            }
+            if (bid > 0 && ask < 0) {
+                ask = bid;
+            }
+
+            // Use weighted average
             const weightedPrice = (ask + bid) / 2;
 
             const itemCost = item.count * weightedPrice;

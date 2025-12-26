@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MWI Combat Suite
 // @namespace    http://tampermonkey.net/
-// @version      9.35817
+// @version      9.35822
 // @description  Tools to assist you in combat droning to appease the Queen RNG.
 // @author       Me
 // @license      MIB License
@@ -12987,6 +12987,53 @@ padding: 20px;
                 return totalPrice;
             }
             mcs_ko_getRealisticBaseItemPrice(itemHrid, marketData) {
+                const capeItemTokenData = {
+                    '/items/chimerical_quiver': {
+                        tokenCost: 35000,
+                        tokenShopItems: [
+                            { hrid: '/items/griffin_leather', cost: 600 },
+                            { hrid: '/items/manticore_sting', cost: 1000 },
+                            { hrid: '/items/jackalope_antler', cost: 1200 },
+                            { hrid: '/items/dodocamel_plume', cost: 3000 },
+                            { hrid: '/items/griffin_talon', cost: 3000 }
+                        ]
+                    },
+                    '/items/sinister_cape': {
+                        tokenCost: 27000,
+                        tokenShopItems: [
+                            { hrid: '/items/acrobats_ribbon', cost: 2000 },
+                            { hrid: '/items/magicians_cloth', cost: 2000 },
+                            { hrid: '/items/chaotic_chain', cost: 3000 },
+                            { hrid: '/items/cursed_ball', cost: 3000 }
+                        ]
+                    },
+                    '/items/enchanted_cloak': {
+                        tokenCost: 27000,
+                        tokenShopItems: [
+                            { hrid: '/items/royal_cloth', cost: 2000 },
+                            { hrid: '/items/knights_ingot', cost: 2000 },
+                            { hrid: '/items/bishops_scroll', cost: 2000 },
+                            { hrid: '/items/regal_jewel', cost: 3000 },
+                            { hrid: '/items/sundering_jewel', cost: 3000 }
+                        ]
+                    }
+                };
+
+                if (capeItemTokenData[itemHrid]) {
+                    const capeData = capeItemTokenData[itemHrid];
+                    let bestValuePerToken = 0;
+                    for (const shopItem of capeData.tokenShopItems) {
+                        const shopItemPrice = this.mcs_ko_getItemMarketPrice(shopItem.hrid, marketData);
+                        if (shopItemPrice > 0) {
+                            const valuePerToken = shopItemPrice / shopItem.cost;
+                            if (valuePerToken > bestValuePerToken) {
+                                bestValuePerToken = valuePerToken;
+                            }
+                        }
+                    }
+                    return bestValuePerToken * capeData.tokenCost;
+                }
+
                 const itemDetail = this.mcs_ko_itemDetailMap[itemHrid];
                 const productionCost = itemDetail ? this.mcs_ko_getBaseItemProductionCost(itemHrid, marketData) : -1;
 
@@ -16978,10 +17025,12 @@ padding: 20px;
                     const size = this.pf_getStorageSize(key);
                     const lowerKey = key.toLowerCase();
 
+                    const knownModulePrefixes = ['AM', 'BR', 'CR', 'DP', 'EW', 'FC', 'FL', 'GW', 'HW', 'IH', 'JH', 'KO', 'LY', 'MA', 'NT', 'OP', 'PF', 'QC', 'SC', 'TR'];
+
                     if (key.startsWith('mcs__global_')) {
                         categories['MCS Global'].push({ key, size, isActive: true });
                     }
-                    else if (key.match(/^mcs_[A-Z]{2}_/)) {
+                    else if (key.match(/^mcs_[A-Z]{2}_/) && knownModulePrefixes.some(prefix => key.startsWith(`mcs_${prefix}_`))) {
                         categories['MCS Modules'].push({ key, size, isActive: true });
                     }
                     else if (gameDataKeys.has(key)) {
@@ -30543,8 +30592,116 @@ Simple mode: Lock comparisons to track items
                     hidden: [],
                     minimized: false,
                     position: null,
-                    size: null
+                    size: null,
+                    useMirrorValue: false,
+                    expandedTokenShops: []
                 };
+            }
+
+            mcs_tr_getTokenShopData() {
+                return {
+                    '/items/chimerical_token': {
+                        name: 'Chimerical Token',
+                        items: [
+                            { hrid: '/items/griffin_leather', name: 'Griffin Leather', cost: 600 },
+                            { hrid: '/items/manticore_sting', name: 'Manticore Sting', cost: 1000 },
+                            { hrid: '/items/jackalope_antler', name: 'Jackalope Antler', cost: 1200 },
+                            { hrid: '/items/dodocamel_plume', name: 'Dodocamel Plume', cost: 3000 },
+                            { hrid: '/items/griffin_talon', name: 'Griffin Talon', cost: 3000 },
+                            { hrid: '/items/chimerical_quiver', name: 'Chimerical Quiver', cost: 35000, isCapeItem: true }
+                        ]
+                    },
+                    '/items/sinister_token': {
+                        name: 'Sinister Token',
+                        items: [
+                            { hrid: '/items/acrobats_ribbon', name: "Acrobat's Ribbon", cost: 2000 },
+                            { hrid: '/items/magicians_cloth', name: "Magician's Cloth", cost: 2000 },
+                            { hrid: '/items/chaotic_chain', name: 'Chaotic Chain', cost: 3000 },
+                            { hrid: '/items/cursed_ball', name: 'Cursed Ball', cost: 3000 },
+                            { hrid: '/items/sinister_cape', name: 'Sinister Cape', cost: 27000, isCapeItem: true }
+                        ]
+                    },
+                    '/items/enchanted_token': {
+                        name: 'Enchanted Token',
+                        items: [
+                            { hrid: '/items/royal_cloth', name: 'Royal Cloth', cost: 2000 },
+                            { hrid: '/items/knights_ingot', name: "Knight's Ingot", cost: 2000 },
+                            { hrid: '/items/bishops_scroll', name: "Bishop's Scroll", cost: 2000 },
+                            { hrid: '/items/regal_jewel', name: 'Regal Jewel', cost: 3000 },
+                            { hrid: '/items/sundering_jewel', name: 'Sundering Jewel', cost: 3000 },
+                            { hrid: '/items/enchanted_cloak', name: 'Enchanted Cloak', cost: 27000, isCapeItem: true }
+                        ]
+                    },
+                    '/items/pirate_token': {
+                        name: 'Pirate Token',
+                        items: [
+                            { hrid: '/items/marksman_brooch', name: 'Marksman Brooch', cost: 2000 },
+                            { hrid: '/items/corsair_crest', name: 'Corsair Crest', cost: 2000 },
+                            { hrid: '/items/damaged_anchor', name: 'Damaged Anchor', cost: 2000 },
+                            { hrid: '/items/maelstrom_plating', name: 'Maelstrom Plating', cost: 2000 },
+                            { hrid: '/items/kraken_leather', name: 'Kraken Leather', cost: 2000 },
+                            { hrid: '/items/kraken_fang', name: 'Kraken Fang', cost: 3000 }
+                        ]
+                    }
+                };
+            }
+
+            mcs_tr_getMirrorPrice() {
+                const price = typeof window.getUnitValue === 'function' ? window.getUnitValue('/items/mirror_of_protection', 'live') : 0;
+                return price || 0;
+            }
+
+            mcs_tr_calculateTokenValue(tokenHrid) {
+                const data = this.mcs_tr_loadData();
+                const useMirrorValue = data.useMirrorValue;
+                const shopData = this.mcs_tr_getTokenShopData()[tokenHrid];
+                if (!shopData) return 0;
+
+                let bestValuePerToken = 0;
+
+                for (const item of shopData.items) {
+                    let itemPrice;
+                    if (item.isCapeItem && useMirrorValue) {
+                        itemPrice = this.mcs_tr_getMirrorPrice();
+                    } else if (item.isCapeItem) {
+                        continue;
+                    } else {
+                        itemPrice = this.mcs_tr_getItemPrice(item.hrid);
+                    }
+
+                    if (itemPrice > 0) {
+                        const valuePerToken = itemPrice / item.cost;
+                        if (valuePerToken > bestValuePerToken) {
+                            bestValuePerToken = valuePerToken;
+                        }
+                    }
+                }
+
+                return bestValuePerToken;
+            }
+
+            mcs_tr_getCapeItemPrice(tokenHrid, capeItem) {
+                const data = this.mcs_tr_loadData();
+                if (data.useMirrorValue) {
+                    return this.mcs_tr_getMirrorPrice();
+                }
+
+                const shopData = this.mcs_tr_getTokenShopData()[tokenHrid];
+                if (!shopData) return 0;
+
+                let bestValuePerToken = 0;
+                for (const item of shopData.items) {
+                    if (item.isCapeItem) continue;
+                    const itemPrice = this.mcs_tr_getItemPrice(item.hrid);
+                    if (itemPrice > 0) {
+                        const valuePerToken = itemPrice / item.cost;
+                        if (valuePerToken > bestValuePerToken) {
+                            bestValuePerToken = valuePerToken;
+                        }
+                    }
+                }
+
+                return bestValuePerToken * capeItem.cost;
             }
 
             mcs_tr_loadData() {
@@ -30555,6 +30712,8 @@ Simple mode: Lock comparisons to track items
                         const data = JSON.parse(saved);
                         if (!data.chests) data.chests = {};
                         if (!data.hidden) data.hidden = [];
+                        if (data.useMirrorValue === undefined) data.useMirrorValue = false;
+                        if (!data.expandedTokenShops) data.expandedTokenShops = [];
                         return data;
                     }
                 } catch (e) {
@@ -30659,8 +30818,15 @@ Simple mode: Lock comparisons to track items
             }
 
             mcs_tr_calculateChestExpectedValue(chestHrid) {
-                const chestValue = typeof window.getUnitValue === 'function' ? window.getUnitValue(chestHrid, 'live') : 0;
-                return chestValue || 0;
+                const expectedForOne = this.mcs_tr_calculateExpectedForOne(chestHrid);
+                let totalValue = 0;
+
+                for (const [itemHrid, expectedCount] of Object.entries(expectedForOne)) {
+                    const itemPrice = this.mcs_tr_getItemPrice(itemHrid);
+                    totalValue += expectedCount * itemPrice;
+                }
+
+                return totalValue;
             }
 
             mcs_tr_getItemPrice(itemHrid) {
@@ -30683,6 +30849,32 @@ Simple mode: Lock comparisons to track items
                         return cachePrice / 30;
                     }
                     return 0;
+                }
+
+                const capeItemMap = {
+                    '/items/chimerical_quiver': { tokenHrid: '/items/chimerical_token', cost: 35000 },
+                    '/items/sinister_cape': { tokenHrid: '/items/sinister_token', cost: 27000 },
+                    '/items/enchanted_cloak': { tokenHrid: '/items/enchanted_token', cost: 27000 }
+                };
+
+                if (capeItemMap[itemHrid]) {
+                    const data = this.mcs_tr_loadData();
+                    if (data.useMirrorValue) {
+                        return this.mcs_tr_getMirrorPrice();
+                    } else {
+                        const capeInfo = capeItemMap[itemHrid];
+                        return this.mcs_tr_getCapeItemPrice(capeInfo.tokenHrid, { cost: capeInfo.cost });
+                    }
+                }
+
+                const tokenHrids = [
+                    '/items/chimerical_token',
+                    '/items/sinister_token',
+                    '/items/enchanted_token',
+                    '/items/pirate_token'
+                ];
+                if (tokenHrids.includes(itemHrid)) {
+                    return this.mcs_tr_calculateTokenValue(itemHrid);
                 }
 
                 const price = typeof window.getUnitValue === 'function' ? window.getUnitValue(itemHrid, 'live') : 0;
@@ -30865,6 +31057,36 @@ Simple mode: Lock comparisons to track items
                     }
                 };
                 titleSection.appendChild(resetAllBtn);
+
+                const mirrorToggleBtn = document.createElement('span');
+                mirrorToggleBtn.id = 'treasure-mirror-toggle-btn';
+                const updateMirrorToggleAppearance = () => {
+                    const currentData = this.mcs_tr_loadData();
+                    const useMirror = currentData.useMirrorValue;
+                    mirrorToggleBtn.textContent = useMirror ? 'Mirror Value' : 'Token Value';
+                    mirrorToggleBtn.style.color = useMirror ? '#9370DB' : '#FFD700';
+                    mirrorToggleBtn.style.background = useMirror ? '#4a3a5a' : '#444';
+                };
+                mirrorToggleBtn.title = 'Toggle cape/quiver/cloak valuation method';
+    mirrorToggleBtn.style.cssText = `
+        cursor: pointer;
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 3px;
+        margin-left: 8px;
+                `;
+                updateMirrorToggleAppearance();
+                mirrorToggleBtn.onmouseover = () => mirrorToggleBtn.style.opacity = '0.8';
+                mirrorToggleBtn.onmouseout = () => mirrorToggleBtn.style.opacity = '1';
+                mirrorToggleBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    const data = this.mcs_tr_loadData();
+                    data.useMirrorValue = !data.useMirrorValue;
+                    this.mcs_tr_saveData(data);
+                    updateMirrorToggleAppearance();
+                    this.mcs_tr_renderContent();
+                };
+                titleSection.appendChild(mirrorToggleBtn);
 
                 const configureBtn = document.createElement('span');
                 configureBtn.id = 'treasure-configure-btn';
@@ -31474,6 +31696,10 @@ Simple mode: Lock comparisons to track items
                     `;
                 }
 
+                if (!isConfigureMode) {
+                    html += this.mcs_tr_renderTokenShopSection(treasureData);
+                }
+
                 for (const chestHrid of allChestHrids) {
                     const isHidden = hiddenChests.has(chestHrid);
 
@@ -31622,7 +31848,152 @@ Simple mode: Lock comparisons to track items
                     });
                 });
 
+                content.querySelectorAll('.treasure-token-shop-header').forEach(header => {
+                    header.addEventListener('click', () => {
+                        const tokenHrid = header.dataset.token;
+                        const data = this.mcs_tr_loadData();
+                        const expandedSet = new Set(data.expandedTokenShops || []);
+                        if (expandedSet.has(tokenHrid)) {
+                            expandedSet.delete(tokenHrid);
+                        } else {
+                            expandedSet.add(tokenHrid);
+                        }
+                        data.expandedTokenShops = [...expandedSet];
+                        this.mcs_tr_saveData(data);
+                        this.mcs_tr_renderContent();
+                    });
+                });
+
                 this.mcs_tr_renderMinimizedContent(treasureData, allChestHrids, hiddenChests);
+            }
+
+            mcs_tr_renderTokenShopSection(treasureData) {
+                const tokenShopData = this.mcs_tr_getTokenShopData();
+                const expandedSet = new Set(treasureData.expandedTokenShops || []);
+                const useMirrorValue = treasureData.useMirrorValue;
+
+                const useAskPrice = typeof window.getFlootUseAskPrice === 'function' ? window.getFlootUseAskPrice() : false;
+                const priceColor = useAskPrice ? '#6495ED' : '#4CAF50';
+
+                let html = `<div style="margin-bottom: 12px; border-bottom: 2px solid #555; padding-bottom: 10px;">`;
+
+                const tokenOrder = [
+                    '/items/chimerical_token',
+                    '/items/sinister_token',
+                    '/items/enchanted_token',
+                    '/items/pirate_token'
+                ];
+
+                for (const tokenHrid of tokenOrder) {
+                    const shop = tokenShopData[tokenHrid];
+                    if (!shop) continue;
+
+                    const isExpanded = expandedSet.has(tokenHrid);
+                    const tokenIconHtml = this.mcs_tr_getItemIconHtml(tokenHrid, 20);
+                    const valuePerToken = this.mcs_tr_calculateTokenValue(tokenHrid);
+                    const valuePerTokenFormatted = this.mcs_tr_formatNumber(valuePerToken);
+
+                    let bestValuePerToken = 0;
+                    let bestItemHrid = null;
+                    for (const item of shop.items) {
+                        if (item.isCapeItem) continue;
+                        const itemPrice = this.mcs_tr_getItemPrice(item.hrid);
+                        if (itemPrice > 0) {
+                            const vpt = itemPrice / item.cost;
+                            if (vpt > bestValuePerToken) {
+                                bestValuePerToken = vpt;
+                                bestItemHrid = item.hrid;
+                            }
+                        }
+                    }
+
+        html += `
+            <div class="treasure-token-shop-row" data-token="${tokenHrid}" style="
+                background: #3a3a3a;
+                border-radius: 4px;
+                margin-bottom: 6px;
+                overflow: hidden;
+            ">
+                <div class="treasure-token-shop-header" data-token="${tokenHrid}" style="
+                    display: flex;
+                    align-items: center;
+                    padding: 6px 8px;
+                    cursor: pointer;
+                    gap: 6px;
+                ">
+                    <span class="treasure-expand-icon" style="color: #9370DB; font-weight: bold; width: 15px;">
+                        ${isExpanded ? '−' : '+'}
+                    </span>
+                    ${tokenIconHtml}
+                    <span style="flex: 1; font-weight: bold; font-size: 12px;">${shop.name}</span>
+                    <span style="color: ${priceColor}; font-size: 11px;" title="Value per token">${valuePerTokenFormatted}/token</span>
+                </div>
+                ${isExpanded ? this.mcs_tr_renderTokenShopItems(tokenHrid, shop, bestItemHrid, useMirrorValue, priceColor) : ''}
+            </div>
+                    `;
+                }
+
+                html += `</div>`;
+                return html;
+            }
+
+            mcs_tr_renderTokenShopItems(tokenHrid, shop, bestItemHrid, useMirrorValue, priceColor) {
+                let html = `<div style="padding: 6px 8px 8px 30px; border-top: 1px solid #555; font-size: 11px;">`;
+
+                let bestNonCapeValuePerToken = 0;
+                for (const item of shop.items) {
+                    if (item.isCapeItem) continue;
+                    const itemPrice = this.mcs_tr_getItemPrice(item.hrid);
+                    if (itemPrice > 0) {
+                        const vpt = itemPrice / item.cost;
+                        if (vpt > bestNonCapeValuePerToken) {
+                            bestNonCapeValuePerToken = vpt;
+                        }
+                    }
+                }
+
+                for (const item of shop.items) {
+                    const itemIconHtml = this.mcs_tr_getItemIconHtml(item.hrid, 18);
+
+                    let itemPrice;
+                    let priceSource = '';
+                    let valuePerToken;
+
+                    if (item.isCapeItem) {
+                        valuePerToken = bestNonCapeValuePerToken;
+
+                        if (useMirrorValue) {
+                            itemPrice = this.mcs_tr_getMirrorPrice();
+                            priceSource = ' (mirror)';
+                        } else {
+                            itemPrice = this.mcs_tr_getCapeItemPrice(tokenHrid, item);
+                            priceSource = ' (token)';
+                        }
+                    } else {
+                        itemPrice = this.mcs_tr_getItemPrice(item.hrid);
+                        valuePerToken = itemPrice > 0 ? itemPrice / item.cost : 0;
+                    }
+
+                    const valuePerTokenFormatted = this.mcs_tr_formatNumber(valuePerToken);
+                    const itemPriceFormatted = this.mcs_tr_formatNumber(itemPrice);
+
+                    const isBestValue = item.hrid === bestItemHrid;
+                    const rowStyle = isBestValue ? 'background: rgba(76, 175, 80, 0.2); border-radius: 3px; padding: 2px 4px; margin: -2px -4px;' : '';
+                    const bestBadge = isBestValue ? '<span style="color: #4CAF50; font-size: 9px; margin-left: 4px;">★ BEST</span>' : '';
+
+        html += `
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px; ${rowStyle}">
+                ${itemIconHtml}
+                <span style="flex: 1;">${item.name}${priceSource}${bestBadge}</span>
+                <span style="color: #888; min-width: 50px; text-align: right;">${item.cost.toLocaleString()}</span>
+                <span style="color: ${priceColor}; min-width: 60px; text-align: right;">${itemPriceFormatted}</span>
+                <span style="color: #aaa; min-width: 55px; text-align: right;">${valuePerTokenFormatted}/t</span>
+            </div>
+                    `;
+                }
+
+                html += `</div>`;
+                return html;
             }
 
             mcs_tr_renderMinimizedContent(treasureData, allChestHrids, hiddenChests) {
@@ -36797,7 +37168,7 @@ const LUCKY_STYLES = `
                 const savedPosition = JSON.parse(localStorage.getItem('mcs__global_combat_suite_btn_position') || `{"left": "${defaultLeft}px"}`);
                 const button = document.createElement('div');
                 button.id = 'mwi-combat-suite-btn';
-                button.textContent = 'MWI Combat Suite v9.35817 Beta';
+                button.textContent = 'MWI Combat Suite v9.35822 Beta';
                 button.style.left = savedPosition.left;
                 document.body.appendChild(button);
                 registerPanel('mwi-combat-suite-btn');

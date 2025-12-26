@@ -633,7 +633,7 @@ class QuickInputButtons {
     calculateMaxValue(panel, actionDetails, gameData) {
         try {
             // Gathering actions (no materials needed) - return infinity symbol
-            if (!actionDetails.inputItems || actionDetails.inputItems.length === 0) {
+            if (!actionDetails.inputItems && !actionDetails.upgradeItemHrid) {
                 return '∞';
             }
 
@@ -652,19 +652,42 @@ class QuickInputButtons {
 
             let maxActions = Infinity;
 
-            for (const input of actionDetails.inputItems) {
-                // Find this item in inventory array
-                const inventoryItem = inventory.find(item => item.itemHrid === input.itemHrid);
-                const availableAmount = inventoryItem?.count || 0;
-                const baseRequirement = input.count;
+            // Check upgrade item first (e.g., Crimson Staff → Azure Staff)
+            if (actionDetails.upgradeItemHrid) {
+                // Upgrade recipes require base item (enhancement level 0)
+                const upgradeItem = inventory.find(item =>
+                    item.itemHrid === actionDetails.upgradeItemHrid &&
+                    item.enhancementLevel === 0
+                );
+                const availableAmount = upgradeItem?.count || 0;
+                const baseRequirement = 1; // Upgrade items always require exactly 1
 
                 // Apply Artisan reduction using expected value (average over many actions)
-                // Formula: effectiveCost = baseRequirement × (1 - artisanBonus)
                 const effectiveRequirement = baseRequirement * (1 - artisanBonus);
 
                 if (effectiveRequirement > 0) {
                     const possibleActions = Math.floor(availableAmount / effectiveRequirement);
                     maxActions = Math.min(maxActions, possibleActions);
+                }
+            }
+
+            // Check regular input items (materials like lumber, etc.)
+            if (actionDetails.inputItems && actionDetails.inputItems.length > 0) {
+                for (const input of actionDetails.inputItems) {
+                    // Find ALL items with this HRID (different enhancement levels stack separately)
+                    const allMatchingItems = inventory.filter(item => item.itemHrid === input.itemHrid);
+
+                    // Sum up counts across all enhancement levels
+                    const availableAmount = allMatchingItems.reduce((total, item) => total + (item.count || 0), 0);
+                    const baseRequirement = input.count;
+
+                    // Apply Artisan reduction using expected value (average over many actions)
+                    const effectiveRequirement = baseRequirement * (1 - artisanBonus);
+
+                    if (effectiveRequirement > 0) {
+                        const possibleActions = Math.floor(availableAmount / effectiveRequirement);
+                        maxActions = Math.min(maxActions, possibleActions);
+                    }
                 }
             }
 

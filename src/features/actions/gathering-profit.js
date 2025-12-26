@@ -194,13 +194,13 @@ export async function calculateGatheringProfit(actionHrid) {
         equipmentEfficiency
     );
 
-    // Apply efficiency to actions per hour
-    // Efficiency "repeats the action" - this gives us efficiency-boosted actions per hour
-    actionsPerHour *= (1 + totalEfficiency / 100);
+    // Calculate efficiency multiplier (matches production profit calculator pattern)
+    // Efficiency "repeats the action" - we apply it to item outputs, not action rate
+    const efficiencyMultiplier = 1 + (totalEfficiency / 100);
 
     // Calculate revenue from drop table
     // Processing happens PER ACTION (before efficiency multiplies the count)
-    // So we calculate per-action outputs, then multiply by actionsPerHour
+    // So we calculate per-action outputs, then multiply by actionsPerHour and efficiency
     let revenuePerHour = 0;
     let processingRevenueBonus = 0; // Track extra revenue from Processing Tea
     const processingConversions = []; // Track conversion details for display
@@ -227,7 +227,7 @@ export async function calculateGatheringProfit(actionHrid) {
             ? gameData.actionDetailMap[processingActionHrid].outputItems[0].itemHrid
             : null;
 
-        // Per-action calculations (efficiency is already in actionsPerHour, don't multiply again!)
+        // Per-action calculations (efficiency will be applied when converting to items per hour)
         let rawPerAction = 0;
         let processedPerAction = 0;
 
@@ -247,12 +247,12 @@ export async function calculateGatheringProfit(actionHrid) {
             processedPerAction = processingBonus * processedIfProcs;
             rawPerAction = processingBonus * rawLeftoverIfProcs + (1 - processingBonus) * rawIfNoProc;
 
-            // Revenue per hour = per-action × actionsPerHour
+            // Revenue per hour = per-action × actionsPerHour × efficiency
             const processedBidPrice = marketData[processedItemHrid]?.[0]?.b || 0;
             const processedPriceAfterTax = processedBidPrice * 0.98;
 
-            const rawItemsPerHour = actionsPerHour * drop.dropRate * rawPerAction;
-            const processedItemsPerHour = actionsPerHour * drop.dropRate * processedPerAction;
+            const rawItemsPerHour = actionsPerHour * drop.dropRate * rawPerAction * efficiencyMultiplier;
+            const processedItemsPerHour = actionsPerHour * drop.dropRate * processedPerAction * efficiencyMultiplier;
 
             revenuePerHour += rawItemsPerHour * rawPriceAfterTax;
             revenuePerHour += processedItemsPerHour * processedPriceAfterTax;
@@ -296,7 +296,7 @@ export async function calculateGatheringProfit(actionHrid) {
         } else {
             // No processing - simple calculation
             rawPerAction = avgAmountPerAction;
-            const rawItemsPerHour = actionsPerHour * drop.dropRate * rawPerAction;
+            const rawItemsPerHour = actionsPerHour * drop.dropRate * rawPerAction * efficiencyMultiplier;
             revenuePerHour += rawItemsPerHour * rawPriceAfterTax;
 
             const itemName = gameData.itemDetailMap[drop.itemHrid]?.name || 'Unknown';
@@ -313,7 +313,7 @@ export async function calculateGatheringProfit(actionHrid) {
         if (gourmetBonus > 0) {
             const totalPerAction = rawPerAction + processedPerAction;
             const bonusPerAction = totalPerAction * (gourmetBonus / 100);
-            const bonusItemsPerHour = actionsPerHour * drop.dropRate * bonusPerAction;
+            const bonusItemsPerHour = actionsPerHour * drop.dropRate * bonusPerAction * efficiencyMultiplier;
 
             // Use weighted average price for gourmet bonus
             if (processedItemHrid && processingBonus > 0) {
@@ -336,8 +336,11 @@ export async function calculateGatheringProfit(actionHrid) {
         gameData.itemDetailMap
     );
 
+    // Apply efficiency multiplier to bonus revenue (efficiency repeats the action, including bonus rolls)
+    const efficiencyBoostedBonusRevenue = bonusRevenue.totalBonusRevenue * efficiencyMultiplier;
+
     // Add bonus revenue to total revenue
-    revenuePerHour += bonusRevenue.totalBonusRevenue;
+    revenuePerHour += efficiencyBoostedBonusRevenue;
 
     // Calculate net profit
     const profitPerHour = revenuePerHour - drinkCostPerHour;
@@ -349,9 +352,10 @@ export async function calculateGatheringProfit(actionHrid) {
         revenuePerHour,
         drinkCostPerHour,
         drinkCosts,                // Array of individual drink costs {name, priceEach, costPerHour}
-        actionsPerHour,
+        actionsPerHour,            // Base actions per hour (without efficiency)
         baseOutputs,               // Array of base item outputs {name, itemsPerHour, dropRate, priceEach, revenuePerHour}
-        totalEfficiency,
+        totalEfficiency,           // Total efficiency percentage
+        efficiencyMultiplier,      // Efficiency as multiplier (1 + totalEfficiency / 100)
         speedBonus,
         bonusRevenue,              // Essence and rare find details
         processingBonus,           // Processing Tea chance (as decimal)

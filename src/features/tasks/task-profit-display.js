@@ -5,7 +5,7 @@
  */
 
 import config from '../../core/config.js';
-import { numberFormatter } from '../../utils/formatters.js';
+import { numberFormatter, timeReadable } from '../../utils/formatters.js';
 import { calculateTaskProfit } from './task-profit-calculator.js';
 
 /**
@@ -75,7 +75,7 @@ class TaskProfitDisplay {
      * Add profit display to a task card
      * @param {Element} taskNode - Task card DOM element
      */
-    addProfitToTask(taskNode) {
+    async addProfitToTask(taskNode) {
         // Parse task data from DOM
         const taskData = this.parseTaskData(taskNode);
         if (!taskData) {
@@ -83,7 +83,7 @@ class TaskProfitDisplay {
         }
 
         // Calculate profit
-        const profitData = calculateTaskProfit(taskData);
+        const profitData = await calculateTaskProfit(taskData);
 
         // Don't show anything for combat tasks
         if (profitData === null) {
@@ -97,7 +97,7 @@ class TaskProfitDisplay {
     /**
      * Parse task data from DOM
      * @param {Element} taskNode - Task card DOM element
-     * @returns {Object|null} {description, coinReward, taskTokenReward}
+     * @returns {Object|null} {description, coinReward, taskTokenReward, quantity}
      */
     parseTaskData(taskNode) {
         // Get task description
@@ -105,6 +105,21 @@ class TaskProfitDisplay {
         if (!nameNode) return null;
 
         const description = nameNode.textContent.trim();
+
+        // Get quantity from progress (plain div with text "Progress: 0 / 1562")
+        // Find all divs in taskInfo and look for the one containing "Progress:"
+        let quantity = 0;
+        const taskInfoDivs = taskNode.querySelectorAll('div');
+        for (const div of taskInfoDivs) {
+            const text = div.textContent.trim();
+            if (text.startsWith('Progress:')) {
+                const match = text.match(/(\d+)\s*\/\s*(\d+)/);
+                if (match) {
+                    quantity = parseInt(match[2]); // Total quantity (not current progress)
+                }
+                break;
+            }
+        }
 
         // Get rewards
         const rewardsNode = taskNode.querySelector('.RandomTask_rewards__YZk7D');
@@ -114,6 +129,7 @@ class TaskProfitDisplay {
         let taskTokenReward = 0;
 
         const itemContainers = rewardsNode.querySelectorAll('.Item_itemContainer__x7kH1');
+
         for (const container of itemContainers) {
             const useElement = container.querySelector('use');
             if (!useElement) continue;
@@ -133,11 +149,14 @@ class TaskProfitDisplay {
             }
         }
 
-        return {
+        const taskData = {
             description,
             coinReward,
-            taskTokenReward
+            taskTokenReward,
+            quantity
         };
+
+        return taskData;
     }
 
     /**
@@ -185,14 +204,23 @@ class TaskProfitDisplay {
             return;
         }
 
-        // Create main profit display
+        // Calculate time estimate for task completion
+        let timeEstimate = '???';
+        if (profitData.action?.details?.actionsPerHour && profitData.taskInfo?.quantity) {
+            const actionsPerHour = profitData.action.details.actionsPerHour;
+            const quantity = profitData.taskInfo.quantity;
+            const totalSeconds = (quantity / actionsPerHour) * 3600;
+            timeEstimate = timeReadable(totalSeconds);
+        }
+
+        // Create main profit display (Option B format: compact with time)
         const profitLine = document.createElement('div');
         profitLine.style.cssText = `
             color: ${config.SCRIPT_COLOR_MAIN};
             cursor: pointer;
             user-select: none;
         `;
-        profitLine.textContent = `💰 Total Profit: ${numberFormatter(profitData.totalProfit)} ▸`;
+        profitLine.textContent = `💰 ${numberFormatter(profitData.totalProfit)} | ⏱ ${timeEstimate} ▸`;
 
         // Create breakdown section (hidden by default)
         const breakdownSection = document.createElement('div');
@@ -210,12 +238,30 @@ class TaskProfitDisplay {
         // Build breakdown HTML
         breakdownSection.innerHTML = this.buildBreakdownHTML(profitData);
 
+        // Add click handlers for expandable sections
+        breakdownSection.querySelectorAll('.mwi-expandable-header').forEach(header => {
+            header.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const section = header.getAttribute('data-section');
+                const detailSection = breakdownSection.querySelector(`.mwi-expandable-section[data-section="${section}"]`);
+
+                if (detailSection) {
+                    const isHidden = detailSection.style.display === 'none';
+                    detailSection.style.display = isHidden ? 'block' : 'none';
+
+                    // Update arrow
+                    const currentText = header.textContent;
+                    header.textContent = currentText.replace(isHidden ? '▸' : '▾', isHidden ? '▾' : '▸');
+                }
+            });
+        });
+
         // Toggle breakdown on click
         profitLine.addEventListener('click', (e) => {
             e.stopPropagation();
             const isHidden = breakdownSection.style.display === 'none';
             breakdownSection.style.display = isHidden ? 'block' : 'none';
-            profitLine.textContent = `💰 Total Profit: ${numberFormatter(profitData.totalProfit)} ${isHidden ? '▾' : '▸'}`;
+            profitLine.textContent = `💰 ${numberFormatter(profitData.totalProfit)} | ⏱ ${timeEstimate} ${isHidden ? '▾' : '▸'}`;
         });
 
         profitContainer.appendChild(profitLine);
@@ -249,8 +295,52 @@ class TaskProfitDisplay {
             lines.push(`<div style="margin-left: 10px;">Gathering Value: ${numberFormatter(profitData.action.totalValue)}</div>`);
             lines.push(`<div style="margin-left: 20px; font-size: 0.65rem; color: #888;">(${profitData.action.breakdown.quantity}× @ ${numberFormatter(profitData.action.breakdown.perAction.toFixed(0))} each)</div>`);
         } else if (profitData.type === 'production') {
-            lines.push(`<div style="margin-left: 10px;">Output Value: ${numberFormatter(profitData.action.breakdown.outputValue)}</div>`);
-            lines.push(`<div style="margin-left: 10px;">Material Cost: ${numberFormatter(profitData.action.breakdown.materialCost)}</div>`);
+            // Output Value (expandable)
+            lines.push(`<div class="mwi-expandable-header" data-section="output" style="margin-left: 10px; cursor: pointer; user-select: none;">Output Value: ${numberFormatter(profitData.action.breakdown.outputValue)} ▸</div>`);
+            lines.push(`<div class="mwi-expandable-section" data-section="output" style="display: none; margin-left: 20px; font-size: 0.65rem; color: #888; margin-top: 2px;">`);
+
+            if (profitData.action.details) {
+                const details = profitData.action.details;
+                const itemsPerAction = details.itemsPerAction || 1;
+                const totalItems = itemsPerAction * profitData.action.breakdown.quantity;
+
+                lines.push(`<div>• Base Production: ${totalItems.toFixed(1)} items @ ${numberFormatter(details.priceEach)} = ${numberFormatter(Math.round(totalItems * details.priceEach))}</div>`);
+
+                if (details.gourmetBonusItems > 0) {
+                    const bonusItems = (details.gourmetBonusItems / details.actionsPerHour) * profitData.action.breakdown.quantity;
+                    lines.push(`<div>• Gourmet Bonus: ${bonusItems.toFixed(1)} items @ ${numberFormatter(details.priceEach)} = ${numberFormatter(Math.round(bonusItems * details.priceEach))}</div>`);
+                }
+            }
+
+            lines.push(`</div>`);
+
+            // Material Cost (expandable)
+            lines.push(`<div class="mwi-expandable-header" data-section="materials" style="margin-left: 10px; cursor: pointer; user-select: none;">Material Cost: ${numberFormatter(profitData.action.breakdown.materialCost)} ▸</div>`);
+            lines.push(`<div class="mwi-expandable-section" data-section="materials" style="display: none; margin-left: 20px; font-size: 0.65rem; color: #888; margin-top: 2px;">`);
+
+            if (profitData.action.details && profitData.action.details.materialCosts) {
+                const details = profitData.action.details;
+                const actionsNeeded = profitData.action.breakdown.quantity;
+
+                for (const mat of details.materialCosts) {
+                    const totalAmount = mat.amount * actionsNeeded;
+                    const totalCost = mat.totalCost * actionsNeeded;
+                    lines.push(`<div>• ${mat.itemName}: ${totalAmount.toFixed(1)} @ ${numberFormatter(Math.round(mat.askPrice))} = ${numberFormatter(Math.round(totalCost))}</div>`);
+                }
+
+                if (details.teaCosts && details.teaCosts.length > 0) {
+                    const hoursNeeded = actionsNeeded / details.actionsPerHour;
+                    for (const tea of details.teaCosts) {
+                        const drinksNeeded = tea.drinksPerHour * hoursNeeded;
+                        const totalCost = tea.totalCost * hoursNeeded;
+                        lines.push(`<div>• ${tea.itemName}: ${drinksNeeded.toFixed(1)} drinks @ ${numberFormatter(Math.round(tea.pricePerDrink))} = ${numberFormatter(Math.round(totalCost))}</div>`);
+                    }
+                }
+            }
+
+            lines.push(`</div>`);
+
+            // Net Production
             lines.push(`<div style="margin-left: 10px;">Net Production: ${numberFormatter(profitData.action.totalProfit)}</div>`);
             lines.push(`<div style="margin-left: 20px; font-size: 0.65rem; color: #888;">(${profitData.action.breakdown.quantity}× @ ${numberFormatter(profitData.action.breakdown.perAction.toFixed(0))} each)</div>`);
         }

@@ -6,6 +6,7 @@
 
 import dataManager from '../../core/data-manager.js';
 import expectedValueCalculator from '../market/expected-value-calculator.js';
+import marketAPI from '../../api/marketplace.js';
 import { calculateGatheringProfit } from '../actions/gathering-profit.js';
 import { calculateProductionProfit } from '../actions/production-profit.js';
 
@@ -15,6 +16,15 @@ import { calculateProductionProfit } from '../actions/production-profit.js';
  * @returns {Object} Token value breakdown
  */
 export function calculateTaskTokenValue() {
+    // Return safe defaults if expected value calculator isn't ready
+    if (!expectedValueCalculator.isInitialized) {
+        return {
+            tokenValue: 0,
+            giftPerTask: 0,
+            totalPerToken: 0
+        };
+    }
+
     const taskShopItems = [
         '/items/large_meteorite_cache',
         '/items/large_artisans_crate',
@@ -23,7 +33,7 @@ export function calculateTaskTokenValue() {
 
     // Get expected value of each Task Shop item (all cost 30 tokens)
     const expectedValues = taskShopItems.map(itemHrid => {
-        const result = expectedValueCalculator.calculate(itemHrid);
+        const result = expectedValueCalculator.calculateExpectedValue(itemHrid);
         return result?.expectedValue || 0;
     });
 
@@ -34,7 +44,7 @@ export function calculateTaskTokenValue() {
     const taskTokenValue = bestValue / 30;
 
     // Calculate Purple's Gift prorated value (divide by 50 tasks)
-    const giftResult = expectedValueCalculator.calculate('/items/purples_gift');
+    const giftResult = expectedValueCalculator.calculateExpectedValue('/items/purples_gift');
     const giftValue = giftResult?.expectedValue || 0;
     const giftPerTask = giftValue / 50;
 
@@ -72,22 +82,28 @@ export function calculateTaskRewardValue(coinReward, taskTokenReward) {
 
 /**
  * Detect task type from description
- * @param {string} taskDescription - Task description text
+ * @param {string} taskDescription - Task description text (e.g., "Cheesesmithing - Holy Cheese")
  * @returns {string} Task type: 'gathering', 'production', 'combat', or 'unknown'
  */
 function detectTaskType(taskDescription) {
-    // Gathering patterns: "Forage", "Gather", "Milk", "Chop"
-    if (/forage|gather|milk|chop|woodcut/i.test(taskDescription)) {
+    // Extract skill from "Skill - Action" format
+    const skillMatch = taskDescription.match(/^([^-]+)\s*-/);
+    if (!skillMatch) return 'unknown';
+
+    const skill = skillMatch[1].trim().toLowerCase();
+
+    // Gathering skills
+    if (['foraging', 'woodcutting', 'milking'].includes(skill)) {
         return 'gathering';
     }
 
-    // Production patterns: "Make", "Craft", "Brew", "Cook", "Tailor"
-    if (/make|craft|brew|cook|tailor|cheesesmith/i.test(taskDescription)) {
+    // Production skills
+    if (['cheesesmithing', 'brewing', 'cooking', 'crafting', 'tailoring'].includes(skill)) {
         return 'production';
     }
 
-    // Combat patterns: "Kill", "Defeat"
-    if (/kill|defeat/i.test(taskDescription)) {
+    // Combat
+    if (skill === 'defeat') {
         return 'combat';
     }
 
@@ -95,41 +111,32 @@ function detectTaskType(taskDescription) {
 }
 
 /**
- * Parse task description to extract action HRID and quantity
+ * Parse task description to extract action HRID
+ * Format: "Skill - Action Name" (e.g., "Cheesesmithing - Holy Cheese", "Milking - Cow")
  * @param {string} taskDescription - Task description text
  * @param {string} taskType - Task type (gathering/production)
+ * @param {number} quantity - Task quantity
  * @returns {Object|null} {actionHrid, quantity} or null if parsing fails
  */
-function parseTaskDescription(taskDescription, taskType) {
+function parseTaskDescription(taskDescription, taskType, quantity) {
+
     const gameData = dataManager.getInitClientData();
-    if (!gameData) return null;
-
-    const actionDetailMap = gameData.actionDetailMap;
-    if (!actionDetailMap) return null;
-
-    // Extract quantity and action name based on task type
-    let quantity = 0;
-    let actionName = '';
-
-    if (taskType === 'gathering') {
-        // Pattern: "Forage Asteroid Belt 1000 times"
-        const match = taskDescription.match(/^(\w+)\s+(.+?)\s+(\d+)\s+times?$/i);
-        if (match) {
-            quantity = parseInt(match[3]);
-            actionName = match[2]; // "Asteroid Belt"
-        }
-    } else if (taskType === 'production') {
-        // Pattern: "Make 5 Wooden Nature Staff"
-        const match = taskDescription.match(/^Make\s+(\d+)\s+(.+)$/i);
-        if (match) {
-            quantity = parseInt(match[1]);
-            actionName = match[2]; // "Wooden Nature Staff"
-        }
-    }
-
-    if (!quantity || !actionName) {
+    if (!gameData) {
         return null;
     }
+
+    const actionDetailMap = gameData.actionDetailMap;
+    if (!actionDetailMap) {
+        return null;
+    }
+
+    // Extract action name from "Skill - Action" format
+    const match = taskDescription.match(/^[^-]+\s*-\s*(.+)$/);
+    if (!match) {
+        return null;
+    }
+
+    const actionName = match[1].trim();
 
     // Find matching action HRID by searching for action name in action details
     for (const [actionHrid, actionDetail] of Object.entries(actionDetailMap)) {
@@ -145,10 +152,30 @@ function parseTaskDescription(taskDescription, taskType) {
  * Calculate gathering task profit
  * @param {string} actionHrid - Action HRID
  * @param {number} quantity - Number of times to perform action
- * @returns {Object} Profit breakdown
+ * @returns {Promise<Object>} Profit breakdown
  */
-function calculateGatheringTaskProfit(actionHrid, quantity) {
-    const profitPerAction = calculateGatheringProfit(actionHrid);
+async function calculateGatheringTaskProfit(actionHrid, quantity) {
+
+    let profitData;
+    try {
+        profitData = await calculateGatheringProfit(actionHrid);
+    } catch (error) {
+        profitData = null;
+    }
+
+    if (!profitData) {
+        return {
+            totalValue: 0,
+            breakdown: {
+                actionHrid,
+                quantity,
+                perAction: 0
+            }
+        };
+    }
+
+    // Calculate per-action profit from per-hour profit
+    const profitPerAction = profitData.profitPerHour / profitData.actionsPerHour;
 
     return {
         totalValue: profitPerAction * quantity,
@@ -164,10 +191,17 @@ function calculateGatheringTaskProfit(actionHrid, quantity) {
  * Calculate production task profit
  * @param {string} actionHrid - Action HRID
  * @param {number} quantity - Number of times to perform action
- * @returns {Object} Profit breakdown
+ * @returns {Promise<Object>} Profit breakdown
  */
-function calculateProductionTaskProfit(actionHrid, quantity) {
-    const profitData = calculateProductionProfit(actionHrid);
+async function calculateProductionTaskProfit(actionHrid, quantity) {
+
+    let profitData;
+    try {
+        profitData = await calculateProductionProfit(actionHrid);
+    } catch (error) {
+        profitData = null;
+    }
+
 
     if (!profitData) {
         return {
@@ -182,14 +216,29 @@ function calculateProductionTaskProfit(actionHrid, quantity) {
         };
     }
 
+    // Calculate per-action values from per-hour values
+    const profitPerAction = profitData.profitPerHour / profitData.actionsPerHour;
+    const revenuePerAction = (profitData.itemsPerHour * profitData.priceAfterTax + profitData.gourmetBonusItems * profitData.priceAfterTax) / profitData.actionsPerHour;
+    const costsPerAction = (profitData.materialCostPerHour + profitData.totalTeaCostPerHour) / profitData.actionsPerHour;
+
     return {
-        totalProfit: profitData.profit * quantity,
+        totalProfit: profitPerAction * quantity,
         breakdown: {
             actionHrid,
             quantity,
-            outputValue: profitData.outputValue * quantity,
-            materialCost: profitData.inputCost * quantity,
-            perAction: profitData.profit
+            outputValue: revenuePerAction * quantity,
+            materialCost: costsPerAction * quantity,
+            perAction: profitPerAction
+        },
+        // Include detailed data for expandable display
+        details: {
+            materialCosts: profitData.materialCosts,
+            teaCosts: profitData.teaCosts,
+            baseOutputItems: profitData.itemsPerHour,
+            gourmetBonusItems: profitData.gourmetBonusItems,
+            priceEach: profitData.priceAfterTax,
+            actionsPerHour: profitData.actionsPerHour,
+            itemsPerAction: profitData.itemsPerHour / profitData.actionsPerHour
         }
     };
 }
@@ -197,9 +246,9 @@ function calculateProductionTaskProfit(actionHrid, quantity) {
 /**
  * Calculate complete task profit
  * @param {Object} taskData - Task data {description, coinReward, taskTokenReward}
- * @returns {Object|null} Complete profit breakdown or null for combat/unknown tasks
+ * @returns {Promise<Object|null>} Complete profit breakdown or null for combat/unknown tasks
  */
-export function calculateTaskProfit(taskData) {
+export async function calculateTaskProfit(taskData) {
     const taskType = detectTaskType(taskData.description);
 
     // Skip combat tasks entirely
@@ -208,7 +257,7 @@ export function calculateTaskProfit(taskData) {
     }
 
     // Parse task details
-    const taskInfo = parseTaskDescription(taskData.description, taskType);
+    const taskInfo = parseTaskDescription(taskData.description, taskType, taskData.quantity);
     if (!taskInfo) {
         // Return error state for UI to display "Unable to calculate"
         return {
@@ -227,12 +276,12 @@ export function calculateTaskProfit(taskData) {
     // Calculate action profit based on task type
     let actionProfit = null;
     if (taskType === 'gathering') {
-        actionProfit = calculateGatheringTaskProfit(
+        actionProfit = await calculateGatheringTaskProfit(
             taskInfo.actionHrid,
             taskInfo.quantity
         );
     } else if (taskType === 'production') {
-        actionProfit = calculateProductionTaskProfit(
+        actionProfit = await calculateProductionTaskProfit(
             taskInfo.actionHrid,
             taskInfo.quantity
         );

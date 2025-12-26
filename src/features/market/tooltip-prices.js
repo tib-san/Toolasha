@@ -165,7 +165,7 @@ class TooltipPrices {
         // Run even without market data - profit calc will handle incomplete data
         if (config.getSetting('itemTooltip_profit')) {
             // Calculate and inject profit information
-            const profitData = profitCalculator.calculateProfit(itemHrid);
+            const profitData = await profitCalculator.calculateProfit(itemHrid);
             if (profitData) {
                 this.injectProfitDisplay(tooltipElement, profitData);
             }
@@ -392,7 +392,7 @@ class TooltipPrices {
             html += '<div style="font-size: 0.9em; margin-left: 8px;">';
 
             const profitPerDay = profitData.profitPerHour * 24;
-            const profitColor = profitData.profitPerHour >= 0 ? '#4ade80' : '#f87171'; // green if positive, red if negative
+            const profitColor = profitData.profitPerHour >= 0 ? '#059669' : '#f87171'; // darker emerald if positive, red if negative
 
             html += `<div style="color: ${profitColor}; font-weight: bold;">Net: ${numberFormatter(profitData.profitPerHour)}/hr (${formatKMB(profitPerDay)}/day)</div>`;
         } else {

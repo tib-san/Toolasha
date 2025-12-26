@@ -53,9 +53,18 @@ export function calculateAbilityCost(abilityHrid, targetLevel) {
 
     if (!prices) return 0;
 
-    // Use weighted average (ask + bid) / 2 to match MCS
-    const ask = prices.ask || 0;
-    const bid = prices.bid || 0;
+    // Match MCS behavior: if one price is positive and other is negative, use positive for both
+    let ask = prices.ask;
+    let bid = prices.bid;
+
+    if (ask > 0 && bid < 0) {
+        bid = ask;
+    }
+    if (bid > 0 && ask < 0) {
+        ask = bid;
+    }
+
+    // Use weighted average
     const weightedPrice = (ask + bid) / 2;
 
     return booksNeeded * weightedPrice;
@@ -97,9 +106,18 @@ export function calculateAbilityLevelUpCost(abilityHrid, currentLevel, currentXp
 
     if (!prices) return 0;
 
+    // Match MCS behavior: if one price is positive and other is negative, use positive for both
+    let ask = prices.ask;
+    let bid = prices.bid;
+
+    if (ask > 0 && bid < 0) {
+        bid = ask;
+    }
+    if (bid > 0 && ask < 0) {
+        ask = bid;
+    }
+
     // Weighted average
-    const ask = prices.ask || 0;
-    const bid = prices.bid || 0;
     const weightedPrice = (ask + bid) / 2;
 
     return booksNeeded * weightedPrice;

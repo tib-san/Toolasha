@@ -27,6 +27,7 @@ const PRODUCTION_TYPES = [
  * @returns {Object|null} Profit data or null if not applicable
  */
 export async function calculateProductionProfit(actionHrid) {
+
     // Get action details
     const gameData = dataManager.getInitClientData();
     const actionDetail = gameData.actionDetailMap[actionHrid];
@@ -45,9 +46,11 @@ export async function calculateProductionProfit(actionHrid) {
     }
 
     // Ensure market data is loaded
-    const marketData = await marketAPI.fetch();
-    if (!marketData) {
-        return null;
+    if (!marketAPI.isLoaded()) {
+        const marketData = await marketAPI.fetch();
+        if (!marketData) {
+            return null;
+        }
     }
 
     // Get output item HRID
@@ -59,9 +62,6 @@ export async function calculateProductionProfit(actionHrid) {
     if (!profitData) {
         return null;
     }
-
-    // Add profit per day calculation
-    profitData.profitPerDay = profitData.profitPerHour * 24;
 
     return profitData;
 }

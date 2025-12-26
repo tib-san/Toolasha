@@ -309,10 +309,10 @@ export async function displayProductionProfit(panel, actionHrid, dropTableSelect
         existingProfit.remove();
     }
 
-    // Create top-level summary
-    const bonusRevenueTotal = profitData.bonusRevenue?.totalBonusRevenue || 0;
-    const profit = Math.round(profitData.profitPerHour + bonusRevenueTotal);
+    // Create top-level summary (bonus revenue now included in profitPerHour)
+    const profit = Math.round(profitData.profitPerHour);
     const profitPerDay = Math.round(profit * 24);
+    const bonusRevenueTotal = profitData.bonusRevenue?.totalBonusRevenue || 0;
     const revenue = Math.round(profitData.itemsPerHour * profitData.priceAfterTax + profitData.gourmetBonusItems * profitData.priceAfterTax + bonusRevenueTotal);
     const costs = Math.round(profitData.materialCostPerHour + profitData.totalTeaCostPerHour);
     const summary = `${formatWithSeparator(profit)}/hr, ${formatWithSeparator(profitPerDay)}/day`;

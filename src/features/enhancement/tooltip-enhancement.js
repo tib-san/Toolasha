@@ -176,8 +176,20 @@ function calculateTotalCost(itemHrid, targetLevel, protectFrom, config) {
                 price = 1; // Coins have face value of 1
             } else {
                 const marketPrice = marketAPI.getPrice(material.itemHrid, 0);
-                if (marketPrice && marketPrice.ask) {
-                    price = marketPrice.ask;
+                if (marketPrice) {
+                    let ask = marketPrice.ask;
+                    let bid = marketPrice.bid;
+
+                    // Match MCS behavior: if one price is positive and other is negative, use positive for both
+                    if (ask > 0 && bid < 0) {
+                        bid = ask;
+                    }
+                    if (bid > 0 && ask < 0) {
+                        ask = bid;
+                    }
+
+                    // MCS uses just ask for material prices
+                    price = ask;
                 } else {
                     // Fallback to sellPrice if no market data
                     price = materialDetail?.sellPrice || 0;

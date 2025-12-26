@@ -179,19 +179,37 @@ function getAutoDetectedParams() {
  * @returns {Object} Manual parameters
  */
 function getManualParams() {
+    // Fallback: read directly from localStorage if config system hasn't loaded the value yet
+    const settingsMap = typeof localStorage !== 'undefined'
+        ? JSON.parse(localStorage.getItem('mwitools_script_settingsMap') || '{}')
+        : {};
+
+    // Helper to get value from either config or localStorage settingsMap
+    const getValue = (key, defaultValue) => {
+        const configValue = config.getSettingValue(key, null);
+        if (configValue !== null) {
+            return configValue;
+        }
+        // Fallback to localStorage
+        if (settingsMap[key]) {
+            return settingsMap[key].value !== undefined ? settingsMap[key].value : settingsMap[key].isTrue;
+        }
+        return defaultValue;
+    };
+
     return {
-        enhancingLevel: config.getSettingValue('enhanceSim_enhancingLevel', 125),
-        houseLevel: config.getSettingValue('enhanceSim_houseLevel', 6),
-        toolBonus: config.getSettingValue('enhanceSim_toolBonus', 19.35),
-        speedBonus: config.getSettingValue('enhanceSim_speedBonus', 0),
-        rareFindBonus: config.getSettingValue('enhanceSim_rareFindBonus', 0),
-        experienceBonus: config.getSettingValue('enhanceSim_experienceBonus', 0),
-        guzzlingBonus: 1 + config.getSettingValue('enhanceSim_drinkConcentration', 10.32) / 100,
+        enhancingLevel: getValue('enhanceSim_enhancingLevel', 125),
+        houseLevel: getValue('enhanceSim_houseLevel', 6),
+        toolBonus: getValue('enhanceSim_toolBonus', 19.35),
+        speedBonus: getValue('enhanceSim_speedBonus', 0),
+        rareFindBonus: getValue('enhanceSim_rareFindBonus', 0),
+        experienceBonus: getValue('enhanceSim_experienceBonus', 0),
+        guzzlingBonus: 1 + getValue('enhanceSim_drinkConcentration', 10.32) / 100,
         teas: {
-            enhancing: config.getSettingValue('enhanceSim_enhancingTea', false),
-            superEnhancing: config.getSettingValue('enhanceSim_superEnhancingTea', false),
-            ultraEnhancing: config.getSettingValue('enhanceSim_ultraEnhancingTea', true),
-            blessed: config.getSettingValue('enhanceSim_blessedTea', true),
+            enhancing: getValue('enhanceSim_enhancingTea', false),
+            superEnhancing: getValue('enhanceSim_superEnhancingTea', false),
+            ultraEnhancing: getValue('enhanceSim_ultraEnhancingTea', true),
+            blessed: getValue('enhanceSim_blessedTea', true),
         },
 
         // No display info for manual mode
