@@ -75,7 +75,17 @@ export function timeReadable(sec) {
     function pad(i) {
         return ("0" + i).slice(-2);
     }
-    let str = d.getUTCHours() + "h " + pad(d.getUTCMinutes()) + "m " + pad(d.getUTCSeconds()) + "s";
+
+    const hours = d.getUTCHours();
+    const minutes = d.getUTCMinutes();
+    const seconds = d.getUTCSeconds();
+
+    // For times < 1 minute, just show seconds
+    if (hours === 0 && minutes === 0) {
+        return seconds + "s";
+    }
+
+    let str = hours + "h " + pad(minutes) + "m " + pad(seconds) + "s";
     return str;
 }
 
