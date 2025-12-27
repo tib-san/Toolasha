@@ -184,18 +184,19 @@ class HouseCostDisplay {
         pricingCell.className = 'mwi-house-pricing HousePanel_itemRequirementCell__3hSBN';
         pricingCell.style.cssText = `
             display: flex;
-            flex-direction: column;
-            justify-content: center;
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
             font-size: 0.75rem;
             color: ${config.SCRIPT_COLOR_MAIN};
-            text-align: right;
             padding-left: 8px;
+            white-space: nowrap;
         `;
 
         pricingCell.innerHTML = `
-            <div style="color: ${config.SCRIPT_COLOR_SECONDARY};">@ ${numberFormatter(materialData.marketPrice)}</div>
-            <div style="color: ${config.SCRIPT_COLOR_MAIN}; font-weight: bold;">= ${numberFormatter(materialData.totalValue)}</div>
-            <div style="color: ${hasEnough ? '#4ade80' : '#f87171'};">${hasEnough ? '✓' : '✗'} ${numberFormatter(inventoryCount)}</div>
+            <span style="color: ${config.SCRIPT_COLOR_SECONDARY};">@ ${numberFormatter(materialData.marketPrice)}</span>
+            <span style="color: ${config.SCRIPT_COLOR_MAIN}; font-weight: bold;">= ${numberFormatter(materialData.totalValue)}</span>
+            <span style="color: ${hasEnough ? '#4ade80' : '#f87171'};">${hasEnough ? '✓' : '✗'} ${numberFormatter(inventoryCount)}</span>
         `;
 
         // Insert immediately after the item badge
