@@ -391,8 +391,8 @@ class TaskRerollTracker {
         // Update displays
         this.updateAllTaskDisplays();
 
-        // Save to storage
-        this.saveToStorage();
+        // Save to storage immediately (not debounced) to prevent data loss on quick refresh
+        this.forceSave();
     }
 
     /**

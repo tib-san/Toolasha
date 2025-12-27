@@ -219,6 +219,11 @@ class Config {
                 desc: "Task panel: Show total profit for gathering and production tasks (rewards + action profit).",
                 isTrue: true,
             },
+            houseUpgradeCosts: {
+                id: "houseUpgradeCosts",
+                desc: "House panel: Show upgrade costs with market prices, inventory comparison, and cumulative costs to target level.",
+                isTrue: true,
+            },
             ThirdPartyLinks: {
                 id: "ThirdPartyLinks",
                 desc: "Left sidebar: Links to 3rd-party websites, script settings.",

@@ -13,15 +13,16 @@ import { calculateProductionProfit } from '../actions/production-profit.js';
 /**
  * Calculate Task Token value from Task Shop items
  * Uses same approach as Ranged Way Idle - find best Task Shop item
- * @returns {Object} Token value breakdown
+ * @returns {Object} Token value breakdown or error state
  */
 export function calculateTaskTokenValue() {
-    // Return safe defaults if expected value calculator isn't ready
+    // Return error state if expected value calculator isn't ready
     if (!expectedValueCalculator.isInitialized) {
         return {
-            tokenValue: 0,
-            giftPerTask: 0,
-            totalPerToken: 0
+            tokenValue: null,
+            giftPerTask: null,
+            totalPerToken: null,
+            error: 'Market data not loaded'
         };
     }
 
@@ -51,7 +52,8 @@ export function calculateTaskTokenValue() {
     return {
         tokenValue: taskTokenValue,
         giftPerTask: giftPerTask,
-        totalPerToken: taskTokenValue + giftPerTask
+        totalPerToken: taskTokenValue + giftPerTask,
+        error: null
     };
 }
 
@@ -63,6 +65,22 @@ export function calculateTaskTokenValue() {
  */
 export function calculateTaskRewardValue(coinReward, taskTokenReward) {
     const tokenData = calculateTaskTokenValue();
+
+    // Handle error state (market data not loaded)
+    if (tokenData.error) {
+        return {
+            coins: coinReward,
+            taskTokens: 0,
+            purpleGift: 0,
+            total: coinReward,
+            breakdown: {
+                tokenValue: 0,
+                tokensReceived: taskTokenReward,
+                giftPerTask: 0
+            },
+            error: tokenData.error
+        };
+    }
 
     const taskTokenValue = taskTokenReward * tokenData.tokenValue;
     const purpleGiftValue = taskTokenReward * tokenData.giftPerTask;
@@ -76,7 +94,8 @@ export function calculateTaskRewardValue(coinReward, taskTokenReward) {
             tokenValue: tokenData.tokenValue,
             tokensReceived: taskTokenReward,
             giftPerTask: tokenData.giftPerTask
-        }
+        },
+        error: null
     };
 }
 

@@ -417,7 +417,10 @@ class ActionTimeDisplay {
                 const currentAction = currentActions[0];
                 const actionDetails = dataManager.getActionDetails(currentAction.actionHrid);
 
-                if (actionDetails) {
+                if (!actionDetails) {
+                    console.warn('[Action Time Display] Unknown action:', currentAction.actionHrid);
+                    // Continue processing other actions in queue
+                } else {
                     const count = currentAction.maxCount - currentAction.currentCount;
                     const isInfinite = count === 0 || currentAction.actionHrid.includes('/combat/');
 
@@ -445,7 +448,26 @@ class ActionTimeDisplay {
                 if (divIndex >= actionDivs.length) break;
 
                 const actionDetails = dataManager.getActionDetails(actionObj.actionHrid);
-                if (!actionDetails) continue;
+                if (!actionDetails) {
+                    console.warn('[Action Time Display] Unknown queued action:', actionObj.actionHrid);
+
+                    // Show unknown action in tooltip
+                    const timeDiv = document.createElement('div');
+                    timeDiv.className = 'mwi-queue-action-time';
+                    timeDiv.style.cssText = `
+                        color: var(--text-color-secondary, #888);
+                        font-size: 0.85em;
+                        margin-top: 2px;
+                    `;
+                    timeDiv.textContent = '[Unknown action]';
+
+                    const firstChild = actionDivs[divIndex].querySelector('div');
+                    if (firstChild) {
+                        firstChild.appendChild(timeDiv);
+                    }
+
+                    continue; // Skip time calculation for this action
+                }
 
                 // Calculate count remaining
                 const count = actionObj.maxCount - actionObj.currentCount;

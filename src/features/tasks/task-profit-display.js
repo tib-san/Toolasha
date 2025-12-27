@@ -21,6 +21,7 @@ class TaskProfitDisplay {
         this.observer = null; // Manual MutationObserver for this feature
         this.retryHandler = null; // Retry handler reference for cleanup
         this.pendingTaskNodes = new Set(); // Track task nodes waiting for data
+        this.eventListeners = new WeakMap(); // Store listeners for cleanup
     }
 
     /**
@@ -87,7 +88,17 @@ class TaskProfitDisplay {
                 if (savedTaskKey === currentTaskKey) {
                     continue; // Same task, skip
                 }
-                // Task changed - remove ALL old profit displays (visible + hidden markers)
+
+                // Task changed - clean up event listeners before removing
+                const listeners = this.eventListeners.get(existingProfit);
+                if (listeners) {
+                    listeners.forEach((listener, element) => {
+                        element.removeEventListener('click', listener);
+                    });
+                    this.eventListeners.delete(existingProfit);
+                }
+
+                // Remove ALL old profit displays (visible + hidden markers)
                 taskNode.querySelectorAll('.mwi-task-profit').forEach(el => el.remove());
             }
 
@@ -126,50 +137,61 @@ class TaskProfitDisplay {
      * @param {Element} taskNode - Task card DOM element
      */
     async addProfitToTask(taskNode) {
-        // Check if game data is ready
-        if (!dataManager.getInitClientData()) {
-            // Game data not ready - add to pending queue
-            this.pendingTaskNodes.add(taskNode);
-            return;
-        }
-
-        // Double-check we haven't already processed this task
-        // (check again in case another async call beat us to it)
-        if (taskNode.querySelector('.mwi-task-profit')) {
-            return;
-        }
-
-        // Parse task data from DOM
-        const taskData = this.parseTaskData(taskNode);
-        if (!taskData) {
-            return;
-        }
-
-        // Calculate profit
-        const profitData = await calculateTaskProfit(taskData);
-
-        // Don't show anything for combat tasks, but mark them so we detect rerolls
-        if (profitData === null) {
-            // Add hidden marker for combat tasks to enable reroll detection
-            const combatMarker = document.createElement('div');
-            combatMarker.className = 'mwi-task-profit';
-            combatMarker.style.display = 'none';
-            combatMarker.dataset.taskKey = `${taskData.description}|${taskData.quantity}`;
-
-            const actionNode = taskNode.querySelector('.RandomTask_action__3eC6o');
-            if (actionNode) {
-                actionNode.appendChild(combatMarker);
+        try {
+            // Check if game data is ready
+            if (!dataManager.getInitClientData()) {
+                // Game data not ready - add to pending queue
+                this.pendingTaskNodes.add(taskNode);
+                return;
             }
-            return;
-        }
 
-        // Check one more time before adding (another async call might have added it)
-        if (taskNode.querySelector('.mwi-task-profit')) {
-            return;
-        }
+            // Double-check we haven't already processed this task
+            // (check again in case another async call beat us to it)
+            if (taskNode.querySelector('.mwi-task-profit')) {
+                return;
+            }
 
-        // Display profit
-        this.displayTaskProfit(taskNode, profitData);
+            // Parse task data from DOM
+            const taskData = this.parseTaskData(taskNode);
+            if (!taskData) {
+                return;
+            }
+
+            // Calculate profit
+            const profitData = await calculateTaskProfit(taskData);
+
+            // Don't show anything for combat tasks, but mark them so we detect rerolls
+            if (profitData === null) {
+                // Add hidden marker for combat tasks to enable reroll detection
+                const combatMarker = document.createElement('div');
+                combatMarker.className = 'mwi-task-profit';
+                combatMarker.style.display = 'none';
+                combatMarker.dataset.taskKey = `${taskData.description}|${taskData.quantity}`;
+
+                const actionNode = taskNode.querySelector('.RandomTask_action__3eC6o');
+                if (actionNode) {
+                    actionNode.appendChild(combatMarker);
+                }
+                return;
+            }
+
+            // Check one more time before adding (another async call might have added it)
+            if (taskNode.querySelector('.mwi-task-profit')) {
+                return;
+            }
+
+            // Display profit
+            this.displayTaskProfit(taskNode, profitData);
+
+        } catch (error) {
+            console.error('[Task Profit Display] Failed to calculate profit:', error);
+
+            // Display error state in UI
+            this.displayErrorState(taskNode, 'Unable to calculate profit');
+
+            // Remove from pending queue if present
+            this.pendingTaskNodes.delete(taskNode);
+        }
     }
 
     /**
@@ -331,9 +353,12 @@ class TaskProfitDisplay {
         // Build breakdown HTML
         breakdownSection.innerHTML = this.buildBreakdownHTML(profitData);
 
+        // Store listener references for cleanup
+        const listeners = new Map();
+
         // Add click handlers for expandable sections
         breakdownSection.querySelectorAll('.mwi-expandable-header').forEach(header => {
-            header.addEventListener('click', (e) => {
+            const listener = (e) => {
                 e.stopPropagation();
                 const section = header.getAttribute('data-section');
                 const detailSection = breakdownSection.querySelector(`.mwi-expandable-section[data-section="${section}"]`);
@@ -346,16 +371,25 @@ class TaskProfitDisplay {
                     const currentText = header.textContent;
                     header.textContent = currentText.replace(isHidden ? '▸' : '▾', isHidden ? '▾' : '▸');
                 }
-            });
+            };
+
+            header.addEventListener('click', listener);
+            listeners.set(header, listener);
         });
 
         // Toggle breakdown on click
-        profitLine.addEventListener('click', (e) => {
+        const profitLineListener = (e) => {
             e.stopPropagation();
             const isHidden = breakdownSection.style.display === 'none';
             breakdownSection.style.display = isHidden ? 'block' : 'none';
             profitLine.textContent = `💰 ${numberFormatter(profitData.totalProfit)} | ⏱ ${timeEstimate} ${isHidden ? '▾' : '▸'}`;
-        });
+        };
+
+        profitLine.addEventListener('click', profitLineListener);
+        listeners.set(profitLine, profitLineListener);
+
+        // Store all listeners for cleanup
+        this.eventListeners.set(profitContainer, listeners);
 
         profitContainer.appendChild(profitLine);
         profitContainer.appendChild(breakdownSection);
@@ -373,14 +407,24 @@ class TaskProfitDisplay {
         lines.push('<div style="font-weight: bold; margin-bottom: 4px;">Task Profit Breakdown</div>');
         lines.push('<div style="border-bottom: 1px solid #555; margin-bottom: 4px;"></div>');
 
+        // Show warning if market data unavailable
+        if (profitData.rewards.error) {
+            lines.push(`<div style="color: ${config.SCRIPT_COLOR_ALERT}; margin-bottom: 6px; font-style: italic;">⚠ ${profitData.rewards.error} - Token values unavailable</div>`);
+        }
+
         // Task Rewards section
         lines.push('<div style="margin-bottom: 4px; color: #aaa;">Task Rewards:</div>');
         lines.push(`<div style="margin-left: 10px;">Coins: ${numberFormatter(profitData.rewards.coins)}</div>`);
-        lines.push(`<div style="margin-left: 10px;">Task Tokens: ${numberFormatter(profitData.rewards.taskTokens)}</div>`);
-        lines.push(`<div style="margin-left: 20px; font-size: 0.65rem; color: #888;">(${profitData.rewards.breakdown.tokensReceived} tokens @ ${numberFormatter(profitData.rewards.breakdown.tokenValue.toFixed(0))} each)</div>`);
-        lines.push(`<div style="margin-left: 10px;">Purple's Gift: ${numberFormatter(profitData.rewards.purpleGift)}</div>`);
-        lines.push(`<div style="margin-left: 20px; font-size: 0.65rem; color: #888;">(${numberFormatter(profitData.rewards.breakdown.giftPerTask.toFixed(0))} per task)</div>`);
 
+        if (!profitData.rewards.error) {
+            lines.push(`<div style="margin-left: 10px;">Task Tokens: ${numberFormatter(profitData.rewards.taskTokens)}</div>`);
+            lines.push(`<div style="margin-left: 20px; font-size: 0.65rem; color: #888;">(${profitData.rewards.breakdown.tokensReceived} tokens @ ${numberFormatter(profitData.rewards.breakdown.tokenValue.toFixed(0))} each)</div>`);
+            lines.push(`<div style="margin-left: 10px;">Purple's Gift: ${numberFormatter(profitData.rewards.purpleGift)}</div>`);
+            lines.push(`<div style="margin-left: 20px; font-size: 0.65rem; color: #888;">(${numberFormatter(profitData.rewards.breakdown.giftPerTask.toFixed(0))} per task)</div>`);
+        } else {
+            lines.push(`<div style="margin-left: 10px; color: #888; font-style: italic;">Task Tokens: Loading...</div>`);
+            lines.push(`<div style="margin-left: 10px; color: #888; font-style: italic;">Purple's Gift: Loading...</div>`);
+        }
         // Action profit section
         lines.push('<div style="margin-top: 6px; margin-bottom: 4px; color: #aaa;">Action Profit:</div>');
 
@@ -551,6 +595,29 @@ class TaskProfitDisplay {
     }
 
     /**
+     * Display error state when profit calculation fails
+     * @param {Element} taskNode - Task card DOM element
+     * @param {string} message - Error message to display
+     */
+    displayErrorState(taskNode, message) {
+        const actionNode = taskNode.querySelector('.RandomTask_action__3eC6o');
+        if (!actionNode) return;
+
+        // Create error container
+        const errorContainer = document.createElement('div');
+        errorContainer.className = 'mwi-task-profit mwi-task-profit-error';
+        errorContainer.style.cssText = `
+            margin-top: 4px;
+            font-size: 0.75rem;
+            color: ${config.SCRIPT_COLOR_ALERT};
+            font-style: italic;
+        `;
+        errorContainer.textContent = `⚠ ${message}`;
+
+        actionNode.appendChild(errorContainer);
+    }
+
+    /**
      * Disable the feature
      */
     disable() {
@@ -569,8 +636,17 @@ class TaskProfitDisplay {
         // Clear pending tasks
         this.pendingTaskNodes.clear();
 
-        // Remove all profit displays
-        document.querySelectorAll('.mwi-task-profit').forEach(el => el.remove());
+        // Clean up event listeners before removing profit displays
+        document.querySelectorAll('.mwi-task-profit').forEach(el => {
+            const listeners = this.eventListeners.get(el);
+            if (listeners) {
+                listeners.forEach((listener, element) => {
+                    element.removeEventListener('click', listener);
+                });
+                this.eventListeners.delete(el);
+            }
+            el.remove();
+        });
 
         this.isActive = false;
     }
