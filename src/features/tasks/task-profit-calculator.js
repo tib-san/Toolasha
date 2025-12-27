@@ -249,7 +249,7 @@ async function calculateProductionTaskProfit(actionHrid, quantity) {
             actionsPerHour: profitData.actionsPerHour,
             itemsPerAction: profitData.itemsPerHour / profitData.actionsPerHour,
             bonusRevenue: profitData.bonusRevenue, // Pass through bonus revenue data
-            efficiencyMultiplier: profitData.efficiencyMultiplier // Pass through efficiency multiplier
+            efficiencyMultiplier: profitData.details?.efficiencyMultiplier || 1 // Pass through efficiency multiplier
         }
     };
 }

@@ -104,7 +104,8 @@ export function formatProfitDisplay(profitData) {
             teaEfficiency: profitData.teaEfficiency,
             equipmentEfficiency: profitData.equipmentEfficiency,
             artisanBonus: profitData.artisanBonus,
-            gourmetBonus: profitData.gourmetBonus
+            gourmetBonus: profitData.gourmetBonus,
+            efficiencyMultiplier: profitData.efficiencyMultiplier  // For time calculations
         }
     };
 }

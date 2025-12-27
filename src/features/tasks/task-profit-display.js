@@ -263,7 +263,11 @@ class TaskProfitDisplay {
         if (profitData.action?.details?.actionsPerHour && profitData.taskInfo?.quantity) {
             const actionsPerHour = profitData.action.details.actionsPerHour;
             const quantity = profitData.taskInfo.quantity;
-            const totalSeconds = (quantity / actionsPerHour) * 3600;
+            const efficiencyMultiplier = profitData.action.details.efficiencyMultiplier || 1;
+
+            // Efficiency reduces the number of actions needed
+            const actualActionsNeeded = quantity / efficiencyMultiplier;
+            const totalSeconds = (actualActionsNeeded / actionsPerHour) * 3600;
             timeEstimate = timeReadable(totalSeconds);
         }
 
