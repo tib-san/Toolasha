@@ -5,11 +5,12 @@
 
 import { numberFormatter } from '../../utils/formatters.js';
 import config from '../../core/config.js';
+import domObserver from '../../core/dom-observer.js';
 
 class TaskRerollTracker {
     constructor() {
         this.rerollSpending = new Map(); // key: slotIndex, value: { goldSpent: total, cowbellSpent: total }
-        this.observer = null;
+        this.unregisterHandlers = []; // Store unregister functions
         this.isInitialized = false;
         this.isUpdatingAllDisplays = false; // Guard flag to prevent double updates
     }
@@ -23,8 +24,8 @@ class TaskRerollTracker {
         // Load saved spending data from localStorage
         this.loadFromLocalStorage();
 
-        // Start observing for reroll UI
-        this.startObserver();
+        // Register with centralized DOM observer
+        this.registerObservers();
 
         // Add initial displays to existing tasks
         this.updateAllTaskDisplays();
@@ -33,6 +34,15 @@ class TaskRerollTracker {
         this.attachExistingRerollListeners();
 
         this.isInitialized = true;
+    }
+
+    /**
+     * Clean up observers and handlers
+     */
+    cleanup() {
+        this.unregisterHandlers.forEach(unregister => unregister());
+        this.unregisterHandlers = [];
+        this.isInitialized = false;
     }
 
     /**
@@ -74,47 +84,28 @@ class TaskRerollTracker {
     }
 
     /**
-     * Start DOM observer to watch for reroll actions
+     * Register observers with centralized DOM observer
      */
-    startObserver() {
-        this.observer = new MutationObserver((mutations) => {
-            for (const mutation of mutations) {
-                for (const node of mutation.addedNodes) {
-                    if (node.nodeType !== Node.ELEMENT_NODE) continue;
-
-                    // Safely get className as string (handles SVG elements)
-                    const className = typeof node.className === 'string' ? node.className : '';
-
-                    // Check if task list appeared (user navigated to tasks panel)
-                    if (className.includes('TasksPanel_taskList')) {
-                        this.updateAllTaskDisplays();
-                    }
-
-                    // Check if reroll options container appeared
-                    if (className.includes('rerollOptionsContainer')) {
-                        this.handleRerollOptionsAppeared(node);
-                    }
-
-                    // Check if it's a parent containing task list or reroll options
-                    if (node.querySelector) {
-                        const taskList = node.querySelector('[class*="TasksPanel_taskList"]');
-                        if (taskList) {
-                            this.updateAllTaskDisplays();
-                        }
-
-                        const rerollContainer = node.querySelector('[class*="rerollOptionsContainer"]');
-                        if (rerollContainer) {
-                            this.handleRerollOptionsAppeared(rerollContainer);
-                        }
-                    }
-                }
+    registerObservers() {
+        // Watch for task list appearing (user navigated to tasks panel)
+        const unregisterTaskList = domObserver.onClass(
+            'TaskRerollTracker-TaskList',
+            'TasksPanel_taskList',
+            () => {
+                this.updateAllTaskDisplays();
             }
-        });
+        );
+        this.unregisterHandlers.push(unregisterTaskList);
 
-        this.observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
+        // Watch for reroll options container appearing
+        const unregisterReroll = domObserver.onClass(
+            'TaskRerollTracker-RerollOptions',
+            'rerollOptionsContainer',
+            (container) => {
+                this.handleRerollOptionsAppeared(container);
+            }
+        );
+        this.unregisterHandlers.push(unregisterReroll);
     }
 
     /**

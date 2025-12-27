@@ -7,6 +7,7 @@ import { numberFormatter, timeReadable } from './utils/formatters.js';
 import storage from './core/storage.js';
 import config from './core/config.js';
 import webSocketHook from './core/websocket.js';
+import domObserver from './core/dom-observer.js';
 import dataManager from './core/data-manager.js';
 import dom from './utils/dom.js';
 import * as efficiency from './utils/efficiency.js';
@@ -37,6 +38,9 @@ import TaskRerollDiagnostic from '../diagnostics/task-reroll-diagnostic.js';
 
 // CRITICAL: Install WebSocket hook FIRST, before game connects
 webSocketHook.install();
+
+// CRITICAL: Start centralized DOM observer SECOND, before features initialize
+domObserver.start();
 
 // Initialize Data Manager after a delay (let game load localStorageUtil)
 setTimeout(() => {
@@ -97,6 +101,7 @@ const taskRerollDiagnostic = new TaskRerollDiagnostic();
 
 targetWindow.MWITools = {
     dataManager,
+    domObserver, // Expose centralized observer for debugging
     profitCalculator,
     gatheringProfitCalculator: { calculateGatheringProfit },
     productionProfitCalculator: { calculateProductionProfit },

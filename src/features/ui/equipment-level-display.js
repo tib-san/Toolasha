@@ -6,13 +6,14 @@
 
 import config from '../../core/config.js';
 import dataManager from '../../core/data-manager.js';
+import domObserver from '../../core/dom-observer.js';
 
 /**
  * EquipmentLevelDisplay class adds level overlays to equipment icons
  */
 class EquipmentLevelDisplay {
     constructor() {
-        this.observer = null;
+        this.unregisterHandler = null;
         this.isActive = false;
         this.processedDivs = new WeakSet(); // Track already-processed divs
     }
@@ -26,32 +27,29 @@ class EquipmentLevelDisplay {
             return;
         }
 
-        // Set up MutationObserver to watch for new item icons
-        this.observer = new MutationObserver((mutations) => {
-            // Only process if we see actual node additions
-            let shouldProcess = false;
-            for (const mutation of mutations) {
-                if (mutation.addedNodes.length > 0) {
-                    shouldProcess = true;
-                    break;
-                }
-            }
-
-            if (shouldProcess) {
+        // Register with centralized DOM observer
+        this.unregisterHandler = domObserver.register(
+            'EquipmentLevelDisplay',
+            () => {
                 this.addItemLevels();
             }
-        });
-
-        // Watch for new elements anywhere in the page
-        this.observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
+        );
 
         // Process any existing items on page
         this.addItemLevels();
 
         this.isActive = true;
+    }
+
+    /**
+     * Clean up
+     */
+    cleanup() {
+        if (this.unregisterHandler) {
+            this.unregisterHandler();
+            this.unregisterHandler = null;
+        }
+        this.isActive = false;
     }
 
     /**
