@@ -270,6 +270,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Result:** Players can now see at a glance both the profit and time investment required for each task before accepting it.
 
+#### **Task Profit Calculator - Bonus Revenue Display**
+
+**UX IMPROVEMENT:** Task profit breakdown now displays bonus revenue from essence and rare find drops as a separate expandable section.
+
+- **Previous Behavior:** Bonus revenue (~1.87M in some cases) was calculated and included in Net Production but not shown as a separate line item, making it hard to understand where profit came from.
+
+- **Current Display:** New expandable "Bonus Revenue" section appears between Output Value and Material Cost:
+  - Shows total bonus revenue (collapsed)
+  - When expanded, shows individual drop details:
+    - Essence Drops (if any)
+    - Rare Find Drops (if any)
+  - Each drop shows: Item name, drop count, price per item, total revenue
+  - Example: "• Small Meteorite Cache: 0.42 drops @ 2,500 = 1,050"
+
+- **Functionality:**
+  - Calculates per-task values from hourly rates
+  - Groups drops by type (Essence vs Rare Find)
+  - Uses same expandable UI pattern as Output Value and Material Cost
+  - Only appears when bonus drops exist for the action
+
+- **Files Modified:**
+  - `src/features/tasks/task-profit-calculator.js` (line 242)
+    - Added `bonusRevenue: profitData.bonusRevenue` to details object
+    - Passes bonus revenue data through to display
+  - `src/features/tasks/task-profit-display.js` (lines 317-353)
+    - Added expandable Bonus Revenue section between Output Value and Material Cost
+    - Groups drops by type (essence/rare_find)
+    - Calculates per-task values (hourly rate × hours needed)
+    - Displays subsections for each drop type
+
+**Result:** Players can now see exactly where bonus revenue comes from and how much each drop type contributes to their total profit.
+
 #### **Ability Book Calculator Display Formatting**
 
 **UX IMPROVEMENT:** Books needed now displays with thousands separators for better readability.

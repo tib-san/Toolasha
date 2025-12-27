@@ -145,40 +145,54 @@ class TaskRerollDiagnostic {
      * Inspect element for task/reroll related content
      */
     inspectElement(element) {
-        // Check text content for keywords
-        const text = element.textContent || '';
-        const lowerText = text.toLowerCase();
+        // Check for reroll options container by class name
+        const className = element.className || '';
 
-        if (lowerText.includes('reroll') ||
-            lowerText.includes('cowbell') ||
-            lowerText.includes('task')) {
-
-            console.log('[Task Reroll Diagnostic] Found task/reroll element:');
-            console.log('Text:', text);
+        // Look for reroll options container
+        if (className.includes('rerollOptionsContainer') || className.includes('RandomTask_rerollOptionsContainer')) {
+            console.log('[Task Reroll Diagnostic] Found reroll options container:');
             console.log('Classes:', element.className);
             console.log('Element:', element);
 
-            // Check for buttons
+            // Find all buttons in this container
             const buttons = element.querySelectorAll('button');
-            buttons.forEach(button => {
-                const buttonText = button.textContent.toLowerCase();
-                if (buttonText.includes('reroll') ||
-                    buttonText.includes('cowbell') ||
-                    buttonText.includes('gold') ||
-                    buttonText.includes('pay')) {
+            console.log(`[Task Reroll Diagnostic] Found ${buttons.length} buttons in reroll container`);
 
-                    console.log('[Task Reroll Diagnostic] Found button:', button.textContent);
-                    this.attachClickListener(button);
-                }
+            buttons.forEach(button => {
+                // Get button text and SVG info
+                const buttonText = button.textContent || '';
+                const svg = button.querySelector('svg use');
+                const svgHref = svg ? svg.getAttribute('href') : null;
+
+                console.log('[Task Reroll Diagnostic] Payment button found:');
+                console.log('  Text:', buttonText);
+                console.log('  SVG href:', svgHref);
+                console.log('  Full button:', button);
+
+                this.attachClickListener(button);
             });
 
             // Store UI element info
             this.taskData.uiElements.push({
                 timestamp: new Date().toISOString(),
-                text: text,
                 className: element.className,
-                html: element.outerHTML.substring(0, 500) // First 500 chars
+                html: element.outerHTML.substring(0, 1000) // First 1000 chars
             });
+        }
+
+        // Also check for individual payment buttons by class
+        if (className.includes('Button_button') && element.querySelector('svg use')) {
+            const svg = element.querySelector('svg use');
+            const svgHref = svg ? svg.getAttribute('href') : null;
+
+            // Only process if it has cowbell or gold icon
+            if (svgHref && (svgHref.includes('cowbell') || svgHref.includes('gold'))) {
+                console.log('[Task Reroll Diagnostic] Payment button detected:');
+                console.log('  Text:', element.textContent);
+                console.log('  Currency:', svgHref.includes('cowbell') ? 'Cowbell' : 'Gold');
+
+                this.attachClickListener(element);
+            }
         }
     }
 
@@ -223,42 +237,45 @@ class TaskRerollDiagnostic {
     captureTaskState() {
         const state = {
             timestamp: new Date().toISOString(),
-            taskCards: [],
-            rerollButtons: [],
-            costDisplays: []
+            rerollOptionsContainers: [],
+            paymentButtons: [],
+            rerollCosts: []
         };
 
-        // Find all task cards
-        document.querySelectorAll('[class*="Task"]').forEach(card => {
-            const text = card.textContent;
-            if (text.length > 10 && text.length < 500) { // Reasonable task description length
-                state.taskCards.push({
-                    text: text,
-                    className: card.className,
-                    html: card.outerHTML.substring(0, 300)
-                });
-            }
+        // Find reroll options containers
+        document.querySelectorAll('[class*="rerollOptionsContainer"]').forEach(container => {
+            state.rerollOptionsContainers.push({
+                className: container.className,
+                html: container.outerHTML.substring(0, 500)
+            });
         });
 
-        // Find reroll-related buttons
+        // Find payment buttons with SVG icons
         document.querySelectorAll('button').forEach(button => {
-            const text = button.textContent.toLowerCase();
-            if (text.includes('reroll') || text.includes('cowbell') || text.includes('gold')) {
-                state.rerollButtons.push({
-                    text: button.textContent,
-                    className: button.className
-                });
-            }
-        });
+            const svg = button.querySelector('svg use');
+            if (svg) {
+                const href = svg.getAttribute('href');
+                if (href && (href.includes('cowbell') || href.includes('gold'))) {
+                    const buttonText = button.textContent || '';
+                    const costMatch = buttonText.match(/(\d+)/);
+                    const cost = costMatch ? parseInt(costMatch[1]) : null;
+                    const currency = href.includes('cowbell') ? 'cowbell' : 'gold';
 
-        // Find any elements with numbers that might be costs
-        document.querySelectorAll('*').forEach(elem => {
-            const text = elem.textContent;
-            if ((text.includes('Cowbell') || text.includes('Gold')) && /\d+/.test(text)) {
-                state.costDisplays.push({
-                    text: text,
-                    className: elem.className
-                });
+                    state.paymentButtons.push({
+                        text: buttonText,
+                        cost: cost,
+                        currency: currency,
+                        className: button.className,
+                        svgHref: href
+                    });
+
+                    if (cost) {
+                        state.rerollCosts.push({
+                            cost: cost,
+                            currency: currency
+                        });
+                    }
+                }
             }
         });
 

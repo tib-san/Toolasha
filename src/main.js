@@ -26,6 +26,7 @@ import alchemyItemDimming from './features/ui/alchemy-item-dimming.js';
 import zoneIndices from './features/combat/zone-indices.js';
 import combatScore from './features/profile/combat-score.js';
 import taskProfitDisplay from './features/tasks/task-profit-display.js';
+import taskRerollTracker from './features/tasks/task-reroll-tracker.js';
 import * as enhancementGearDetector from './utils/enhancement-gear-detector.js';
 import { getEnhancingParams } from './utils/enhancement-config.js';
 import * as enhancementCalculator from './utils/enhancement-calculator.js';
@@ -80,6 +81,7 @@ dataManager.on('character_initialized', (data) => {
             zoneIndices.initialize();
             combatScore.initialize();
             taskProfitDisplay.initialize();
+            taskRerollTracker.initialize();
         } catch (error) {
             console.error('❌ Feature initialization failed:', error);
         }
@@ -111,6 +113,7 @@ targetWindow.MWITools = {
     zoneIndices,
     combatScore,
     taskProfitDisplay,
+    taskRerollTracker,
     enhancementGearDetector,
     getEnhancingParams,
     enhancementCalculator,

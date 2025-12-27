@@ -183,6 +183,10 @@ async function calculateGatheringTaskProfit(actionHrid, quantity) {
             actionHrid,
             quantity,
             perAction: profitPerAction
+        },
+        // Include data for time calculation
+        details: {
+            actionsPerHour: profitData.actionsPerHour
         }
     };
 }
@@ -238,7 +242,9 @@ async function calculateProductionTaskProfit(actionHrid, quantity) {
             gourmetBonusItems: profitData.gourmetBonusItems,
             priceEach: profitData.priceAfterTax,
             actionsPerHour: profitData.actionsPerHour,
-            itemsPerAction: profitData.itemsPerHour / profitData.actionsPerHour
+            itemsPerAction: profitData.itemsPerHour / profitData.actionsPerHour,
+            bonusRevenue: profitData.bonusRevenue, // Pass through bonus revenue data
+            efficiencyMultiplier: profitData.efficiencyMultiplier // Pass through efficiency multiplier
         }
     };
 }

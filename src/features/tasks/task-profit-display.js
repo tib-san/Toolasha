@@ -76,6 +76,12 @@ class TaskProfitDisplay {
      * @param {Element} taskNode - Task card DOM element
      */
     async addProfitToTask(taskNode) {
+        // Double-check we haven't already processed this task
+        // (check again in case another async call beat us to it)
+        if (taskNode.querySelector('.mwi-task-profit')) {
+            return;
+        }
+
         // Parse task data from DOM
         const taskData = this.parseTaskData(taskNode);
         if (!taskData) {
@@ -87,6 +93,11 @@ class TaskProfitDisplay {
 
         // Don't show anything for combat tasks
         if (profitData === null) {
+            return;
+        }
+
+        // Check one more time before adding (another async call might have added it)
+        if (taskNode.querySelector('.mwi-task-profit')) {
             return;
         }
 
@@ -313,6 +324,46 @@ class TaskProfitDisplay {
             }
 
             lines.push(`</div>`);
+
+            // Bonus Revenue (expandable) - Essence and Rare Find drops
+            if (profitData.action.details?.bonusRevenue && profitData.action.details.bonusRevenue.bonusDrops && profitData.action.details.bonusRevenue.bonusDrops.length > 0) {
+                const details = profitData.action.details;
+                const bonusRevenue = details.bonusRevenue;
+                const hoursNeeded = profitData.action.breakdown.quantity / details.actionsPerHour;
+                const efficiencyMultiplier = details.efficiencyMultiplier || 1;
+                const totalBonusRevenue = bonusRevenue.totalBonusRevenue * efficiencyMultiplier * hoursNeeded;
+
+                lines.push(`<div class="mwi-expandable-header" data-section="bonus" style="margin-left: 10px; cursor: pointer; user-select: none;">Bonus Revenue: ${numberFormatter(totalBonusRevenue)} ▸</div>`);
+                lines.push(`<div class="mwi-expandable-section" data-section="bonus" style="display: none; margin-left: 20px; font-size: 0.65rem; color: #888; margin-top: 2px;">`);
+
+                // Group drops by type
+                const essenceDrops = bonusRevenue.bonusDrops.filter(d => d.type === 'essence');
+                const rareFindDrops = bonusRevenue.bonusDrops.filter(d => d.type === 'rare_find');
+
+                // Show essence drops
+                if (essenceDrops.length > 0) {
+                    lines.push(`<div style="margin-top: 2px; color: #aaa;">Essence Drops:</div>`);
+                    for (const drop of essenceDrops) {
+                        const dropsForTask = drop.dropsPerHour * efficiencyMultiplier * hoursNeeded;
+                        const revenueForTask = drop.revenuePerHour * efficiencyMultiplier * hoursNeeded;
+                        lines.push(`<div>• ${drop.itemName}: ${dropsForTask.toFixed(2)} drops @ ${numberFormatter(Math.round(drop.priceEach))} = ${numberFormatter(Math.round(revenueForTask))}</div>`);
+                    }
+                }
+
+                // Show rare find drops
+                if (rareFindDrops.length > 0) {
+                    if (essenceDrops.length > 0) {
+                        lines.push(`<div style="margin-top: 4px; color: #aaa;">Rare Find Drops:</div>`);
+                    }
+                    for (const drop of rareFindDrops) {
+                        const dropsForTask = drop.dropsPerHour * efficiencyMultiplier * hoursNeeded;
+                        const revenueForTask = drop.revenuePerHour * efficiencyMultiplier * hoursNeeded;
+                        lines.push(`<div>• ${drop.itemName}: ${dropsForTask.toFixed(2)} drops @ ${numberFormatter(Math.round(drop.priceEach))} = ${numberFormatter(Math.round(revenueForTask))}</div>`);
+                    }
+                }
+
+                lines.push(`</div>`);
+            }
 
             // Material Cost (expandable)
             lines.push(`<div class="mwi-expandable-header" data-section="materials" style="margin-left: 10px; cursor: pointer; user-select: none;">Material Cost: ${numberFormatter(profitData.action.breakdown.materialCost)} ▸</div>`);
