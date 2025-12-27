@@ -288,11 +288,12 @@ class HouseCostDisplay {
         headerRow.appendChild(dropdown);
         section.appendChild(headerRow);
 
-        // Cost display
+        // Cost display container
         const costContainer = document.createElement('div');
         costContainer.className = 'mwi-cumulative-cost-container';
         costContainer.style.cssText = `
-            font-size: 0.8125rem;
+            font-size: 0.875rem;
+            margin-top: 8px;
         `;
         section.appendChild(costContainer);
 
@@ -319,13 +320,12 @@ class HouseCostDisplay {
 
         const costData = await houseCostCalculator.calculateCumulativeCost(houseRoomHrid, currentLevel, targetLevel);
 
-        // Compact material list - just names and totals
+        // Compact material list matching top format
         const materialsList = document.createElement('div');
         materialsList.style.cssText = `
             display: flex;
             flex-direction: column;
-            gap: 4px;
-            margin-bottom: 8px;
+            gap: 2px;
         `;
 
         // Coins first
@@ -349,6 +349,7 @@ class HouseCostDisplay {
         // Total
         const totalDiv = document.createElement('div');
         totalDiv.style.cssText = `
+            margin-top: 8px;
             padding-top: 8px;
             border-top: 1px solid rgba(255, 255, 255, 0.1);
             font-weight: bold;
@@ -360,53 +361,70 @@ class HouseCostDisplay {
     }
 
     /**
-     * Create compact material row
+     * Create compact material row matching top section format
      * @param {Object} material - Material data
      * @returns {HTMLElement} Row element
      */
     createCompactMaterialRow(material) {
-        const row = document.createElement('div');
-        row.style.cssText = `
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 4px;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 4px;
-        `;
-
         const itemName = houseCostCalculator.getItemName(material.itemHrid);
         const inventoryCount = houseCostCalculator.getInventoryCount(material.itemHrid);
         const hasEnough = inventoryCount >= material.count;
 
-        // Left: item name and count
-        const nameSpan = document.createElement('span');
-        nameSpan.style.cssText = `color: ${config.SCRIPT_COLOR_MAIN};`;
-        nameSpan.textContent = `${numberFormatter(material.count)} ${itemName}`;
-
-        // Right: value and inventory status
-        const rightSpan = document.createElement('span');
-        rightSpan.style.cssText = `
-            display: flex;
-            gap: 8px;
+        // Create a row that mimics the construction costs format
+        const row = document.createElement('div');
+        row.style.cssText = `
+            display: grid;
+            grid-template-columns: auto auto auto auto;
             align-items: center;
-            font-size: 0.75rem;
+            gap: 8px;
+            margin: 4px 0;
         `;
 
-        if (material.itemHrid !== '/items/coin') {
-            const valueSpan = document.createElement('span');
-            valueSpan.style.cssText = `color: ${config.SCRIPT_COLOR_SECONDARY};`;
-            valueSpan.textContent = numberFormatter(material.totalValue);
-            rightSpan.appendChild(valueSpan);
+        // Inventory / Required
+        const countsSpan = document.createElement('span');
+        countsSpan.style.cssText = `
+            color: ${hasEnough ? 'white' : '#f87171'};
+            text-align: right;
+        `;
+        countsSpan.textContent = `${numberFormatter(inventoryCount)} / ${numberFormatter(material.count)}`;
 
-            const invSpan = document.createElement('span');
-            invSpan.style.cssText = `color: ${hasEnough ? '#4ade80' : '#f87171'};`;
-            invSpan.textContent = hasEnough ? '✓' : '✗';
-            rightSpan.appendChild(invSpan);
+        // Item badge (mimicking the game's item badges)
+        const badgeSpan = document.createElement('span');
+        badgeSpan.style.cssText = `
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            color: white;
+        `;
+        badgeSpan.textContent = itemName;
+
+        // Pricing info (only for non-coins)
+        const pricingSpan = document.createElement('span');
+        if (material.itemHrid !== '/items/coin') {
+            pricingSpan.style.cssText = `
+                display: flex;
+                gap: 8px;
+                font-size: 0.75rem;
+                white-space: nowrap;
+            `;
+            pricingSpan.innerHTML = `
+                <span style="color: ${config.SCRIPT_COLOR_SECONDARY};">@ ${numberFormatter(material.marketPrice)}</span>
+                <span style="color: ${config.SCRIPT_COLOR_MAIN}; font-weight: bold;">= ${numberFormatter(material.totalValue)}</span>
+                <span style="color: ${hasEnough ? '#4ade80' : '#f87171'};">${hasEnough ? '✓' : '✗'} ${numberFormatter(inventoryCount)}</span>
+            `;
         }
 
-        row.appendChild(nameSpan);
-        row.appendChild(rightSpan);
+        // Empty span for grid alignment
+        const emptySpan = document.createElement('span');
+
+        row.appendChild(countsSpan);
+        row.appendChild(badgeSpan);
+        row.appendChild(pricingSpan);
+        row.appendChild(emptySpan);
 
         return row;
     }
