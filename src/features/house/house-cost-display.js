@@ -71,7 +71,13 @@ class HouseCostDisplay {
      */
     removeExistingColumn(modalContent) {
         // Remove all MWI-added elements
-        modalContent.querySelectorAll('.mwi-house-pricing, .mwi-house-total, .mwi-house-to-level').forEach(el => el.remove());
+        modalContent.querySelectorAll('.mwi-house-pricing, .mwi-house-pricing-empty, .mwi-house-total, .mwi-house-to-level').forEach(el => el.remove());
+
+        // Restore original grid columns
+        const itemRequirementsGrid = modalContent.querySelector('[class*="HousePanel_itemRequirements"]');
+        if (itemRequirementsGrid) {
+            itemRequirementsGrid.style.gridTemplateColumns = '';
+        }
     }
 
     /**
@@ -86,6 +92,15 @@ class HouseCostDisplay {
             console.warn('[House Cost Display] Could not find item requirements grid');
             return;
         }
+
+        // Modify the grid to accept 4 columns instead of 3
+        // Native grid is: icon | inventory count | input count
+        // We want: icon | inventory count | input count | pricing
+        const currentGridStyle = window.getComputedStyle(itemRequirementsGrid).gridTemplateColumns;
+        console.log('[House Cost Display] Current grid columns:', currentGridStyle);
+
+        // Add a 4th column for pricing (auto width)
+        itemRequirementsGrid.style.gridTemplateColumns = currentGridStyle + ' auto';
 
         // Find all item containers (these have the icons)
         const itemContainers = itemRequirementsGrid.querySelectorAll('[class*="Item_itemContainer"]');
@@ -124,10 +139,31 @@ class HouseCostDisplay {
             if (!materialData) continue;
 
             // Skip coins (no pricing needed)
-            if (materialData.itemHrid === '/items/coin') continue;
+            if (materialData.itemHrid === '/items/coin') {
+                // Add empty cell to maintain grid structure
+                this.addEmptyCell(itemRequirementsGrid, itemContainer);
+                continue;
+            }
 
             // Add pricing as a new grid cell to the right
             this.addPricingCell(itemRequirementsGrid, itemContainer, materialData);
+        }
+    }
+
+    /**
+     * Add empty cell for coins to maintain grid structure
+     * @param {Element} grid - The requirements grid
+     * @param {Element} itemContainer - The item icon container
+     */
+    addEmptyCell(grid, itemContainer) {
+        // Find the input count cell (3rd cell after icon)
+        let inputCell = itemContainer.nextElementSibling?.nextElementSibling;
+
+        const emptyCell = document.createElement('span');
+        emptyCell.className = 'mwi-house-pricing-empty HousePanel_itemRequirementCell__3hSBN';
+
+        if (inputCell) {
+            inputCell.after(emptyCell);
         }
     }
 
@@ -389,7 +425,13 @@ class HouseCostDisplay {
      */
     disable() {
         // Remove all MWI-added elements
-        document.querySelectorAll('.mwi-house-pricing, .mwi-house-total, .mwi-house-to-level').forEach(el => el.remove());
+        document.querySelectorAll('.mwi-house-pricing, .mwi-house-pricing-empty, .mwi-house-total, .mwi-house-to-level').forEach(el => el.remove());
+
+        // Restore all grid columns
+        document.querySelectorAll('[class*="HousePanel_itemRequirements"]').forEach(grid => {
+            grid.style.gridTemplateColumns = '';
+        });
+
         this.currentModalContent = null;
         this.isActive = false;
     }
