@@ -389,6 +389,22 @@ class Config {
                 category: 'House',
                 description: 'Shows market value of upgrade materials',
                 settingKey: 'houseUpgradeCosts'
+            },
+
+            // Economy Features
+            networth: {
+                enabled: true,
+                name: 'Net Worth Calculator',
+                category: 'Economy',
+                description: 'Shows total asset value in header (Current Assets)',
+                settingKey: 'networth'
+            },
+            inventorySummary: {
+                enabled: true,
+                name: 'Inventory Summary Panel',
+                category: 'Economy',
+                description: 'Shows detailed networth breakdown below inventory',
+                settingKey: 'invWorth'
             }
         };
 

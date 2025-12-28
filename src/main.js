@@ -30,6 +30,7 @@ import combatScore from './features/profile/combat-score.js';
 import taskProfitDisplay from './features/tasks/task-profit-display.js';
 import taskRerollTracker from './features/tasks/task-reroll-tracker.js';
 import housePanelObserver from './features/house/house-panel-observer.js';
+import networthFeature from './features/networth/index.js';
 import * as enhancementGearDetector from './utils/enhancement-gear-detector.js';
 import { getEnhancingParams } from './utils/enhancement-config.js';
 import * as enhancementCalculator from './utils/enhancement-calculator.js';
@@ -126,6 +127,11 @@ dataManager.on('character_initialized', (data) => {
             if (config.isFeatureEnabled('houseCostDisplay')) {
                 await housePanelObserver.initialize();
             }
+
+            // Economy features
+            if (config.isFeatureEnabled('networth') || config.isFeatureEnabled('inventorySummary')) {
+                await networthFeature.initialize();
+            }
         } catch (error) {
             console.error('❌ Feature initialization failed:', error);
         }
@@ -157,6 +163,7 @@ targetWindow.Toolasha = {
     taskProfitDisplay,
     taskRerollTracker,
     housePanelObserver,
+    networthFeature,
     enhancementGearDetector,
     getEnhancingParams,
     enhancementCalculator,
