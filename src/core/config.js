@@ -342,6 +342,13 @@ class Config {
                 description: 'Shows zone numbers in combat location list',
                 settingKey: 'mapIndex'
             },
+            taskZoneIndices: {
+                enabled: true,
+                name: 'Task Zone Indices',
+                category: 'Tasks',
+                description: 'Shows zone numbers on combat tasks',
+                settingKey: 'taskMapIndex'
+            },
             combatScore: {
                 enabled: true,
                 name: 'Profile Combat Score',
