@@ -15,6 +15,7 @@ import { calculateHouseBuildCost } from '../../utils/house-cost-calculator.js';
 import { calculateEnhancementPath } from '../enhancement/tooltip-enhancement.js';
 import { getEnhancingParams } from '../../utils/enhancement-config.js';
 import { calculateTaskTokenValue } from '../tasks/task-profit-calculator.js';
+import expectedValueCalculator from '../market/expected-value-calculator.js';
 import config from '../../core/config.js';
 import networthCache from './networth-cache.js';
 
@@ -81,8 +82,18 @@ function getMarketPrice(itemHrid, enhancementLevel, useAsk) {
 
     const prices = marketAPI.getPrice(itemHrid, enhancementLevel);
 
-    // If no market data, try crafting cost as fallback
+    // If no market data, try fallbacks
     if (!prices) {
+        // Check if it's an openable container (crates, caches, chests)
+        const itemDetails = dataManager.getItemDetails(itemHrid);
+        if (itemDetails?.isOpenable && expectedValueCalculator.isInitialized) {
+            const evData = expectedValueCalculator.calculateExpectedValue(itemHrid);
+            if (evData && evData.expectedValue > 0) {
+                return evData.expectedValue;
+            }
+        }
+
+        // Try crafting cost as fallback
         const craftingCost = calculateCraftingCost(itemHrid);
         if (craftingCost > 0) {
             return craftingCost;
