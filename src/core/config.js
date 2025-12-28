@@ -271,6 +271,120 @@ class Config {
             },
         };
 
+        // === FEATURE REGISTRY ===
+        // Feature toggles with metadata for future UI
+        this.features = {
+            // Market Features
+            tooltipPrices: {
+                enabled: true,
+                name: 'Market Prices in Tooltips',
+                category: 'Market',
+                description: 'Shows bid/ask prices in item tooltips',
+                settingKey: 'itemTooltip_prices'
+            },
+            tooltipConsumables: {
+                enabled: true,
+                name: 'Consumable Effects in Tooltips',
+                category: 'Market',
+                description: 'Shows buff effects and durations for food/drinks',
+                settingKey: 'showConsumTips'
+            },
+            expectedValueCalculator: {
+                enabled: true,
+                name: 'Expected Value Calculator',
+                category: 'Market',
+                description: 'Shows EV for openable containers (crates, chests)',
+                settingKey: 'itemTooltip_expectedValue'
+            },
+
+            // Action Features
+            actionTimeDisplay: {
+                enabled: true,
+                name: 'Total Action Time',
+                category: 'Actions',
+                description: 'Shows cumulative time for queued actions',
+                settingKey: 'totalActionTime'
+            },
+            quickInputButtons: {
+                enabled: true,
+                name: 'Quick Input Buttons',
+                category: 'Actions',
+                description: 'Adds 1/10/100/1000 buttons to action inputs',
+                settingKey: 'actionPanel_totalTime_quickInputs'
+            },
+            actionPanelProfit: {
+                enabled: true,
+                name: 'Action Profit Display',
+                category: 'Actions',
+                description: 'Shows profit/loss for gathering and production',
+                settingKey: 'actionPanel_foragingTotal'
+            },
+
+            // Combat Features
+            abilityBookCalculator: {
+                enabled: true,
+                name: 'Ability Book Requirements',
+                category: 'Combat',
+                description: 'Shows books needed to reach target level',
+                settingKey: 'skillbook'
+            },
+            zoneIndices: {
+                enabled: true,
+                name: 'Combat Zone Indices',
+                category: 'Combat',
+                description: 'Shows zone numbers in combat location list',
+                settingKey: 'mapIndex'
+            },
+            combatScore: {
+                enabled: true,
+                name: 'Profile Combat Score',
+                category: 'Combat',
+                description: 'Shows total combat power on profile',
+                settingKey: 'combatScore'
+            },
+
+            // UI Features
+            equipmentLevelDisplay: {
+                enabled: true,
+                name: 'Equipment Level on Icons',
+                category: 'UI',
+                description: 'Shows item level number on equipment icons',
+                settingKey: 'itemIconLevel'
+            },
+            alchemyItemDimming: {
+                enabled: true,
+                name: 'Alchemy Item Dimming',
+                category: 'UI',
+                description: 'Dims items requiring higher Alchemy level',
+                settingKey: 'alchemyItemDimming'
+            },
+
+            // Task Features
+            taskProfitDisplay: {
+                enabled: true,
+                name: 'Task Profit Calculator',
+                category: 'Tasks',
+                description: 'Shows expected profit from task rewards',
+                settingKey: 'taskProfitCalculator'
+            },
+            taskRerollTracker: {
+                enabled: true,
+                name: 'Task Reroll Tracker',
+                category: 'Tasks',
+                description: 'Tracks reroll costs and history',
+                settingKey: null // New feature, no legacy setting
+            },
+
+            // House Features
+            houseCostDisplay: {
+                enabled: true,
+                name: 'House Upgrade Costs',
+                category: 'House',
+                description: 'Shows market value of upgrade materials',
+                settingKey: 'houseUpgradeCosts'
+            }
+        };
+
         // Note: loadSettings() must be called separately (async)
     }
 
@@ -411,6 +525,114 @@ class Config {
 
         this.saveSettings();
         this.applyColorSettings();
+    }
+
+    // === FEATURE TOGGLE METHODS ===
+
+    /**
+     * Check if a feature is enabled
+     * Uses legacy settingKey if available, otherwise uses feature.enabled
+     * @param {string} featureKey - Feature key (e.g., 'tooltipPrices')
+     * @returns {boolean} Whether feature is enabled
+     */
+    isFeatureEnabled(featureKey) {
+        const feature = this.features?.[featureKey];
+        if (!feature) {
+            return true; // Default to enabled if not found
+        }
+
+        // Check legacy setting first (for backward compatibility)
+        if (feature.settingKey && this.settingsMap[feature.settingKey]) {
+            return this.settingsMap[feature.settingKey].isTrue ?? true;
+        }
+
+        // Otherwise use feature.enabled
+        return feature.enabled ?? true;
+    }
+
+    /**
+     * Enable or disable a feature
+     * @param {string} featureKey - Feature key
+     * @param {boolean} enabled - Enable state
+     */
+    async setFeatureEnabled(featureKey, enabled) {
+        const feature = this.features?.[featureKey];
+        if (!feature) {
+            console.warn(`Feature '${featureKey}' not found`);
+            return;
+        }
+
+        // Update legacy setting if it exists
+        if (feature.settingKey && this.settingsMap[feature.settingKey]) {
+            this.settingsMap[feature.settingKey].isTrue = enabled;
+        }
+
+        // Update feature registry
+        feature.enabled = enabled;
+
+        await this.saveSettings();
+    }
+
+    /**
+     * Toggle a feature
+     * @param {string} featureKey - Feature key
+     * @returns {boolean} New enabled state
+     */
+    async toggleFeature(featureKey) {
+        const current = this.isFeatureEnabled(featureKey);
+        await this.setFeatureEnabled(featureKey, !current);
+        return !current;
+    }
+
+    /**
+     * Get all features grouped by category
+     * @returns {Object} Features grouped by category
+     */
+    getFeaturesByCategory() {
+        const grouped = {};
+
+        for (const [key, feature] of Object.entries(this.features)) {
+            const category = feature.category || 'Other';
+            if (!grouped[category]) {
+                grouped[category] = [];
+            }
+            grouped[category].push({
+                key,
+                name: feature.name,
+                description: feature.description,
+                enabled: this.isFeatureEnabled(key)
+            });
+        }
+
+        return grouped;
+    }
+
+    /**
+     * Get all feature keys
+     * @returns {string[]} Array of feature keys
+     */
+    getFeatureKeys() {
+        return Object.keys(this.features || {});
+    }
+
+    /**
+     * Get feature info
+     * @param {string} featureKey - Feature key
+     * @returns {Object|null} Feature info with current enabled state
+     */
+    getFeatureInfo(featureKey) {
+        const feature = this.features?.[featureKey];
+        if (!feature) {
+            return null;
+        }
+
+        return {
+            key: featureKey,
+            name: feature.name,
+            category: feature.category,
+            description: feature.description,
+            enabled: this.isFeatureEnabled(featureKey)
+        };
     }
 }
 

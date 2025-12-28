@@ -69,22 +69,59 @@ dataManager.on('character_initialized', (data) => {
     // Initialize market features after character data loads
     setTimeout(async () => {
         try {
-            await tooltipPrices.initialize();
-            await expectedValueCalculator.initialize();
-            await tooltipConsumables.initialize();
+            // Market features
+            if (config.isFeatureEnabled('tooltipPrices')) {
+                await tooltipPrices.initialize();
+            }
+            if (config.isFeatureEnabled('expectedValueCalculator')) {
+                await expectedValueCalculator.initialize();
+            }
+            if (config.isFeatureEnabled('tooltipConsumables')) {
+                await tooltipConsumables.initialize();
+            }
 
-            initActionPanelObserver();
+            // Action features
+            if (config.isFeatureEnabled('actionPanelProfit')) {
+                initActionPanelObserver();
+            }
+            if (config.isFeatureEnabled('actionTimeDisplay')) {
+                actionTimeDisplay.initialize();
+            }
+            if (config.isFeatureEnabled('quickInputButtons')) {
+                quickInputButtons.initialize();
+            }
 
-            actionTimeDisplay.initialize();
-            quickInputButtons.initialize();
-            abilityBookCalculator.initialize();
-            equipmentLevelDisplay.initialize();
-            alchemyItemDimming.initialize();
-            zoneIndices.initialize();
-            combatScore.initialize();
-            taskProfitDisplay.initialize();
-            await taskRerollTracker.initialize(); // Now async with IndexedDB
-            await housePanelObserver.initialize(); // House upgrade costs
+            // Combat features
+            if (config.isFeatureEnabled('abilityBookCalculator')) {
+                abilityBookCalculator.initialize();
+            }
+            if (config.isFeatureEnabled('zoneIndices')) {
+                zoneIndices.initialize();
+            }
+            if (config.isFeatureEnabled('combatScore')) {
+                combatScore.initialize();
+            }
+
+            // UI features
+            if (config.isFeatureEnabled('equipmentLevelDisplay')) {
+                equipmentLevelDisplay.initialize();
+            }
+            if (config.isFeatureEnabled('alchemyItemDimming')) {
+                alchemyItemDimming.initialize();
+            }
+
+            // Task features
+            if (config.isFeatureEnabled('taskProfitDisplay')) {
+                taskProfitDisplay.initialize();
+            }
+            if (config.isFeatureEnabled('taskRerollTracker')) {
+                await taskRerollTracker.initialize();
+            }
+
+            // House features
+            if (config.isFeatureEnabled('houseCostDisplay')) {
+                await housePanelObserver.initialize();
+            }
         } catch (error) {
             console.error('❌ Feature initialization failed:', error);
         }
@@ -119,5 +156,17 @@ targetWindow.MWITools = {
     enhancementGearDetector,
     getEnhancingParams,
     enhancementCalculator,
+
+    // Feature toggle API
+    features: {
+        list: () => config.getFeaturesByCategory(),
+        enable: (key) => config.setFeatureEnabled(key, true),
+        disable: (key) => config.setFeatureEnabled(key, false),
+        toggle: (key) => config.toggleFeature(key),
+        status: (key) => config.isFeatureEnabled(key),
+        info: (key) => config.getFeatureInfo(key),
+        keys: () => config.getFeatureKeys()
+    },
+
     version: '0.4.5'
 };
