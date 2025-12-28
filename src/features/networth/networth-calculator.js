@@ -209,7 +209,6 @@ export async function calculateNetworth() {
         return createEmptyNetworthData();
     }
 
-    console.log('[Networth] Market data loaded, items count:', Object.keys(marketData).length);
     networthCache.checkAndInvalidate(marketData);
 
     const characterItems = gameData.characterItems || [];
@@ -217,20 +216,6 @@ export async function calculateNetworth() {
     const characterHouseRooms = gameData.characterHouseRoomMap || {};
     const characterAbilities = gameData.characterAbilities || [];
     const equippedAbilities = gameData.equippedAbilities || [];
-
-    console.log('[Networth] Character data:', {
-        items: characterItems.length,
-        listings: marketListings.length,
-        houses: Object.keys(characterHouseRooms).length,
-        abilities: characterAbilities.length
-    });
-
-    // Test sample price to verify market data is working
-    if (characterItems.length > 0) {
-        const sampleItem = characterItems[0];
-        const samplePrice = marketAPI.getPrice(sampleItem.itemHrid, sampleItem.enhancementLevel || 0);
-        console.log('[Networth] Sample price check:', sampleItem.itemHrid, 'level', sampleItem.enhancementLevel || 0, '→', samplePrice);
-    }
 
     // Calculate equipped items value
     let equippedAsk = 0;
@@ -264,6 +249,7 @@ export async function calculateNetworth() {
     let inventoryAsk = 0;
     let inventoryBid = 0;
     const inventoryBreakdown = [];
+    const inventoryByCategory = {};
 
     for (const item of characterItems) {
         if (item.itemLocationHrid !== '/item_locations/inventory') continue;
@@ -281,11 +267,40 @@ export async function calculateNetworth() {
             ? `${itemName} +${item.enhancementLevel}`
             : itemName;
 
-        inventoryBreakdown.push({
+        const itemData = {
             name: displayName,
             askValue,
-            bidValue
-        });
+            bidValue,
+            count: item.count
+        };
+
+        inventoryBreakdown.push(itemData);
+
+        // Categorize item
+        const categoryHrids = itemDetails?.itemCategoryHrids || [];
+        // Use first category, or "Other" if none
+        const primaryCategory = categoryHrids.length > 0
+            ? categoryHrids[0]
+            : '/item_categories/other';
+
+        const categoryName = gameData.itemCategoryDetailMap?.[primaryCategory]?.name || 'Other';
+
+        if (!inventoryByCategory[categoryName]) {
+            inventoryByCategory[categoryName] = {
+                items: [],
+                totalAsk: 0,
+                totalBid: 0
+            };
+        }
+
+        inventoryByCategory[categoryName].items.push(itemData);
+        inventoryByCategory[categoryName].totalAsk += askValue;
+        inventoryByCategory[categoryName].totalBid += bidValue;
+    }
+
+    // Sort items within each category by value descending
+    for (const category of Object.values(inventoryByCategory)) {
+        category.items.sort((a, b) => b.askValue - a.askValue);
     }
 
     // Calculate market listings value
@@ -352,7 +367,12 @@ export async function calculateNetworth() {
             ask: equippedAsk + inventoryAsk + listingsAsk,
             bid: equippedBid + inventoryBid + listingsBid,
             equipped: { ask: equippedAsk, bid: equippedBid, breakdown: equippedBreakdown },
-            inventory: { ask: inventoryAsk, bid: inventoryBid, breakdown: inventoryBreakdown },
+            inventory: {
+                ask: inventoryAsk,
+                bid: inventoryBid,
+                breakdown: inventoryBreakdown,
+                byCategory: inventoryByCategory
+            },
             listings: { ask: listingsAsk, bid: listingsBid, breakdown: listingsBreakdown }
         },
         fixedAssets: {
@@ -376,7 +396,7 @@ function createEmptyNetworthData() {
             ask: 0,
             bid: 0,
             equipped: { ask: 0, bid: 0, breakdown: [] },
-            inventory: { ask: 0, bid: 0, breakdown: [] },
+            inventory: { ask: 0, bid: 0, breakdown: [], byCategory: {} },
             listings: { ask: 0, bid: 0, breakdown: [] }
         },
         fixedAssets: {

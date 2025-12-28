@@ -190,12 +190,21 @@ class NetworthInventoryDisplay {
         const sectionsToPreserve = [
             'mwi-networth-details',
             'mwi-current-assets-details',
+            'mwi-equipment-breakdown',
+            'mwi-inventory-breakdown',
             'mwi-fixed-assets-details',
             'mwi-houses-breakdown',
             'mwi-abilities-details',
             'mwi-equipped-abilities-breakdown',
             'mwi-other-abilities-breakdown'
         ];
+
+        // Also preserve inventory category states
+        const inventoryCategories = Object.keys(networthData.currentAssets.inventory.byCategory || {});
+        inventoryCategories.forEach(categoryName => {
+            const categoryId = `mwi-inventory-${categoryName.toLowerCase().replace(/\s+/g, '-')}`;
+            sectionsToPreserve.push(categoryId);
+        });
 
         sectionsToPreserve.forEach(id => {
             const elem = this.container.querySelector(`#${id}`);
@@ -216,9 +225,23 @@ class NetworthInventoryDisplay {
                     + Current Assets: ${coinFormatter(Math.round(networthData.currentAssets.ask))}
                 </div>
                 <div id="mwi-current-assets-details" style="display: none; margin-left: 20px;">
-                    <div>Equipment value: ${coinFormatter(Math.round(networthData.currentAssets.equipped.ask))}</div>
-                    <div>Inventory value: ${coinFormatter(Math.round(networthData.currentAssets.inventory.ask))}</div>
-                    <div>Market listings: ${coinFormatter(Math.round(networthData.currentAssets.listings.ask))}</div>
+                    <!-- Equipment Value -->
+                    <div style="cursor: pointer; margin-top: 4px;" id="mwi-equipment-toggle">
+                        + Equipment value: ${coinFormatter(Math.round(networthData.currentAssets.equipped.ask))}
+                    </div>
+                    <div id="mwi-equipment-breakdown" style="display: none; margin-left: 20px; font-size: 0.8rem; color: #bbb;">
+                        ${this.renderEquipmentBreakdown(networthData.currentAssets.equipped.breakdown)}
+                    </div>
+
+                    <!-- Inventory Value -->
+                    <div style="cursor: pointer; margin-top: 4px;" id="mwi-inventory-toggle">
+                        + Inventory value: ${coinFormatter(Math.round(networthData.currentAssets.inventory.ask))}
+                    </div>
+                    <div id="mwi-inventory-breakdown" style="display: none; margin-left: 20px;">
+                        ${this.renderInventoryBreakdown(networthData.currentAssets.inventory.byCategory)}
+                    </div>
+
+                    <div style="margin-top: 4px;">Market listings: ${coinFormatter(Math.round(networthData.currentAssets.listings.ask))}</div>
                 </div>
 
                 <!-- Fixed Assets -->
@@ -313,6 +336,52 @@ class NetworthInventoryDisplay {
     }
 
     /**
+     * Render equipment breakdown HTML
+     * @param {Array} breakdown - Array of {name, askValue, bidValue}
+     * @returns {string} HTML string
+     */
+    renderEquipmentBreakdown(breakdown) {
+        if (breakdown.length === 0) {
+            return '<div>No equipment</div>';
+        }
+
+        return breakdown.map(item =>
+            `<div>${item.name}: ${coinFormatter(Math.round(item.askValue))}</div>`
+        ).join('');
+    }
+
+    /**
+     * Render inventory breakdown HTML (grouped by category)
+     * @param {Object} byCategory - Object with category names as keys
+     * @returns {string} HTML string
+     */
+    renderInventoryBreakdown(byCategory) {
+        if (!byCategory || Object.keys(byCategory).length === 0) {
+            return '<div>No inventory</div>';
+        }
+
+        // Sort categories by total value descending
+        const sortedCategories = Object.entries(byCategory)
+            .sort((a, b) => b[1].totalAsk - a[1].totalAsk);
+
+        return sortedCategories.map(([categoryName, categoryData]) => {
+            const categoryId = `mwi-inventory-${categoryName.toLowerCase().replace(/\s+/g, '-')}`;
+            const categoryToggleId = `${categoryId}-toggle`;
+
+            return `
+                <div style="cursor: pointer; margin-top: 4px; font-size: 0.85rem;" id="${categoryToggleId}">
+                    + ${categoryName}: ${coinFormatter(Math.round(categoryData.totalAsk))}
+                </div>
+                <div id="${categoryId}" style="display: none; margin-left: 20px; font-size: 0.75rem; color: #999;">
+                    ${categoryData.items.map(item =>
+                        `<div>${item.name} x${item.count}: ${coinFormatter(Math.round(item.askValue))}</div>`
+                    ).join('')}
+                </div>
+            `;
+        }).join('');
+    }
+
+    /**
      * Set up toggle event listeners
      * @param {Object} networthData - Networth data
      */
@@ -330,6 +399,32 @@ class NetworthInventoryDisplay {
             'mwi-current-assets-details',
             `Current Assets: ${coinFormatter(Math.round(networthData.currentAssets.ask))}`
         );
+
+        // Equipment toggle
+        this.setupToggle(
+            'mwi-equipment-toggle',
+            'mwi-equipment-breakdown',
+            `Equipment value: ${coinFormatter(Math.round(networthData.currentAssets.equipped.ask))}`
+        );
+
+        // Inventory toggle
+        this.setupToggle(
+            'mwi-inventory-toggle',
+            'mwi-inventory-breakdown',
+            `Inventory value: ${coinFormatter(Math.round(networthData.currentAssets.inventory.ask))}`
+        );
+
+        // Inventory category toggles
+        const byCategory = networthData.currentAssets.inventory.byCategory || {};
+        Object.entries(byCategory).forEach(([categoryName, categoryData]) => {
+            const categoryId = `mwi-inventory-${categoryName.toLowerCase().replace(/\s+/g, '-')}`;
+            const categoryToggleId = `${categoryId}-toggle`;
+            this.setupToggle(
+                categoryToggleId,
+                categoryId,
+                `${categoryName}: ${coinFormatter(Math.round(categoryData.totalAsk))}`
+            );
+        });
 
         // Fixed assets toggle
         this.setupToggle(
