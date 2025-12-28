@@ -316,7 +316,7 @@ class NetworthInventoryDisplay {
         }
 
         return breakdown.map(house =>
-            `<div>${house.name} ${house.level}: ${coinFormatter(Math.round(house.cost))}</div>`
+            `<div style="display: block; margin-bottom: 2px;">${house.name} ${house.level}: ${coinFormatter(Math.round(house.cost))}</div>`
         ).join('');
     }
 
@@ -331,7 +331,7 @@ class NetworthInventoryDisplay {
         }
 
         return breakdown.map(ability =>
-            `<div>${ability.name}: ${coinFormatter(Math.round(ability.cost))}</div>`
+            `<div style="display: block; margin-bottom: 2px;">${ability.name}: ${coinFormatter(Math.round(ability.cost))}</div>`
         ).join('');
     }
 
@@ -346,7 +346,7 @@ class NetworthInventoryDisplay {
         }
 
         return breakdown.map(item =>
-            `<div>${item.name}: ${coinFormatter(Math.round(item.askValue))}</div>`
+            `<div style="display: block; margin-bottom: 2px;">${item.name}: ${coinFormatter(Math.round(item.askValue))}</div>`
         ).join('');
     }
 
@@ -374,7 +374,7 @@ class NetworthInventoryDisplay {
                 </div>
                 <div id="${categoryId}" style="display: none; margin-left: 20px; font-size: 0.75rem; color: #999;">
                     ${categoryData.items.map(item =>
-                        `<div>${item.name} x${item.count}: ${coinFormatter(Math.round(item.askValue))}</div>`
+                        `<div style="display: block; margin-bottom: 2px;">${item.name} x${item.count}: ${coinFormatter(Math.round(item.askValue))}</div>`
                     ).join('')}
                 </div>
             `;
