@@ -81,7 +81,14 @@ function getMarketPrice(itemHrid, enhancementLevel, useAsk) {
         }
     }
 
-    if (!prices) return 0;
+    // If still no price data, try crafting cost as fallback
+    if (!prices) {
+        const craftingCost = calculateCraftingCost(itemHrid);
+        if (craftingCost > 0) {
+            return craftingCost;
+        }
+        return 0;
+    }
 
     let ask = prices.ask || 0;
     let bid = prices.bid || 0;
@@ -95,6 +102,51 @@ function getMarketPrice(itemHrid, enhancementLevel, useAsk) {
     }
 
     return useAsk ? ask : bid;
+}
+
+/**
+ * Calculate crafting cost for an item (simple version without efficiency bonuses)
+ * @param {string} itemHrid - Item HRID
+ * @returns {number} Total material cost or 0 if not craftable
+ */
+function calculateCraftingCost(itemHrid) {
+    const gameData = dataManager.getInitClientData();
+    if (!gameData) return 0;
+
+    // Find the action that produces this item
+    for (const action of Object.values(gameData.actionDetailMap || {})) {
+        if (action.outputItems) {
+            for (const output of action.outputItems) {
+                if (output.itemHrid === itemHrid) {
+                    // Found the crafting action, calculate material costs
+                    let totalCost = 0;
+
+                    // Check for upgrade item (e.g., Crimson Bulwark → Rainbow Bulwark)
+                    if (action.upgradeItemHrid) {
+                        const upgradePrice = marketAPI.getPrice(action.upgradeItemHrid, 0);
+                        if (upgradePrice) {
+                            totalCost += (upgradePrice.ask || 0);
+                        }
+                    }
+
+                    // Add input items
+                    if (action.inputItems && action.inputItems.length > 0) {
+                        for (const input of action.inputItems) {
+                            const inputPrice = marketAPI.getPrice(input.itemHrid, 0);
+                            if (inputPrice) {
+                                totalCost += (inputPrice.ask || 0) * input.count;
+                            }
+                        }
+                    }
+
+                    // Divide by output count to get per-item cost
+                    return totalCost / (output.count || 1);
+                }
+            }
+        }
+    }
+
+    return 0;
 }
 
 /**
