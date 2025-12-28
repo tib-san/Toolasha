@@ -356,6 +356,13 @@ class Config {
                 description: 'Auto-import character/party data into Shykai Combat Simulator',
                 settingKey: null // New feature, no legacy setting
             },
+            enhancementSimulator: {
+                enabled: true,
+                name: 'Enhancement Simulator',
+                category: 'Market',
+                description: 'Shows enhancement cost calculations in item tooltips',
+                settingKey: 'enhanceSim'
+            },
 
             // UI Features
             equipmentLevelDisplay: {
