@@ -160,13 +160,37 @@ function importDataToSimulator(button) {
 
             // Step 5.5: Set difficulty tier
             setTimeout(() => {
-                const difficultyInput = document.querySelector('input#inputDifficulty');
-                if (difficultyInput) {
-                    difficultyInput.value = 'T' + difficultyTier;
-                    difficultyInput.dispatchEvent(new Event('change'));
-                    console.log('[Toolasha Combat Sim] Difficulty tier set: T' + difficultyTier);
+                // Try both input and select elements
+                let difficultyElement = document.querySelector('input#inputDifficulty') ||
+                                       document.querySelector('select#inputDifficulty') ||
+                                       document.querySelector('[id*="ifficulty"]');
+
+                if (difficultyElement) {
+                    const tierValue = 'T' + difficultyTier;
+
+                    // Handle select dropdown (set by value)
+                    if (difficultyElement.tagName === 'SELECT') {
+                        // Try to find option by value or text
+                        for (let i = 0; i < difficultyElement.options.length; i++) {
+                            const option = difficultyElement.options[i];
+                            if (option.value === tierValue || option.value === String(difficultyTier) ||
+                                option.text === tierValue || option.text.includes('T' + difficultyTier)) {
+                                difficultyElement.selectedIndex = i;
+                                break;
+                            }
+                        }
+                    } else {
+                        // Handle text input
+                        difficultyElement.value = tierValue;
+                    }
+
+                    difficultyElement.dispatchEvent(new Event('change'));
+                    difficultyElement.dispatchEvent(new Event('input'));
+                    console.log('[Toolasha Combat Sim] Difficulty tier set to:', tierValue, 'on element:', difficultyElement.tagName);
+                } else {
+                    console.warn('[Toolasha Combat Sim] Difficulty element not found');
                 }
-            }, 150); // Small delay after zone selection
+            }, 250); // Increased delay to ensure zone loads first
 
             // Step 6: Enable/disable player checkboxes
             for (let i = 0; i < 5; i++) {
