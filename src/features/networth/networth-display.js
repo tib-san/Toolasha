@@ -185,6 +185,25 @@ class NetworthInventoryDisplay {
             return;
         }
 
+        // Preserve expand/collapse states before updating
+        const expandedStates = {};
+        const sectionsToPreserve = [
+            'mwi-networth-details',
+            'mwi-current-assets-details',
+            'mwi-fixed-assets-details',
+            'mwi-houses-breakdown',
+            'mwi-abilities-details',
+            'mwi-equipped-abilities-breakdown',
+            'mwi-other-abilities-breakdown'
+        ];
+
+        sectionsToPreserve.forEach(id => {
+            const elem = this.container.querySelector(`#${id}`);
+            if (elem) {
+                expandedStates[id] = elem.style.display !== 'none';
+            }
+        });
+
         const totalNetworth = coinFormatter(Math.round(networthData.totalNetworth));
 
         this.container.innerHTML = `
@@ -241,6 +260,23 @@ class NetworthInventoryDisplay {
                 </div>
             </div>
         `;
+
+        // Restore expand/collapse states after updating
+        sectionsToPreserve.forEach(id => {
+            const elem = this.container.querySelector(`#${id}`);
+            if (elem && expandedStates[id]) {
+                elem.style.display = 'block';
+
+                // Update the corresponding toggle button text (+ to -)
+                const toggleId = id.replace('-details', '-toggle')
+                                   .replace('-breakdown', '-toggle');
+                const toggleBtn = this.container.querySelector(`#${toggleId}`);
+                if (toggleBtn) {
+                    const currentText = toggleBtn.textContent;
+                    toggleBtn.textContent = currentText.replace('+ ', '- ');
+                }
+            }
+        });
 
         // Set up event listeners for all toggles
         this.setupToggleListeners(networthData);
