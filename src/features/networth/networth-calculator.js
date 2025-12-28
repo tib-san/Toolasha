@@ -28,28 +28,36 @@ export async function calculateItemValue(item, useAsk = true) {
 
     let itemValue = 0;
 
-    // For enhanced items (2+), calculate enhancement cost
-    if (enhancementLevel >= 2) {
-        // Check cache first
-        const cachedCost = networthCache.get(itemHrid, enhancementLevel);
-        if (cachedCost !== null) {
-            itemValue = cachedCost;
-        } else {
-            // Not in cache, calculate
-            const enhancementParams = getEnhancingParams();
-            const enhancementPath = calculateEnhancementPath(itemHrid, enhancementLevel, enhancementParams);
+    // For enhanced items (1+), try market price first, then calculate enhancement cost
+    if (enhancementLevel >= 1) {
+        // Try market price first
+        const marketPrice = getMarketPrice(itemHrid, enhancementLevel, useAsk);
 
-            if (enhancementPath && enhancementPath.optimalStrategy) {
-                itemValue = enhancementPath.optimalStrategy.totalCost;
-                // Cache the result
-                networthCache.set(itemHrid, enhancementLevel, itemValue);
+        if (marketPrice > 0) {
+            itemValue = marketPrice;
+        } else {
+            // No market data, calculate enhancement cost
+            // Check cache first
+            const cachedCost = networthCache.get(itemHrid, enhancementLevel);
+            if (cachedCost !== null) {
+                itemValue = cachedCost;
             } else {
-                // Fallback to market price if enhancement calculation fails
-                itemValue = getMarketPrice(itemHrid, enhancementLevel, useAsk);
+                // Not in cache, calculate
+                const enhancementParams = getEnhancingParams();
+                const enhancementPath = calculateEnhancementPath(itemHrid, enhancementLevel, enhancementParams);
+
+                if (enhancementPath && enhancementPath.optimalStrategy) {
+                    itemValue = enhancementPath.optimalStrategy.totalCost;
+                    // Cache the result
+                    networthCache.set(itemHrid, enhancementLevel, itemValue);
+                } else {
+                    // Enhancement calculation failed, try base item price
+                    itemValue = getMarketPrice(itemHrid, 0, useAsk);
+                }
             }
         }
     } else {
-        // Unenhanced or +1 items use market price
+        // Unenhanced items: use market price or crafting cost
         itemValue = getMarketPrice(itemHrid, enhancementLevel, useAsk);
     }
 
@@ -66,22 +74,7 @@ export async function calculateItemValue(item, useAsk = true) {
 function getMarketPrice(itemHrid, enhancementLevel, useAsk) {
     const prices = marketAPI.getPrice(itemHrid, enhancementLevel);
 
-    // If no price data for this enhancement level, try base item (level 0)
-    if (!prices && enhancementLevel > 0) {
-        const basePrices = marketAPI.getPrice(itemHrid, 0);
-        if (basePrices) {
-            let ask = basePrices.ask || 0;
-            let bid = basePrices.bid || 0;
-
-            // Apply MCS behavior
-            if (ask > 0 && bid < 0) bid = ask;
-            if (bid > 0 && ask < 0) ask = bid;
-
-            return useAsk ? ask : bid;
-        }
-    }
-
-    // If still no price data, try crafting cost as fallback
+    // If no market data, try crafting cost as fallback
     if (!prices) {
         const craftingCost = calculateCraftingCost(itemHrid);
         if (craftingCost > 0) {
