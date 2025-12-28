@@ -23,7 +23,13 @@ class NetworthHeaderDisplay {
      * Initialize header display
      */
     initialize() {
-        // Watch for header total level element
+        // 1. Check if element already exists (handles late initialization)
+        const existingElem = document.querySelector('[class*="Header_totalLevel"]');
+        if (existingElem) {
+            this.renderHeader(existingElem);
+        }
+
+        // 2. Watch for future additions (handles SPA navigation, page reloads)
         const unregister = domObserver.onClass(
             'NetworthHeader',
             'Header_totalLevel',
@@ -111,7 +117,13 @@ class NetworthInventoryDisplay {
      * Initialize inventory panel display
      */
     initialize() {
-        // Watch for inventory items container
+        // 1. Check if element already exists (handles late initialization)
+        const existingElem = document.querySelector('[class*="Inventory_items"]');
+        if (existingElem) {
+            this.renderPanel(existingElem);
+        }
+
+        // 2. Watch for future additions (handles SPA navigation, inventory panel reloads)
         const unregister = domObserver.onClass(
             'NetworthInv',
             'Inventory_items',
