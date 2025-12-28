@@ -69,6 +69,11 @@ class Config {
                 desc: "Inventory: Sort inventory items. [Depends on the previous selection]",
                 isTrue: true,
             },
+            invSort_showBadges: {
+                id: "invSort_showBadges",
+                desc: "Inventory: Show stack value on sorted items. [Depends on the previous selection]",
+                isTrue: false,
+            },
             profileBuildScore: {
                 id: "profileBuildScore",
                 desc: "Profile panel: Build score.",
@@ -445,8 +450,15 @@ class Config {
                 enabled: true,
                 name: 'Inventory Sort',
                 category: 'Economy',
-                description: 'Sorts inventory by Ask/Bid price with optional stack value badges',
+                description: 'Sorts inventory by Ask/Bid price',
                 settingKey: 'invSort'
+            },
+            inventorySortBadges: {
+                enabled: false,
+                name: 'Inventory Sort Price Badges',
+                category: 'Economy',
+                description: 'Shows stack value on sorted items',
+                settingKey: 'invSort_showBadges'
             }
         };
 

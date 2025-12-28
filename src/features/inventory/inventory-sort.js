@@ -15,7 +15,6 @@ import dataManager from '../../core/data-manager.js';
 class InventorySort {
     constructor() {
         this.currentMode = 'none'; // 'ask', 'bid', 'none'
-        this.showBadges = false;
         this.unregisterHandlers = [];
         this.controlsContainer = null;
         this.currentInventoryElem = null;
@@ -70,7 +69,6 @@ class InventorySort {
             if (saved) {
                 const settings = JSON.parse(saved);
                 this.currentMode = settings.mode || 'none';
-                this.showBadges = settings.showBadges || false;
             }
         } catch (error) {
             console.error('[InventorySort] Failed to load settings:', error);
@@ -83,8 +81,7 @@ class InventorySort {
     saveSettings() {
         try {
             localStorage.setItem('toolasha_inventory_sort', JSON.stringify({
-                mode: this.currentMode,
-                showBadges: this.showBadges
+                mode: this.currentMode
             }));
         } catch (error) {
             console.error('[InventorySort] Failed to save settings:', error);
@@ -125,38 +122,11 @@ class InventorySort {
         const bidButton = this.createSortButton('Bid', 'bid');
         const noneButton = this.createSortButton('None', 'none');
 
-        // Badge toggle checkbox
-        const badgeContainer = document.createElement('label');
-        badgeContainer.style.cssText = `
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            cursor: pointer;
-            margin-left: 12px;
-        `;
-
-        const badgeCheckbox = document.createElement('input');
-        badgeCheckbox.type = 'checkbox';
-        badgeCheckbox.checked = this.showBadges;
-        badgeCheckbox.style.cursor = 'pointer';
-        badgeCheckbox.addEventListener('change', (e) => {
-            this.showBadges = e.target.checked;
-            this.saveSettings();
-            this.updatePriceBadges();
-        });
-
-        const badgeLabel = document.createElement('span');
-        badgeLabel.textContent = 'Show Stack Value';
-
-        badgeContainer.appendChild(badgeCheckbox);
-        badgeContainer.appendChild(badgeLabel);
-
         // Assemble controls
         this.controlsContainer.appendChild(sortLabel);
         this.controlsContainer.appendChild(askButton);
         this.controlsContainer.appendChild(bidButton);
         this.controlsContainer.appendChild(noneButton);
-        this.controlsContainer.appendChild(badgeContainer);
 
         // Insert before inventory
         inventoryElem.insertAdjacentElement('beforebegin', this.controlsContainer);
@@ -328,6 +298,7 @@ class InventorySort {
         if (!this.currentInventoryElem) return;
 
         const itemElems = this.currentInventoryElem.querySelectorAll('.Item_itemContainer__x7kH1');
+        const showBadges = config.getSetting('invSort_showBadges');
 
         for (const itemElem of itemElems) {
             // Remove existing badge
@@ -337,7 +308,7 @@ class InventorySort {
             }
 
             // Only show badges if enabled and sorting by price
-            if (this.showBadges && this.currentMode !== 'none') {
+            if (showBadges && this.currentMode !== 'none') {
                 const stackValue = parseFloat(itemElem.dataset.stackValue);
                 if (stackValue > 0) {
                     this.renderPriceBadge(itemElem, stackValue);
@@ -360,15 +331,13 @@ class InventorySort {
         badge.className = 'mwi-stack-price';
         badge.style.cssText = `
             position: absolute;
-            bottom: 2px;
+            top: 2px;
             left: 2px;
             z-index: 1;
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 2px 4px;
-            border-radius: 3px;
+            color: ${config.SCRIPT_COLOR_MAIN};
             font-size: 0.7rem;
             font-weight: bold;
+            text-align: left;
             pointer-events: none;
         `;
         badge.textContent = networthFormatter(Math.round(stackValue));
@@ -411,6 +380,13 @@ class InventorySort {
         } else {
             return parseFloat(text) || 0;
         }
+    }
+
+    /**
+     * Refresh badges (called when badge setting changes)
+     */
+    refresh() {
+        this.updatePriceBadges();
     }
 
     /**
