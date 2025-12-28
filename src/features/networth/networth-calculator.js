@@ -135,10 +135,84 @@ function calculateCurrencyValue(itemHrid) {
         return 30000;
     }
 
-    // Dungeon tokens: Not yet implemented (return null to fall through)
-    // Will be added later when user provides valuation idea
+    // Dungeon tokens: Best market value per token approach
+    // Calculate based on best shop item value (similar to task tokens)
+    if (itemHrid === '/items/chimerical_token') {
+        return calculateDungeonTokenValue(itemHrid);
+    }
+    if (itemHrid === '/items/sinister_token') {
+        return calculateDungeonTokenValue(itemHrid);
+    }
+    if (itemHrid === '/items/enchanted_token') {
+        return calculateDungeonTokenValue(itemHrid);
+    }
+    if (itemHrid === '/items/pirate_token') {
+        return calculateDungeonTokenValue(itemHrid);
+    }
 
     return null; // Not a currency
+}
+
+/**
+ * Calculate dungeon token value based on best shop item value
+ * Uses "best market value per token" approach: finds the shop item with highest (market price / token cost)
+ * @param {string} tokenHrid - Token HRID (e.g., '/items/chimerical_token')
+ * @returns {number} Value per token, or 0 if no data
+ */
+function calculateDungeonTokenValue(tokenHrid) {
+    const gameData = dataManager.getInitClientData();
+    if (!gameData) return 0;
+
+    // Get all shop items for this token type
+    const shopItems = Object.values(gameData.shopItemDetailMap || {}).filter(
+        item => item.costs && item.costs[0]?.itemHrid === tokenHrid
+    );
+
+    if (shopItems.length === 0) return 0;
+
+    let bestValuePerToken = 0;
+
+    // For each shop item, calculate market price / token cost
+    for (const shopItem of shopItems) {
+        const itemHrid = shopItem.itemHrid;
+        const tokenCost = shopItem.costs[0].count;
+
+        // Get market price for this item
+        const prices = marketAPI.getPrice(itemHrid, 0);
+        if (!prices) continue;
+
+        // Use ask price if positive, otherwise bid
+        const marketPrice = Math.max(prices.ask || 0, prices.bid || 0);
+        if (marketPrice <= 0) continue;
+
+        // Calculate value per token
+        const valuePerToken = marketPrice / tokenCost;
+
+        // Keep track of best value
+        if (valuePerToken > bestValuePerToken) {
+            bestValuePerToken = valuePerToken;
+        }
+    }
+
+    // Fallback to essence price if no shop items found
+    if (bestValuePerToken === 0) {
+        const essenceMap = {
+            '/items/chimerical_token': '/items/chimerical_essence',
+            '/items/sinister_token': '/items/sinister_essence',
+            '/items/enchanted_token': '/items/enchanted_essence',
+            '/items/pirate_token': '/items/pirate_essence'
+        };
+
+        const essenceHrid = essenceMap[tokenHrid];
+        if (essenceHrid) {
+            const essencePrice = marketAPI.getPrice(essenceHrid, 0);
+            if (essencePrice) {
+                return Math.max(essencePrice.ask || 0, essencePrice.bid || 0);
+            }
+        }
+    }
+
+    return bestValuePerToken;
 }
 
 /**
