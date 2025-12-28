@@ -225,6 +225,9 @@ class InventorySort {
             // Get all item elements
             const itemElems = categoryDiv.querySelectorAll('.Item_itemContainer__x7kH1');
 
+            // Always calculate prices (for badges), regardless of sort mode
+            this.calculateItemPrices(itemElems);
+
             if (this.currentMode === 'none') {
                 // Reset to default order
                 itemElems.forEach(itemElem => {
@@ -236,16 +239,15 @@ class InventorySort {
             }
         }
 
-        // Update price badges
+        // Update price badges (controlled by global setting)
         this.updatePriceBadges();
     }
 
     /**
-     * Sort items by price (ask or bid)
+     * Calculate and store prices for all items (for badges and sorting)
      * @param {NodeList} itemElems - Item elements
-     * @param {string} mode - 'ask' or 'bid'
      */
-    sortItemsByPrice(itemElems, mode) {
+    calculateItemPrices(itemElems) {
         const gameData = dataManager.getInitClientData();
         if (!gameData) return;
 
@@ -271,24 +273,32 @@ class InventorySort {
             // Get market price
             const marketPrice = marketAPI.getPrice(itemHrid, 0);
             if (!marketPrice) {
-                itemElem.style.order = 0;
+                itemElem.dataset.askValue = 0;
+                itemElem.dataset.bidValue = 0;
                 continue;
             }
 
-            const price = mode === 'ask' ? marketPrice.ask : marketPrice.bid;
-            if (price <= 0) {
-                itemElem.style.order = 0;
-                continue;
-            }
+            // Store both ask and bid values
+            const askPrice = marketPrice.ask > 0 ? marketPrice.ask : 0;
+            const bidPrice = marketPrice.bid > 0 ? marketPrice.bid : 0;
 
-            const stackValue = price * itemCount;
+            itemElem.dataset.askValue = askPrice * itemCount;
+            itemElem.dataset.bidValue = bidPrice * itemCount;
+        }
+    }
+
+    /**
+     * Sort items by price (ask or bid)
+     * @param {NodeList} itemElems - Item elements
+     * @param {string} mode - 'ask' or 'bid'
+     */
+    sortItemsByPrice(itemElems, mode) {
+        for (const itemElem of itemElems) {
+            const stackValue = parseFloat(itemElem.dataset[mode + 'Value']) || 0;
 
             // Set order (negative for descending sort)
             // Use Math.round to ensure integer values for CSS order
-            itemElem.style.order = Math.round(-stackValue);
-
-            // Store value for badge rendering
-            itemElem.dataset.stackValue = stackValue;
+            itemElem.style.order = stackValue > 0 ? Math.round(-stackValue) : 0;
         }
     }
 
@@ -308,9 +318,12 @@ class InventorySort {
                 existingBadge.remove();
             }
 
-            // Only show badges if enabled and sorting by price
-            if (showBadges && this.currentMode !== 'none') {
-                const stackValue = parseFloat(itemElem.dataset.stackValue);
+            // Show badges if enabled (regardless of sort mode)
+            if (showBadges) {
+                // Use current sort mode's value, default to ask if mode is 'none'
+                const valueKey = this.currentMode === 'none' ? 'askValue' : this.currentMode + 'Value';
+                const stackValue = parseFloat(itemElem.dataset[valueKey]) || 0;
+
                 if (stackValue > 0) {
                     this.renderPriceBadge(itemElem, stackValue);
                 }
