@@ -162,9 +162,9 @@ function importDataToSimulator(button) {
             setTimeout(() => {
                 const difficultyInput = document.querySelector('input#inputDifficulty');
                 if (difficultyInput) {
-                    difficultyInput.value = difficultyTier;
+                    difficultyInput.value = 'T' + difficultyTier;
                     difficultyInput.dispatchEvent(new Event('change'));
-                    console.log('[Toolasha Combat Sim] Difficulty tier set:', difficultyTier);
+                    console.log('[Toolasha Combat Sim] Difficulty tier set: T' + difficultyTier);
                 }
             }, 150); // Small delay after zone selection
 
