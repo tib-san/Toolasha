@@ -274,6 +274,16 @@ class Config {
                 desc: "DPS chart transparent and blur background. [Depends on the previous selection]",
                 isTrue: true,
             },
+            enhancementTracker: {
+                id: "enhancementTracker",
+                desc: "Enhancement: Track enhancement attempts, costs, and statistics across multiple sessions.",
+                isTrue: false,
+            },
+            enhancementTracker_autoStart: {
+                id: "enhancementTracker_autoStart",
+                desc: "Enhancement: Automatically start tracking when beginning enhancement. [Depends on the previous selection]",
+                isTrue: true,
+            },
         };
 
         // === FEATURE REGISTRY ===
@@ -459,6 +469,15 @@ class Config {
                 category: 'Economy',
                 description: 'Shows stack value on sorted items',
                 settingKey: 'invSort_showBadges'
+            },
+
+            // Enhancement Features
+            enhancementTracker: {
+                enabled: false,
+                name: 'Enhancement Tracker',
+                category: 'Enhancement',
+                description: 'Tracks enhancement attempts, costs, and statistics',
+                settingKey: 'enhancementTracker'
             }
         };
 

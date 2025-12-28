@@ -32,6 +32,7 @@ import taskRerollTracker from './features/tasks/task-reroll-tracker.js';
 import housePanelObserver from './features/house/house-panel-observer.js';
 import networthFeature from './features/networth/index.js';
 import inventorySort from './features/inventory/inventory-sort.js';
+import enhancementTracker from './features/enhancement/enhancement-tracker.js';
 import * as enhancementGearDetector from './utils/enhancement-gear-detector.js';
 import { getEnhancingParams } from './utils/enhancement-config.js';
 import * as enhancementCalculator from './utils/enhancement-calculator.js';
@@ -162,6 +163,11 @@ if (isCombatSimulatorPage()) {
                 if (config.isFeatureEnabled('inventorySort')) {
                     inventorySort.initialize();
                 }
+
+                // Enhancement features
+                if (config.isFeatureEnabled('enhancementTracker')) {
+                    await enhancementTracker.initialize();
+                }
             } catch (error) {
                 console.error('❌ Feature initialization failed:', error);
             }
@@ -195,6 +201,7 @@ if (isCombatSimulatorPage()) {
         housePanelObserver,
         networthFeature,
         inventorySort,
+        enhancementTracker,
         enhancementGearDetector,
         getEnhancingParams,
         enhancementCalculator,
