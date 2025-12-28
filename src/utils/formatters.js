@@ -196,3 +196,40 @@ export function coinFormatter(num) {
     const formatted = val >= 1000 ? new Intl.NumberFormat().format(val) : val;
     return sign + formatted + 'T';
 }
+
+/**
+ * Format numbers for networth display with decimal precision
+ * Uses 2 decimal places for better readability in detailed breakdowns
+ * @param {number} num - The number to format
+ * @returns {string} Formatted number (e.g., "1.23K", "45.67M", "89.01B")
+ *
+ * @example
+ * networthFormatter(1234) // "1.23K"
+ * networthFormatter(45678) // "45.68K"
+ * networthFormatter(1234567) // "1.23M"
+ * networthFormatter(89012345) // "89.01M"
+ * networthFormatter(1234567890) // "1.23B"
+ */
+export function networthFormatter(num) {
+    if (num === null || num === undefined) {
+        return null;
+    }
+
+    const absNum = Math.abs(num);
+    const sign = num < 0 ? '-' : '';
+
+    // 0-999: raw number (no decimals needed)
+    if (absNum < 1000) {
+        return sign + Math.floor(absNum).toString();
+    }
+    // 1,000-999,999: K with 2 decimals
+    if (absNum < 1000000) {
+        return sign + (absNum / 1000).toFixed(2) + 'K';
+    }
+    // 1M-999,999,999: M with 2 decimals
+    if (absNum < 1000000000) {
+        return sign + (absNum / 1000000).toFixed(2) + 'M';
+    }
+    // 1B+: B with 2 decimals
+    return sign + (absNum / 1000000000).toFixed(2) + 'B';
+}
