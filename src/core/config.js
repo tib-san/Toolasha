@@ -349,6 +349,13 @@ class Config {
                 description: 'Shows total combat power on profile',
                 settingKey: 'combatScore'
             },
+            buildScore: {
+                enabled: true,
+                name: 'Profile Build Score',
+                category: 'Combat',
+                description: 'Shows character build score (same as Combat Score, alternate name)',
+                settingKey: 'profileBuildScore'
+            },
             combatSimIntegration: {
                 enabled: true,
                 name: 'Combat Simulator Integration',
