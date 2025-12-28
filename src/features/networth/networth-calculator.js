@@ -65,6 +65,22 @@ export async function calculateItemValue(item, useAsk = true) {
  */
 function getMarketPrice(itemHrid, enhancementLevel, useAsk) {
     const prices = marketAPI.getPrice(itemHrid, enhancementLevel);
+
+    // If no price data for this enhancement level, try base item (level 0)
+    if (!prices && enhancementLevel > 0) {
+        const basePrices = marketAPI.getPrice(itemHrid, 0);
+        if (basePrices) {
+            let ask = basePrices.ask || 0;
+            let bid = basePrices.bid || 0;
+
+            // Apply MCS behavior
+            if (ask > 0 && bid < 0) bid = ask;
+            if (bid > 0 && ask < 0) ask = bid;
+
+            return useAsk ? ask : bid;
+        }
+    }
+
     if (!prices) return 0;
 
     let ask = prices.ask || 0;
