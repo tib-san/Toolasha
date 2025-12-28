@@ -128,13 +128,8 @@ function importDataToSimulator(button) {
             // Step 2: Fill import field with JSON data
             const importInput = document.querySelector('input#inputSetGroupCombatAll');
             if (importInput) {
-                // Convert exportObj to simulator format
-                const simData = {};
-                for (let i = 1; i <= 5; i++) {
-                    simData[i] = JSON.stringify(exportObj[i]);
-                }
-
-                importInput.value = JSON.stringify(simData);
+                // exportObj already has JSON strings for each slot, just stringify once
+                importInput.value = JSON.stringify(exportObj);
                 console.log('[Toolasha Combat Sim] Data filled into import field');
             } else {
                 console.error('[Toolasha Combat Sim] Import input field not found');
