@@ -29,10 +29,24 @@ class InventorySort {
             return;
         }
 
+        // Prevent multiple initializations
+        if (this.unregisterHandlers.length > 0) {
+            console.log('[InventorySort] Already initialized');
+            return;
+        }
+
         // Load persisted settings
         this.loadSettings();
 
-        // Watch for inventory panel
+        // Check if inventory is already open
+        const existingInv = document.querySelector('[class*="Inventory_items"]');
+        if (existingInv) {
+            this.currentInventoryElem = existingInv;
+            this.injectSortControls(existingInv);
+            this.applyCurrentSort();
+        }
+
+        // Watch for inventory panel (for future opens/reloads)
         const unregister = domObserver.onClass(
             'InventorySort',
             'Inventory_items',
@@ -82,6 +96,9 @@ class InventorySort {
      * @param {Element} inventoryElem - Inventory items container
      */
     injectSortControls(inventoryElem) {
+        // Set current inventory element
+        this.currentInventoryElem = inventoryElem;
+
         // Check if controls already exist
         if (this.controlsContainer && document.body.contains(this.controlsContainer)) {
             return;
