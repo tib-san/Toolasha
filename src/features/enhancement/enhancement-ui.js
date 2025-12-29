@@ -443,7 +443,8 @@ class EnhancementUI {
         const duration = getSessionDuration(session);
         const durationText = this.formatDuration(duration);
 
-        const xpPerHour = duration > 60 ? Math.floor((session.totalXP / duration) * 3600) : 0;
+        // Calculate XP/hour if we have enough data (at least 5 seconds + some XP)
+        const xpPerHour = (duration >= 5 && session.totalXP > 0) ? Math.floor((session.totalXP / duration) * 3600) : 0;
 
         // Status display
         const statusColor = session.state === SessionState.COMPLETED ? STYLE.colors.success : STYLE.colors.accent;
