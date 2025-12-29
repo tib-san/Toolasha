@@ -21,7 +21,6 @@ export function setupEnhancementHandlers() {
     // Listen for wildcard to catch all messages for debugging
     webSocketHook.on('*', handleDebugMessage);
 
-    console.log('[Enhancement Handlers] Event handlers registered');
 }
 
 /**
@@ -29,13 +28,7 @@ export function setupEnhancementHandlers() {
  * @param {Object} data - WebSocket message data
  */
 function handleDebugMessage(data) {
-    if (data.type === 'action_completed' && data.endCharacterAction) {
-        console.log('[Enhancement Debug] action_completed received:', {
-            type: data.type,
-            actionHrid: data.endCharacterAction.actionHrid,
-            primaryItemHash: data.endCharacterAction.primaryItemHash
-        });
-    }
+    // Debug logging removed
 }
 
 /**
@@ -55,14 +48,6 @@ async function handleActionCompleted(data) {
         return;
     }
 
-    console.log('[Enhancement Handlers] Enhancement action completed:', {
-        actionHrid: action.actionHrid,
-        primaryItemHash: action.primaryItemHash,
-        secondaryItemHash: action.secondaryItemHash,
-        enhancingMaxLevel: action.enhancingMaxLevel,
-        enhancingProtectionMinLevel: action.enhancingProtectionMinLevel
-    });
-
     // Handle the enhancement
     await handleEnhancementResult(action, data);
 }
@@ -73,35 +58,24 @@ async function handleActionCompleted(data) {
  * @returns {string|null} Protection item HRID or null
  */
 function getProtectionItemHrid(action) {
-    console.log('[Enhancement Handlers] getProtectionItemHrid called:', {
-        enhancingProtectionMinLevel: action.enhancingProtectionMinLevel,
-        secondaryItemHash: action.secondaryItemHash,
-        enhancingProtectionItemHrid: action.enhancingProtectionItemHrid
-    });
-
     // Check if protection is enabled
     if (!action.enhancingProtectionMinLevel || action.enhancingProtectionMinLevel < 2) {
-        console.log('[Enhancement Handlers] Protection not enabled (minLevel < 2)');
         return null;
     }
 
     // Extract protection item from secondaryItemHash (Ultimate Tracker method)
     if (action.secondaryItemHash) {
         const parts = action.secondaryItemHash.split('::');
-        console.log('[Enhancement Handlers] secondaryItemHash parts:', parts);
         if (parts.length >= 3 && parts[2].startsWith('/items/')) {
-            console.log('[Enhancement Handlers] Protection item detected:', parts[2]);
             return parts[2];
         }
     }
 
     // Fallback: check if there's a direct enhancingProtectionItemHrid field
     if (action.enhancingProtectionItemHrid) {
-        console.log('[Enhancement Handlers] Using direct enhancingProtectionItemHrid:', action.enhancingProtectionItemHrid);
         return action.enhancingProtectionItemHrid;
     }
 
-    console.log('[Enhancement Handlers] No protection item found');
     return null;
 }
 
@@ -115,15 +89,8 @@ async function handleEnhancementStart(action) {
         const { itemHrid, level: currentLevel } = parseItemHash(action.primaryItemHash);
 
         if (!itemHrid) {
-            console.warn('[Enhancement Handlers] No item HRID found in action');
             return;
         }
-
-        console.log('[Enhancement Handlers] Enhancement started:', itemHrid, 'Level:', currentLevel);
-        console.log('[Enhancement Handlers] Game UI settings:', {
-            maxLevel: action.enhancingMaxLevel,
-            protectionMinLevel: action.enhancingProtectionMinLevel
-        });
 
         // Check if auto-start is enabled
         const autoStart = config.getSetting('enhancementTracker_autoStart');
@@ -142,7 +109,6 @@ async function handleEnhancementStart(action) {
         );
 
         if (matchingSessionId) {
-            console.log('[Enhancement Handlers] Resuming tracking session');
             await enhancementTracker.resumeSession(matchingSessionId);
             return;
         }
@@ -151,7 +117,6 @@ async function handleEnhancementStart(action) {
         const extendableSessionId = enhancementTracker.findExtendableSession(itemHrid, currentLevel);
 
         if (extendableSessionId) {
-            console.log('[Enhancement Handlers] Extending completed session to new target');
             // Extend by 5 levels (or to 20, whichever is lower)
             const newTarget = Math.min(currentLevel + 5, 20);
             await enhancementTracker.extendSessionTarget(extendableSessionId, newTarget);
@@ -161,18 +126,15 @@ async function handleEnhancementStart(action) {
         // Priority 3: Different item or level - finalize any active session
         const currentSession = enhancementTracker.getCurrentSession();
         if (currentSession) {
-            console.log('[Enhancement Handlers] Different item/level, finalizing previous session');
             await enhancementTracker.finalizeCurrentSession();
         }
 
         // Priority 4: Start new session if auto-start enabled
         if (autoStart) {
             await enhancementTracker.startSession(itemHrid, currentLevel, targetLevel, protectFrom);
-            console.log('[Enhancement Handlers] Auto-started new session with target:', targetLevel, 'protectFrom:', protectFrom);
         }
 
     } catch (error) {
-        console.error('[Enhancement Handlers] Error handling enhancement start:', error);
     }
 }
 
@@ -216,7 +178,6 @@ function parseItemHash(primaryItemHash) {
 
         return { itemHrid, level };
     } catch (error) {
-        console.error('[Enhancement Handlers] Error parsing item hash:', error);
         return { itemHrid: null, level: 0 };
     }
 }
@@ -233,7 +194,6 @@ function getEnhancementMaterials(itemHrid) {
         const itemData = gameData?.itemDetailMap?.[itemHrid];
 
         if (!itemData) {
-            console.warn('[Enhancement Handlers] Item not found:', itemHrid);
             return null;
         }
 
@@ -241,7 +201,6 @@ function getEnhancementMaterials(itemHrid) {
         const costs = itemData.enhancementCosts;
 
         if (!costs) {
-            console.warn('[Enhancement Handlers] No enhancement costs found for:', itemHrid);
             return null;
         }
 
@@ -270,7 +229,6 @@ function getEnhancementMaterials(itemHrid) {
 
         return materials.length > 0 ? materials : null;
     } catch (error) {
-        console.error('[Enhancement Handlers] Error getting materials:', error);
         return null;
     }
 }
@@ -316,15 +274,8 @@ async function handleEnhancementResult(action, data) {
         const rawCount = action.currentCount || 0;
 
         if (!itemHrid) {
-            console.warn('[Enhancement Handlers] No item HRID found in result');
             return;
         }
-
-        console.log('[Enhancement Handlers] Enhancement result:', {
-            item: itemHrid,
-            newLevel,
-            rawCount
-        });
 
         // On first attempt (rawCount === 1), start session if auto-start is enabled
         // BUT: Ignore if we already have an active session (handles out-of-order events)
@@ -332,7 +283,6 @@ async function handleEnhancementResult(action, data) {
         if (rawCount === 1) {
             if (currentSession && currentSession.itemHrid === itemHrid) {
                 // Already have a session for this item, ignore this late rawCount=1 event
-                console.log('[Enhancement Handlers] Ignoring late rawCount=1 event, session already exists');
                 return;
             }
 
@@ -348,18 +298,15 @@ async function handleEnhancementResult(action, data) {
                 }
                 // Otherwise, started at same level (e.g., 0→0 failure, or protected failure)
 
-                console.log('[Enhancement Handlers] First attempt - inferred start level:', startLevel, 'result level:', newLevel);
 
                 const autoStart = config.getSetting('enhancementTracker_autoStart');
                 if (autoStart) {
                     const targetLevel = action.enhancingMaxLevel || Math.min(newLevel + 5, 20);
                     await enhancementTracker.startSession(itemHrid, startLevel, targetLevel, protectFrom);
                     currentSession = enhancementTracker.getCurrentSession();
-                    console.log('[Enhancement Handlers] Auto-started new session with target:', targetLevel, 'protectFrom:', protectFrom);
                 }
 
                 if (!currentSession) {
-                    console.log('[Enhancement Handlers] No session started, auto-start disabled');
                     return;
                 }
             }
@@ -370,29 +317,22 @@ async function handleEnhancementResult(action, data) {
             // Try to extend a completed session for the same item
             const extendableSessionId = enhancementTracker.findExtendableSession(itemHrid, newLevel);
             if (extendableSessionId) {
-                console.log('[Enhancement Handlers] Extending completed session mid-enhancement');
                 const newTarget = Math.min(newLevel + 5, 20);
                 await enhancementTracker.extendSessionTarget(extendableSessionId, newTarget);
                 currentSession = enhancementTracker.getCurrentSession();
             } else {
-                console.log('[Enhancement Handlers] No active session for result');
                 return;
             }
         }
 
         // Calculate adjusted attempt count (resume-proof)
         const adjustedCount = calculateAdjustedAttemptCount(currentSession);
-        console.log('[Enhancement Handlers] Adjusted attempt count:', adjustedCount, '(raw:', rawCount, ')');
 
         // Track costs for EVERY attempt (including first)
         const { materialCost, coinCost } = await trackMaterialCosts(itemHrid);
-        console.log('[Enhancement Handlers] Costs tracked:', { materialCost, coinCost });
 
         // Get previous level from lastAttempt
         const previousLevel = currentSession.lastAttempt?.level ?? currentSession.startLevel;
-
-        console.log('[Enhancement Handlers] DEBUG - totalAttempts:', currentSession.totalAttempts,
-                    'adjustedCount:', adjustedCount, 'previousLevel:', previousLevel, 'newLevel:', newLevel);
 
         // Check protection item usage BEFORE recording attempt
         // Track protection cost if protection item exists in action data
@@ -419,7 +359,6 @@ async function handleEnhancementResult(action, data) {
                 }
 
                 await enhancementTracker.trackProtectionCost(protectionItemHrid, protectionCost);
-                console.log('[Enhancement Handlers] Protection item used:', protectionItemHrid, protectionCost);
             }
         }
 
@@ -437,15 +376,6 @@ async function handleEnhancementResult(action, data) {
 
         const wasBlessed = wasSuccess && (newLevel - previousLevel) >= 2; // Blessed tea detection
 
-        console.log('[Enhancement Handlers] Result:', {
-            previousLevel,
-            newLevel,
-            wasSuccess,
-            wasFailure,
-            wasBlessed,
-            adjustedCount
-        });
-
         // Update lastAttempt BEFORE recording (so next attempt compares correctly)
         currentSession.lastAttempt = {
             attemptNumber: adjustedCount,
@@ -458,20 +388,16 @@ async function handleEnhancementResult(action, data) {
             const xpGain = calculateSuccessXP(previousLevel, itemHrid);
             currentSession.totalXP += xpGain;
 
-            console.log('[Enhancement Handlers] Enhancement succeeded:', previousLevel, '→', newLevel,
-                        wasBlessed ? '(BLESSED!)' : '', '+' + xpGain, 'XP');
             await enhancementTracker.recordSuccess(previousLevel, newLevel);
             enhancementUI.scheduleUpdate(); // Update UI after success
 
             // Check if we've reached target
             if (newLevel >= currentSession.targetLevel) {
-                console.log('[Enhancement Handlers] Target level reached! Session completed.');
             }
         } else if (wasFailure) {
             const xpGain = calculateFailureXP(previousLevel, itemHrid);
             currentSession.totalXP += xpGain;
 
-            console.log('[Enhancement Handlers] Enhancement failed at level', previousLevel, '(now at', newLevel, ') +' + xpGain, 'XP');
             await enhancementTracker.recordFailure(previousLevel);
             enhancementUI.scheduleUpdate(); // Update UI after failure
         }
@@ -479,7 +405,6 @@ async function handleEnhancementResult(action, data) {
         // This happens with protection items that prevent level decrease
 
     } catch (error) {
-        console.error('[Enhancement Handlers] Error handling enhancement result:', error);
     }
 }
 
@@ -489,5 +414,4 @@ async function handleEnhancementResult(action, data) {
 export function cleanupEnhancementHandlers() {
     webSocketHook.off('action_completed', handleActionCompleted);
     webSocketHook.off('*', handleDebugMessage);
-    console.log('[Enhancement Handlers] Event handlers removed');
 }

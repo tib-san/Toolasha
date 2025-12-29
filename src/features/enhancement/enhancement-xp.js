@@ -4,6 +4,7 @@
  */
 
 import dataManager from '../../core/data-manager.js';
+import { calculateEnhancement } from '../../utils/enhancement-calculator.js';
 
 /**
  * Get base item level from item HRID
@@ -16,7 +17,6 @@ function getBaseItemLevel(itemHrid) {
         const itemData = gameData?.itemDetailMap?.[itemHrid];
         return itemData?.level || 0;
     } catch (error) {
-        console.error('[Enhancement XP] Error getting base item level:', error);
         return 0;
     }
 }
@@ -78,7 +78,6 @@ function getWisdomBuff() {
         return totalFlatBoost;
 
     } catch (error) {
-        console.error('[Enhancement XP] Error calculating wisdom buff:', error);
         return 0;
     }
 }
@@ -142,4 +141,123 @@ export function calculateAdjustedAttemptCount(session) {
 
     // Return total + 1 for the next attempt
     return successCount + failCount + 1;
+}
+
+/**
+ * Calculate enhancement predictions using character stats
+ * @param {string} itemHrid - Item HRID being enhanced
+ * @param {number} startLevel - Starting enhancement level
+ * @param {number} targetLevel - Target enhancement level
+ * @param {number} protectFrom - Level to start using protection
+ * @returns {Object|null} Prediction data or null if cannot calculate
+ */
+export function calculateEnhancementPredictions(itemHrid, startLevel, targetLevel, protectFrom) {
+    try {
+        const charData = JSON.parse(localStorage.getItem('init_character_data'));
+        const gameData = dataManager.getInitClientData();
+
+        if (!charData || !gameData) {
+            return null;
+        }
+
+        // Get item level
+        const itemData = gameData.itemDetailMap?.[itemHrid];
+        if (!itemData) {
+            return null;
+        }
+        const itemLevel = itemData.level || 0;
+
+        // Get enhancing skill level
+        const enhancingLevel = charData.characterSkills?.['/skills/enhancing']?.level || 1;
+
+        // Get house level (Observatory)
+        const houseRooms = charData.characterHouseRoomMap;
+        let houseLevel = 0;
+        if (houseRooms) {
+            for (const roomHrid in houseRooms) {
+                const room = houseRooms[roomHrid];
+                if (room.houseRoomHrid === '/house_rooms/observatory') {
+                    houseLevel = room.level || 0;
+                    break;
+                }
+            }
+        }
+
+        // Get equipment buffs for enhancing
+        let toolBonus = 0;
+        let speedBonus = 0;
+        const equipmentBuffs = charData.equipmentActionTypeBuffsMap?.['/action_types/enhancing'];
+        if (Array.isArray(equipmentBuffs)) {
+            equipmentBuffs.forEach(buff => {
+                if (buff.typeHrid === '/buff_types/enhancing_success') {
+                    toolBonus += (buff.flatBoost || 0) * 100; // Convert to percentage
+                }
+                if (buff.typeHrid === '/buff_types/enhancing_speed') {
+                    speedBonus += (buff.flatBoost || 0) * 100; // Convert to percentage
+                }
+            });
+        }
+
+        // Add house buffs
+        const houseBuffs = charData.houseActionTypeBuffsMap?.['/action_types/enhancing'];
+        if (Array.isArray(houseBuffs)) {
+            houseBuffs.forEach(buff => {
+                if (buff.typeHrid === '/buff_types/enhancing_success') {
+                    toolBonus += (buff.flatBoost || 0) * 100;
+                }
+                if (buff.typeHrid === '/buff_types/enhancing_speed') {
+                    speedBonus += (buff.flatBoost || 0) * 100;
+                }
+            });
+        }
+
+        // Check for blessed tea
+        let hasBlessed = false;
+        let guzzlingBonus = 1.0;
+        const enhancingTeas = charData.actionTypeDrinkSlotsMap?.['/action_types/enhancing'] || [];
+        const activeTeas = enhancingTeas.filter(tea => tea?.isActive);
+
+        activeTeas.forEach(tea => {
+            if (tea.itemHrid === '/items/blessed_tea') {
+                hasBlessed = true;
+            }
+        });
+
+        // Get guzzling pouch bonus (drink concentration)
+        const consumableBuffs = charData.consumableActionTypeBuffsMap?.['/action_types/enhancing'];
+        if (Array.isArray(consumableBuffs)) {
+            consumableBuffs.forEach(buff => {
+                if (buff.typeHrid === '/buff_types/drink_concentration') {
+                    guzzlingBonus = 1.0 + (buff.flatBoost || 0);
+                }
+            });
+        }
+
+        // Calculate predictions
+        const result = calculateEnhancement({
+            enhancingLevel,
+            houseLevel,
+            toolBonus,
+            speedBonus,
+            itemLevel,
+            targetLevel,
+            protectFrom,
+            blessedTea: hasBlessed,
+            guzzlingBonus
+        });
+
+        if (!result) {
+            return null;
+        }
+
+        return {
+            expectedAttempts: Math.round(result.attemptsRounded),
+            expectedProtections: Math.round(result.protectionCount),
+            expectedTime: result.totalTime,
+            successMultiplier: result.successMultiplier
+        };
+
+    } catch (error) {
+        return null;
+    }
 }

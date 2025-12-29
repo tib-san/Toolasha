@@ -26,6 +26,7 @@ import {
     saveCurrentSessionId,
     loadCurrentSessionId
 } from './enhancement-storage.js';
+import { calculateEnhancementPredictions } from './enhancement-xp.js';
 
 /**
  * EnhancementTracker class manages enhancement tracking sessions
@@ -43,12 +44,10 @@ class EnhancementTracker {
      */
     async initialize() {
         if (this.isInitialized) {
-            console.log('[Enhancement Tracker] Already initialized');
             return;
         }
 
         if (!config.getSetting('enhancementTracker')) {
-            console.log('[Enhancement Tracker] Feature disabled in settings');
             return;
         }
 
@@ -59,7 +58,6 @@ class EnhancementTracker {
 
             // Validate current session still exists
             if (this.currentSessionId && !this.sessions[this.currentSessionId]) {
-                console.warn('[Enhancement Tracker] Current session not found, clearing');
                 this.currentSessionId = null;
                 await saveCurrentSessionId(null);
             }
@@ -67,16 +65,12 @@ class EnhancementTracker {
             // Validate all loaded sessions
             for (const [sessionId, session] of Object.entries(this.sessions)) {
                 if (!validateSession(session)) {
-                    console.warn('[Enhancement Tracker] Invalid session detected:', sessionId);
                     delete this.sessions[sessionId];
                 }
             }
 
             this.isInitialized = true;
-            console.log('[Enhancement Tracker] Initialized with', Object.keys(this.sessions).length, 'sessions');
-            console.log('[Enhancement Tracker] Current session:', this.currentSessionId || 'none');
         } catch (error) {
-            console.error('[Enhancement Tracker] Initialization failed:', error);
         }
     }
 
@@ -105,6 +99,10 @@ class EnhancementTracker {
         // Create new session
         const session = createSession(itemHrid, itemName, startLevel, targetLevel, protectFrom);
 
+        // Calculate predictions
+        const predictions = calculateEnhancementPredictions(itemHrid, startLevel, targetLevel, protectFrom);
+        session.predictions = predictions;
+
         // Store session
         this.sessions[session.id] = session;
         this.currentSessionId = session.id;
@@ -112,9 +110,6 @@ class EnhancementTracker {
         // Save to storage
         await saveSessions(this.sessions);
         await saveCurrentSessionId(session.id);
-
-        console.log('[Enhancement Tracker] Started new session:', session.id);
-        console.log('[Enhancement Tracker] Item:', itemName, 'Levels:', startLevel, '→', targetLevel);
 
         return session.id;
     }
@@ -130,7 +125,6 @@ class EnhancementTracker {
     findMatchingSession(itemHrid, currentLevel, targetLevel, protectFrom = 0) {
         for (const [sessionId, session] of Object.entries(this.sessions)) {
             if (sessionMatches(session, itemHrid, currentLevel, targetLevel, protectFrom)) {
-                console.log('[Enhancement Tracker] Found matching session:', sessionId);
                 return sessionId;
             }
         }
@@ -145,7 +139,6 @@ class EnhancementTracker {
      */
     async resumeSession(sessionId) {
         if (!this.sessions[sessionId]) {
-            console.warn('[Enhancement Tracker] Session not found:', sessionId);
             return false;
         }
 
@@ -153,14 +146,12 @@ class EnhancementTracker {
 
         // Can only resume tracking sessions
         if (session.state !== SessionState.TRACKING) {
-            console.warn('[Enhancement Tracker] Cannot resume non-tracking session:', session.state);
             return false;
         }
 
         this.currentSessionId = sessionId;
         await saveCurrentSessionId(sessionId);
 
-        console.log('[Enhancement Tracker] Resumed session:', sessionId);
         return true;
     }
 
@@ -173,7 +164,6 @@ class EnhancementTracker {
     findExtendableSession(itemHrid, currentLevel) {
         for (const [sessionId, session] of Object.entries(this.sessions)) {
             if (canExtendSession(session, itemHrid, currentLevel)) {
-                console.log('[Enhancement Tracker] Found extendable session:', sessionId);
                 return sessionId;
             }
         }
@@ -189,7 +179,6 @@ class EnhancementTracker {
      */
     async extendSessionTarget(sessionId, newTargetLevel) {
         if (!this.sessions[sessionId]) {
-            console.warn('[Enhancement Tracker] Session not found:', sessionId);
             return false;
         }
 
@@ -197,7 +186,6 @@ class EnhancementTracker {
 
         // Can only extend completed sessions
         if (session.state !== SessionState.COMPLETED) {
-            console.warn('[Enhancement Tracker] Cannot extend non-completed session:', session.state);
             return false;
         }
 
@@ -207,7 +195,6 @@ class EnhancementTracker {
         await saveSessions(this.sessions);
         await saveCurrentSessionId(sessionId);
 
-        console.log('[Enhancement Tracker] Extended session:', sessionId, 'New target:', newTargetLevel);
         return true;
     }
 
@@ -227,14 +214,12 @@ class EnhancementTracker {
     async finalizeCurrentSession() {
         const session = this.getCurrentSession();
         if (!session) {
-            console.warn('[Enhancement Tracker] No active session to finalize');
             return;
         }
 
         finalizeSession(session);
         await saveSessions(this.sessions);
 
-        console.log('[Enhancement Tracker] Finalized session:', session.id);
 
         // Clear current session
         this.currentSessionId = null;
@@ -250,18 +235,15 @@ class EnhancementTracker {
     async recordSuccess(previousLevel, newLevel) {
         const session = this.getCurrentSession();
         if (!session) {
-            console.warn('[Enhancement Tracker] No active session');
             return;
         }
 
         recordSuccess(session, previousLevel, newLevel);
         await saveSessions(this.sessions);
 
-        console.log('[Enhancement Tracker] Recorded success:', previousLevel, '→', newLevel);
 
         // Check if target reached
         if (session.state === SessionState.COMPLETED) {
-            console.log('[Enhancement Tracker] Target reached! Session completed.');
             this.currentSessionId = null;
             await saveCurrentSessionId(null);
         }
@@ -275,14 +257,12 @@ class EnhancementTracker {
     async recordFailure(previousLevel) {
         const session = this.getCurrentSession();
         if (!session) {
-            console.warn('[Enhancement Tracker] No active session');
             return;
         }
 
         recordFailure(session, previousLevel);
         await saveSessions(this.sessions);
 
-        console.log('[Enhancement Tracker] Recorded failure at level', previousLevel);
     }
 
     /**
@@ -302,7 +282,6 @@ class EnhancementTracker {
         addMaterialCost(session, itemHrid, count, unitCost);
         await saveSessions(this.sessions);
 
-        console.log('[Enhancement Tracker] Added material cost:', count, 'x', itemHrid, '=', count * unitCost);
     }
 
     /**
@@ -317,7 +296,6 @@ class EnhancementTracker {
         addCoinCost(session, amount);
         await saveSessions(this.sessions);
 
-        console.log('[Enhancement Tracker] Added coin cost:', amount);
     }
 
     /**
@@ -333,7 +311,6 @@ class EnhancementTracker {
         addProtectionCost(session, protectionItemHrid, cost);
         await saveSessions(this.sessions);
 
-        console.log('[Enhancement Tracker] Added protection cost:', protectionItemHrid, cost);
     }
 
     /**
@@ -365,7 +342,6 @@ class EnhancementTracker {
      * Disable and cleanup
      */
     disable() {
-        console.log('[Enhancement Tracker] Disabled');
         this.isInitialized = false;
     }
 }

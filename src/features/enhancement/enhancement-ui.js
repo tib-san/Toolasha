@@ -349,7 +349,6 @@ class EnhancementUI {
         this.currentViewingIndex = 0;
         this.updateUI();
 
-        console.log('[Enhancement UI] All sessions cleared');
     }
 
     /**
@@ -488,8 +487,47 @@ class EnhancementUI {
                         <strong> ${session.protectionCount || 0}</strong>
                     </div>
                 </div>
-            </div>
+            </div>`;
 
+        // Predictions (if available)
+        if (session.predictions) {
+            const predictions = session.predictions;
+            const expAtt = predictions.expectedAttempts || 0;
+            const expProt = predictions.expectedProtections || 0;
+            const actualProt = session.protectionCount || 0;
+
+            // Calculate factors (like Ultimate Tracker)
+            const attFactor = expAtt > 0 ? (totalAttempts / expAtt).toFixed(2) : null;
+            const protFactor = expProt > 0 ? (actualProt / expProt).toFixed(2) : null;
+
+            html += `
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-top: 4px;">
+                <div style="color: ${STYLE.colors.textSecondary};">
+                    <span>Expected Attempts:</span>
+                    <span> ${expAtt}</span>
+                </div>
+                <div style="color: ${STYLE.colors.textSecondary};">
+                    <span>Expected Prots:</span>
+                    <span> ${expProt}</span>
+                </div>
+            </div>`;
+
+            if (attFactor || protFactor) {
+                html += `
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-top: 2px; color: ${STYLE.colors.textSecondary};">
+                <div>
+                    <span>Attempt Factor:</span>
+                    <strong> ${attFactor ? attFactor + 'x' : '—'}</strong>
+                </div>
+                <div>
+                    <span>Prot Factor:</span>
+                    <strong> ${protFactor ? protFactor + 'x' : '—'}</strong>
+                </div>
+            </div>`;
+            }
+        }
+
+        html += `
             <div style="margin-top: 8px; display: flex; justify-content: space-between; font-size: 13px;">
                 <span>Total XP Gained:</span>
                 <strong>${this.formatNumber(session.totalXP)}</strong>

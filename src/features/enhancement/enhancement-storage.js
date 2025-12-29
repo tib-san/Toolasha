@@ -17,9 +17,7 @@ const STORAGE_STORE = 'settings'; // Use existing 'settings' store
 export async function saveSessions(sessions) {
     try {
         await storage.setJSON(STORAGE_KEY, sessions, STORAGE_STORE, true); // immediate=true for rapid updates
-        console.log('[Enhancement Storage] Saved', Object.keys(sessions).length, 'sessions');
     } catch (error) {
-        console.error('[Enhancement Storage] Failed to save sessions:', error);
         throw error;
     }
 }
@@ -31,10 +29,8 @@ export async function saveSessions(sessions) {
 export async function loadSessions() {
     try {
         const sessions = await storage.getJSON(STORAGE_KEY, STORAGE_STORE, {});
-        console.log('[Enhancement Storage] Loaded', Object.keys(sessions).length, 'sessions');
         return sessions;
     } catch (error) {
-        console.error('[Enhancement Storage] Failed to load sessions:', error);
         return {};
     }
 }
@@ -48,7 +44,6 @@ export async function saveCurrentSessionId(sessionId) {
     try {
         await storage.set(CURRENT_SESSION_KEY, sessionId, STORAGE_STORE, true); // immediate=true for rapid updates
     } catch (error) {
-        console.error('[Enhancement Storage] Failed to save current session ID:', error);
     }
 }
 
@@ -60,7 +55,6 @@ export async function loadCurrentSessionId() {
     try {
         return await storage.get(CURRENT_SESSION_KEY, STORAGE_STORE, null);
     } catch (error) {
-        console.error('[Enhancement Storage] Failed to load current session ID:', error);
         return null;
     }
 }
@@ -75,7 +69,6 @@ export async function deleteSession(sessions, sessionId) {
     if (sessions[sessionId]) {
         delete sessions[sessionId];
         await saveSessions(sessions);
-        console.log('[Enhancement Storage] Deleted session:', sessionId);
     }
 }
 
@@ -101,7 +94,6 @@ export async function archiveOldSessions(sessions, maxSessions = 50) {
     const newSessions = Object.fromEntries(sessionsToKeep);
 
     await saveSessions(newSessions);
-    console.log('[Enhancement Storage] Archived', sessionArray.length - maxSessions, 'old sessions');
 }
 
 /**
@@ -124,13 +116,11 @@ export function importSession(jsonStr) {
 
         // Basic validation
         if (!session.id || !session.itemHrid) {
-            console.error('[Enhancement Storage] Invalid session data');
             return null;
         }
 
         return session;
     } catch (error) {
-        console.error('[Enhancement Storage] Failed to parse session JSON:', error);
         return null;
     }
 }
@@ -143,8 +133,6 @@ export async function clearAllSessions() {
     try {
         await storage.setJSON(STORAGE_KEY, {}, STORAGE_STORE);
         await storage.set(CURRENT_SESSION_KEY, null, STORAGE_STORE);
-        console.log('[Enhancement Storage] Cleared all sessions');
     } catch (error) {
-        console.error('[Enhancement Storage] Failed to clear sessions:', error);
     }
 }
