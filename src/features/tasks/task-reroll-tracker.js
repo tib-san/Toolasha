@@ -204,16 +204,21 @@ class TaskRerollTracker {
 
                 if (!cost) return;
 
-                setTimeout(() => {
-                    // Record spending
-                    this.recordSpending(slotIndex, currency, cost);
+                // Record spending immediately
+                this.recordSpending(slotIndex, currency, cost);
 
-                    // Update display immediately
-                    const taskElement = container.closest('[class*="RandomTask_randomTask"]');
-                    if (taskElement) {
-                        this.updateTaskDisplay(taskElement, slotIndex);
+                // Defer display update to avoid blocking game UI
+                // Use longer delay to let game finish its reroll animation
+                setTimeout(() => {
+                    try {
+                        const taskElement = container.closest('[class*="RandomTask_randomTask"]');
+                        if (taskElement && document.body.contains(taskElement)) {
+                            this.updateTaskDisplay(taskElement, slotIndex);
+                        }
+                    } catch (error) {
+                        console.error('[Task Reroll Tracker] Error updating display:', error);
                     }
-                }, 100);
+                }, 500);
             });
         });
     }
