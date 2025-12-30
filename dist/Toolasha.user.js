@@ -16672,6 +16672,19 @@
             );
             this.unregisterHandlers.push(unregister);
 
+            // Watch for any DOM changes to re-apply badges (handles tooltip open/close)
+            const badgeRefreshUnregister = domObserver.register(
+                'InventorySort-BadgeRefresh',
+                () => {
+                    // Only refresh if inventory is currently visible and badges are enabled
+                    if (this.currentInventoryElem && config.getSetting('invSort_showBadges')) {
+                        this.updatePriceBadges();
+                    }
+                },
+                { debounce: true, debounceDelay: 100 }
+            );
+            this.unregisterHandlers.push(badgeRefreshUnregister);
+
             // Listen for market data updates to refresh badges
             this.setupMarketDataListener();
 
