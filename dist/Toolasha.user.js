@@ -16932,6 +16932,13 @@
                         itemElem.dataset.bidValue = 0;
                         continue;
                     }
+
+                    // Skip trainee charms (untradeable, no market data)
+                    if (itemHrid.includes('trainee_')) {
+                        itemElem.dataset.askValue = 0;
+                        itemElem.dataset.bidValue = 0;
+                        continue;
+                    }
                 }
 
                 // Get item count
