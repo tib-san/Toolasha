@@ -54,6 +54,51 @@
     opacity: 1;
 }
 
+/* Collapsible Settings Groups */
+.toolasha-settings-group {
+    margin-bottom: 8px;
+}
+
+.toolasha-settings-group-header {
+    cursor: pointer;
+    user-select: none;
+    margin: 10px 0 4px 0;
+    color: var(--toolasha-accent);
+    font-weight: 600;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-bottom: 1px solid var(--toolasha-border);
+    padding-bottom: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: color 0.2s ease;
+}
+
+.toolasha-settings-group-header:hover {
+    color: var(--toolasha-accent-hover);
+}
+
+.toolasha-settings-group-header .collapse-icon {
+    font-size: 10px;
+    transition: transform 0.2s ease;
+}
+
+.toolasha-settings-group.collapsed .collapse-icon {
+    transform: rotate(-90deg);
+}
+
+.toolasha-settings-group-content {
+    max-height: 5000px;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+}
+
+.toolasha-settings-group.collapsed .toolasha-settings-group-content {
+    max-height: 0;
+}
+
 /* Section Headers */
 .toolasha-settings-card h3 {
     margin: 10px 0 4px 0;
@@ -321,6 +366,21 @@
 .toolasha-setting.has-dependency {
     margin-left: 16px;
     position: relative;
+}
+
+/* Nested setting collapse icons */
+.setting-collapse-icon {
+    flex-shrink: 0;
+    color: var(--toolasha-accent);
+    opacity: 0.7;
+}
+
+.toolasha-setting.dependents-collapsed .setting-collapse-icon {
+    opacity: 1;
+}
+
+.toolasha-setting-label-container:hover .setting-collapse-icon {
+    opacity: 1;
 }
 
 /* Tab Panel Override (for game's settings panel) */

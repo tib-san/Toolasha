@@ -208,16 +208,94 @@ class SettingsUI {
      */
     generateSettings(container) {
         for (const [groupKey, group] of Object.entries(settingsGroups)) {
-            // Add section header
+            // Create collapsible group container
+            const groupContainer = document.createElement('div');
+            groupContainer.className = 'toolasha-settings-group';
+            groupContainer.dataset.group = groupKey;
+
+            // Add section header with collapse toggle
             const header = document.createElement('h3');
-            header.innerHTML = `<span class="icon">${group.icon}</span> ${group.title}`;
-            container.appendChild(header);
+            header.className = 'toolasha-settings-group-header';
+            header.innerHTML = `
+                <span class="collapse-icon">▼</span>
+                <span class="icon">${group.icon}</span>
+                ${group.title}
+            `;
+            header.addEventListener('click', () => this.toggleGroup(groupContainer));
+
+            // Create content container for this group
+            const content = document.createElement('div');
+            content.className = 'toolasha-settings-group-content';
 
             // Add settings in this group
             for (const [settingId, settingDef] of Object.entries(group.settings)) {
                 const settingEl = this.createSettingElement(settingId, settingDef);
-                container.appendChild(settingEl);
+                content.appendChild(settingEl);
             }
+
+            groupContainer.appendChild(header);
+            groupContainer.appendChild(content);
+            container.appendChild(groupContainer);
+        }
+
+        // After all settings are created, set up collapse functionality for parent settings
+        this.setupParentCollapseIcons(container);
+    }
+
+    /**
+     * Setup collapse icons for parent settings (settings that have dependents)
+     * @param {HTMLElement} container - Settings container
+     */
+    setupParentCollapseIcons(container) {
+        const allSettings = container.querySelectorAll('.toolasha-setting');
+
+        allSettings.forEach(setting => {
+            const settingId = setting.dataset.settingId;
+
+            // Find all dependents of this setting
+            const dependents = Array.from(allSettings).filter(s =>
+                s.dataset.dependencies && s.dataset.dependencies.split(',').includes(settingId)
+            );
+
+            if (dependents.length > 0) {
+                // This setting has dependents - show collapse icon
+                const collapseIcon = setting.querySelector('.setting-collapse-icon');
+                if (collapseIcon) {
+                    collapseIcon.style.display = 'inline-block';
+
+                    // Add click handler to toggle dependents
+                    const labelContainer = setting.querySelector('.toolasha-setting-label-container');
+                    labelContainer.style.cursor = 'pointer';
+                    labelContainer.addEventListener('click', (e) => {
+                        // Don't toggle if clicking the input itself
+                        if (e.target.closest('.toolasha-setting-input')) return;
+
+                        this.toggleDependents(setting, dependents);
+                    });
+                }
+            }
+        });
+    }
+
+    /**
+     * Toggle dependent settings visibility
+     * @param {HTMLElement} parentSetting - Parent setting element
+     * @param {HTMLElement[]} dependents - Array of dependent setting elements
+     */
+    toggleDependents(parentSetting, dependents) {
+        const collapseIcon = parentSetting.querySelector('.setting-collapse-icon');
+        const isCollapsed = parentSetting.classList.contains('dependents-collapsed');
+
+        if (isCollapsed) {
+            // Expand
+            parentSetting.classList.remove('dependents-collapsed');
+            collapseIcon.style.transform = 'rotate(0deg)';
+            dependents.forEach(dep => dep.style.display = 'flex');
+        } else {
+            // Collapse
+            parentSetting.classList.add('dependents-collapsed');
+            collapseIcon.style.transform = 'rotate(-90deg)';
+            dependents.forEach(dep => dep.style.display = 'none');
         }
     }
 
@@ -233,7 +311,7 @@ class SettingsUI {
         div.dataset.settingId = settingId;
         div.dataset.type = settingDef.type || 'checkbox';
 
-        // Add dependency class
+        // Add dependency class and make parent settings collapsible
         if (settingDef.dependencies && settingDef.dependencies.length > 0) {
             div.classList.add('has-dependency');
             div.dataset.dependencies = settingDef.dependencies.join(',');
@@ -243,6 +321,23 @@ class SettingsUI {
         if (settingDef.notImplemented) {
             div.classList.add('not-implemented');
         }
+
+        // Create label container (clickable for collapse if has dependents)
+        const labelContainer = document.createElement('div');
+        labelContainer.className = 'toolasha-setting-label-container';
+        labelContainer.style.display = 'flex';
+        labelContainer.style.alignItems = 'center';
+        labelContainer.style.flex = '1';
+        labelContainer.style.gap = '6px';
+
+        // Add collapse icon if this setting has dependents (will be populated by checkDependents)
+        const collapseIcon = document.createElement('span');
+        collapseIcon.className = 'setting-collapse-icon';
+        collapseIcon.textContent = '▼';
+        collapseIcon.style.display = 'none'; // Hidden by default, shown if dependents exist
+        collapseIcon.style.cursor = 'pointer';
+        collapseIcon.style.fontSize = '10px';
+        collapseIcon.style.transition = 'transform 0.2s ease';
 
         // Create label
         const label = document.createElement('span');
@@ -257,13 +352,16 @@ class SettingsUI {
             label.appendChild(help);
         }
 
+        labelContainer.appendChild(collapseIcon);
+        labelContainer.appendChild(label);
+
         // Create input
         const inputHTML = this.generateSettingInput(settingId, settingDef);
         const inputContainer = document.createElement('div');
         inputContainer.className = 'toolasha-setting-input';
         inputContainer.innerHTML = inputHTML;
 
-        div.appendChild(label);
+        div.appendChild(labelContainer);
         div.appendChild(inputContainer);
 
         return div;
