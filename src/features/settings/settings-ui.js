@@ -301,6 +301,14 @@ class SettingsUI {
     }
 
     /**
+     * Toggle group collapse/expand
+     * @param {HTMLElement} groupContainer - Group container element
+     */
+    toggleGroup(groupContainer) {
+        groupContainer.classList.toggle('collapsed');
+    }
+
+    /**
      * Create a single setting UI element
      * @param {string} settingId - Setting ID
      * @param {Object} settingDef - Setting definition
