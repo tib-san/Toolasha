@@ -2,14 +2,12 @@
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
 // @version      0.4.5
-// @description  Toolasha - Enhanced tools for Milky Way Idle. Shows total action time, market prices, action inputs, skill requirements, exp percentages, networth, combat summary, map indices, item levels, ability book requirements, and market filters.
-// @author       Original: bot7420, updated by: Celasha and Claude
+// @description  Toolasha - Enhanced tools for Milky Way Idle.
+// @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
 // @match        https://www.milkywayidle.com/*
 // @match        https://test.milkywayidle.com/*
-// @match        https://amvoidguy.github.io/MWICombatSimulatorTest/*
 // @match        https://shykai.github.io/MWICombatSimulatorTest/dist/*
-// @match        https://mooneycalc.netlify.app/*
 // @grant        GM_addStyle
 // @grant        GM.xmlHttpRequest
 // @grant        GM_xmlhttpRequest
