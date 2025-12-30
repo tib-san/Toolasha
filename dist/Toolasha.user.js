@@ -16857,7 +16857,7 @@
                 const categoryName = categoryButton.textContent.trim();
 
                 // Skip categories that shouldn't be sorted
-                const excludedCategories = ['Loots', 'Currencies', 'Equipment'];
+                const excludedCategories = ['Loots', 'Currencies'];
                 if (excludedCategories.includes(categoryName)) {
                     continue;
                 }
