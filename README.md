@@ -1,4 +1,4 @@
-# MWI Tools - Refactoring Project
+# Toolasha
 
 ![Version](https://img.shields.io/badge/version-0.4.5-orange?style=flat-square) ![Status](https://img.shields.io/badge/status-pre--release-yellow?style=flat-square) ![License](https://img.shields.io/badge/license-CC--BY--NC--SA--4.0-blue?style=flat-square)
 
@@ -11,7 +11,7 @@ Modular, maintainable rewrite of MWITools userscript for Milky Way Idle.
 npm run build
 ```
 
-This creates `dist/MWITools-refactor.user.js` which you can install in Tampermonkey.
+This creates `dist/Toolasha.user.js` which you can install in Tampermonkey.
 
 ### Watch mode (auto-rebuild on changes)
 ```bash
@@ -30,30 +30,35 @@ node tests/storage.test.js
 ## 📁 Project Structure
 
 ```
-MWI Tools/
+Toolasha/
 ├── src/
 │   ├── main.js                    # Entry point
 │   ├── core/                      # Core systems
-│   │   └── storage.js            ✅ EXTRACTED
+│   │   ├── storage.js            ✅ Storage wrapper
+│   │   ├── config.js             ✅ Settings management
+│   │   ├── feature-registry.js   ✅ Feature initialization
+│   │   ├── websocket.js          ✅ WebSocket hooking
+│   │   ├── data-manager.js       ✅ Game data access
+│   │   └── dom-observer.js       ✅ Centralized DOM observer
 │   ├── api/                       # External API integrations
 │   ├── features/                  # Feature modules
 │   │   ├── actions/              # Action panel enhancements
 │   │   ├── combat/               # Combat statistics & DPS
 │   │   ├── enhancement/          # Enhancement optimizer
-│   │   ├── integration/          # Combat sim & calculator integrations
 │   │   ├── market/               # Market system
-│   │   ├── networth/             # Networth & build scores
-│   │   └── tooltips/             # Tooltip enhancements
+│   │   ├── networth/             # Networth calculations
+│   │   └── settings/             # Settings UI
 │   ├── ui/                        # UI components
 │   └── utils/                     # Utility functions
-│       └── formatters.js         ✅ EXTRACTED
+│       ├── formatters.js         ✅ Number/time formatting
+│       ├── dom.js                ✅ DOM helpers
+│       ├── efficiency.js         ✅ Game mechanics
+│       └── selectors.js          ✅ DOM selector constants
 ├── tests/                         # Test files
-│   ├── formatters.test.js        ✅ CREATED
-│   └── storage.test.js           ✅ CREATED
 ├── dist/                          # Built userscript (gitignored)
-├── MWITools-25.0.user.js         # Original monolith (reference)
 ├── package.json                   # NPM configuration
-└── rollup.config.js              # Build configuration
+├── rollup.config.js              # Build configuration
+└── userscript-header.txt         # Userscript metadata
 ```
 
 ## ✅ Completed Modules
@@ -348,7 +353,7 @@ node tests/MODULE_NAME.test.js
 
 ---
 
-**Version:** 0.4.0 (Pre-release)
+**Version:** 0.4.5 (Pre-release)
 **Status:** Development/Testing
 **Original Author:** bot7420
 **Updated By:** Celasha and Claude
