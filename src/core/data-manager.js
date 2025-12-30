@@ -66,7 +66,6 @@ class DataManager {
                 const data = localStorageUtil.getInitClientData();
                 if (data && Object.keys(data).length > 0) {
                     this.initClientData = data;
-                    console.log('✅ Static game data loaded');
                     return true;
                 }
             }

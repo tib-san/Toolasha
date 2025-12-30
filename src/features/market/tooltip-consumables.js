@@ -190,29 +190,28 @@ class TooltipConsumables {
         // Get the restoration type and amount
         let restoreType = null;
         let restoreAmount = 0;
-        let duration = 0;
 
         // Check for HP restoration
         if (consumable.hitpointRestore) {
             restoreType = 'HP';
             restoreAmount = consumable.hitpointRestore;
-            // Convert nanoseconds to seconds (1e9 = 1 second)
-            duration = consumable.recoveryDuration ? consumable.recoveryDuration / 1e9 : 0;
         }
         // Check for MP restoration
         else if (consumable.manapointRestore) {
             restoreType = 'MP';
             restoreAmount = consumable.manapointRestore;
-            // Convert nanoseconds to seconds (1e9 = 1 second)
-            duration = consumable.recoveryDuration ? consumable.recoveryDuration / 1e9 : 0;
         }
 
         if (!restoreType || restoreAmount === 0) {
             return null; // No restoration stats
         }
 
-        // Calculate restore rate per second
-        const restorePerSecond = duration > 0 ? restoreAmount / duration : restoreAmount;
+        // Track BOTH durations separately
+        const recoveryDuration = consumable.recoveryDuration ? consumable.recoveryDuration / 1e9 : 0;
+        const cooldownDuration = consumable.cooldownDuration ? consumable.cooldownDuration / 1e9 : 0;
+
+        // Restore per second (for over-time items)
+        const restorePerSecond = recoveryDuration > 0 ? restoreAmount / recoveryDuration : 0;
 
         // Get market price for cost calculations
         const price = marketAPI.getPrice(itemHrid, 0);
@@ -221,17 +220,20 @@ class TooltipConsumables {
         // Cost per HP or MP
         const costPerPoint = askPrice > 0 ? askPrice / restoreAmount : 0;
 
-        // Daily maximum (24 hours worth of restoration)
-        const dailyMax = restorePerSecond * 3600 * 24;
+        // Daily max based on COOLDOWN, not recovery duration
+        const usesPerDay = cooldownDuration > 0 ? (24 * 60 * 60) / cooldownDuration : 0;
+        const dailyMax = restoreAmount * usesPerDay;
 
         return {
             restoreType,
             restoreAmount,
             restorePerSecond,
-            duration,
+            recoveryDuration,  // How long healing takes
+            cooldownDuration,  // How often you can use it
             askPrice,
             costPerPoint,
-            dailyMax
+            dailyMax,
+            usesPerDay
         };
     }
 
@@ -260,7 +262,7 @@ class TooltipConsumables {
             'consumable-stats-injected'
         );
 
-        // Build consumable display - Option 1 Enhanced
+        // Build consumable display
         let html = '<div style="border-top: 1px solid rgba(255,255,255,0.2); padding-top: 8px;">';
 
         // CONSUMABLE STATS section
@@ -268,10 +270,10 @@ class TooltipConsumables {
         html += '<div style="font-size: 0.9em; margin-left: 8px;">';
 
         // Restores line
-        if (stats.duration > 0) {
+        if (stats.recoveryDuration > 0) {
             html += `<div>Restores: ${numberFormatter(stats.restorePerSecond, 1)} ${stats.restoreType}/s</div>`;
         } else {
-            html += `<div>Restores: ${numberFormatter(stats.restoreAmount)} ${stats.restoreType}</div>`;
+            html += `<div>Restores: ${numberFormatter(stats.restoreAmount)} ${stats.restoreType} (instant)</div>`;
         }
 
         // Cost efficiency line
@@ -281,14 +283,19 @@ class TooltipConsumables {
             html += `<div style="color: gray; font-style: italic;">Cost: No market data</div>`;
         }
 
-        // Daily maximum line
-        if (stats.duration > 0) {
-            html += `<div>Daily Max: ${numberFormatter(stats.dailyMax)}</div>`;
+        // Daily maximum line - ALWAYS show (based on cooldown)
+        if (stats.dailyMax > 0) {
+            html += `<div>Daily Max: ${numberFormatter(stats.dailyMax)} ${stats.restoreType}</div>`;
         }
 
-        // Duration line
-        if (stats.duration > 0) {
-            html += `<div>Duration: ${stats.duration}s</div>`;
+        // Recovery duration line - ONLY for over-time items
+        if (stats.recoveryDuration > 0) {
+            html += `<div>Recovery Time: ${stats.recoveryDuration}s</div>`;
+        }
+
+        // Cooldown line - ALWAYS show
+        if (stats.cooldownDuration > 0) {
+            html += `<div>Cooldown: ${stats.cooldownDuration}s (${numberFormatter(stats.usesPerDay)} uses/day)</div>`;
         }
 
         html += '</div>';

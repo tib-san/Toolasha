@@ -22,7 +22,6 @@ class TaskRerollTracker {
     async initialize() {
         if (this.isInitialized) return;
 
-        console.log('[Task Reroll Tracker] Initializing WebSocket-based tracker');
 
         // Register WebSocket listener
         this.registerWebSocketListeners();
@@ -73,7 +72,6 @@ class TaskRerollTracker {
             webSocketHook.off('quests_updated', questsHandler);
         });
 
-        console.log('[Task Reroll Tracker] WebSocket listener registered');
     }
 
     /**

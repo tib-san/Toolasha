@@ -35,8 +35,6 @@ class TaskProfitDisplay {
             return;
         }
 
-        console.log('[Task Profit Display] Initializing WebSocket-based display');
-
         // Set up retry handler for when game data loads
         if (!dataManager.getInitClientData()) {
             if (!this.retryHandler) {
@@ -80,7 +78,6 @@ class TaskProfitDisplay {
             webSocketHook.off('quests_updated', questsHandler);
         });
 
-        console.log('[Task Profit Display] WebSocket listener registered');
     }
 
     /**

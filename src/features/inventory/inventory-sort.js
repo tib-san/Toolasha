@@ -30,7 +30,6 @@ class InventorySort {
 
         // Prevent multiple initializations
         if (this.unregisterHandlers.length > 0) {
-            console.log('[InventorySort] Already initialized');
             return;
         }
 
@@ -60,7 +59,6 @@ class InventorySort {
         // Listen for market data updates to refresh badges
         this.setupMarketDataListener();
 
-        console.log('[InventorySort] Initialized');
     }
 
     /**
@@ -69,7 +67,6 @@ class InventorySort {
     setupMarketDataListener() {
         // If market data isn't loaded yet, retry periodically
         if (!marketAPI.isLoaded()) {
-            console.log('[InventorySort] Market data not loaded yet, will retry...');
 
             let retryCount = 0;
             const maxRetries = 10;
@@ -79,7 +76,6 @@ class InventorySort {
                 retryCount++;
 
                 if (marketAPI.isLoaded()) {
-                    console.log('[InventorySort] Market data now available, refreshing inventory');
                     clearInterval(retryCheck);
 
                     // Refresh if inventory is still open
@@ -92,7 +88,6 @@ class InventorySort {
                 }
             }, retryInterval);
         } else {
-            console.log('[InventorySort] Market data already loaded');
         }
     }
 

@@ -54,7 +54,7 @@ class EquipmentLevelDisplay {
 
     /**
      * Add item levels to all equipment icons
-     * Matches original MWI Tools logic - UNCHANGED
+     * Matches original MWI Tools logic with dungeon key zone info
      */
     addItemLevels() {
         // Find all item icon divs (the clickable containers)
@@ -94,36 +94,93 @@ class EquipmentLevelDisplay {
 
             // For equipment, show the level requirement (not itemLevel)
             // For ability books, show the ability level requirement
-            let displayLevel = null;
+            // For dungeon entry keys, show zone index
+            let displayText = null;
 
             if (itemDetails.equipmentDetail) {
                 // Equipment: Use levelRequirements from equipmentDetail
                 const levelReq = itemDetails.equipmentDetail.levelRequirements;
                 if (levelReq && levelReq.length > 0 && levelReq[0].level > 0) {
-                    displayLevel = levelReq[0].level;
+                    displayText = levelReq[0].level.toString();
                 }
             } else if (itemDetails.abilityBookDetail) {
                 // Ability book: Use level requirement from abilityBookDetail
                 const abilityLevelReq = itemDetails.abilityBookDetail.levelRequirements;
                 if (abilityLevelReq && abilityLevelReq.length > 0 && abilityLevelReq[0].level > 0) {
-                    displayLevel = abilityLevelReq[0].level;
+                    displayText = abilityLevelReq[0].level.toString();
+                }
+            } else if (config.getSetting('showsKeyInfoInIcon') && this.isDungeonEntryKey(itemHrid)) {
+                // Dungeon entry key: Show zone index
+                const zoneIndex = this.getZoneIndexForDungeonKey(itemHrid);
+                if (zoneIndex) {
+                    displayText = `Z${zoneIndex}`;
                 }
             }
 
-            // Add level overlay if we have a valid level to display
-            if (displayLevel && !div.querySelector('div.script_itemLevel')) {
+            // Add overlay if we have valid text to display
+            if (displayText && !div.querySelector('div.script_itemLevel')) {
                 div.style.position = 'relative';
                 div.insertAdjacentHTML(
                     'beforeend',
-                    `<div class="script_itemLevel" style="z-index: 1; position: absolute; top: 2px; right: 2px; text-align: right; color: ${config.SCRIPT_COLOR_MAIN};">${displayLevel}</div>`
+                    `<div class="script_itemLevel" style="z-index: 1; position: absolute; top: 2px; right: 2px; text-align: right; color: ${config.SCRIPT_COLOR_MAIN};">${displayText}</div>`
                 );
                 // Mark as processed
                 this.processedDivs.add(div);
             } else {
-                // No valid level or already has overlay, mark as processed
+                // No valid text or already has overlay, mark as processed
                 this.processedDivs.add(div);
             }
         }
+    }
+
+    /**
+     * Check if item is a dungeon entry key
+     * @param {string} itemHrid - Item HRID
+     * @returns {boolean} True if item is a dungeon entry key
+     */
+    isDungeonEntryKey(itemHrid) {
+        const entryKeys = [
+            '/items/chimerical_entry_key',
+            '/items/sinister_entry_key',
+            '/items/enchanted_entry_key',
+            '/items/pirate_entry_key'
+        ];
+        return entryKeys.includes(itemHrid);
+    }
+
+    /**
+     * Get zone index for a dungeon entry key
+     * @param {string} itemHrid - Dungeon entry key HRID
+     * @returns {number|null} Zone index or null
+     */
+    getZoneIndexForDungeonKey(itemHrid) {
+        // Map entry keys to dungeon action HRIDs
+        const keyToDungeon = {
+            '/items/chimerical_entry_key': '/actions/combat/chimerical_den',
+            '/items/sinister_entry_key': '/actions/combat/sinister_circus',
+            '/items/enchanted_entry_key': '/actions/combat/enchanted_fortress',
+            '/items/pirate_entry_key': '/actions/combat/pirate_cove'
+        };
+
+        const dungeonHrid = keyToDungeon[itemHrid];
+        if (!dungeonHrid) {
+            return null;
+        }
+
+        // Get action details
+        const gameData = dataManager.getInitClientData();
+        if (!gameData) {
+            return null;
+        }
+
+        const action = gameData.actionDetailMap[dungeonHrid];
+        if (!action || !action.category) {
+            return null;
+        }
+
+        // Get zone index from category
+        const category = gameData.actionCategoryDetailMap[action.category];
+        return category?.sortIndex || null;
     }
 
     /**
