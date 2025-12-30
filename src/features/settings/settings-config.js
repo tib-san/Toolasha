@@ -372,8 +372,7 @@ export const settingsGroups = {
                 id: 'fillMarketOrderPrice',
                 label: 'Auto-fill marketplace orders with optimal price',
                 type: 'checkbox',
-                default: true,
-                notImplemented: true
+                default: true
             }
         }
     },

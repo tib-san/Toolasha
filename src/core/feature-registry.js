@@ -10,6 +10,7 @@ import tooltipPrices from '../features/market/tooltip-prices.js';
 import expectedValueCalculator from '../features/market/expected-value-calculator.js';
 import tooltipConsumables from '../features/market/tooltip-consumables.js';
 import marketFilter from '../features/market/market-filter.js';
+import autoFillPrice from '../features/market/auto-fill-price.js';
 import { initActionPanelObserver } from '../features/actions/panel-observer.js';
 import actionTimeDisplay from '../features/actions/action-time-display.js';
 import quickInputButtons from '../features/actions/quick-input-buttons.js';
@@ -61,6 +62,13 @@ const featureRegistry = [
         name: 'Market Filter',
         category: 'Market',
         initialize: () => marketFilter.initialize(),
+        async: false
+    },
+    {
+        key: 'fillMarketOrderPrice',
+        name: 'Auto-Fill Market Price',
+        category: 'Market',
+        initialize: () => autoFillPrice.initialize(),
         async: false
     },
 
