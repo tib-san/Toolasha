@@ -339,7 +339,7 @@ export const settingsGroups = {
             },
             itemIconLevel: {
                 id: 'itemIconLevel',
-                label: 'Top right corner of icons: Show equipment level',
+                label: 'Bottom left corner of icons: Show equipment level',
                 type: 'checkbox',
                 default: true
             },

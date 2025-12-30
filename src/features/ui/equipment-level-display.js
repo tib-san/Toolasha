@@ -118,11 +118,8 @@ class EquipmentLevelDisplay {
             if (displayText && !div.querySelector('div.script_itemLevel')) {
                 div.style.position = 'relative';
 
-                // Position: bottom left for keys/fragments (matches market value style), top right for others
-                const isKeyOrFragment = this.isKeyOrFragment(itemHrid);
-                const position = isKeyOrFragment
-                    ? 'bottom: 2px; left: 2px; text-align: left;'
-                    : 'top: 2px; right: 2px; text-align: right;';
+                // Position: bottom left for all items (matches market value style)
+                const position = 'bottom: 2px; left: 2px; text-align: left;';
 
                 div.insertAdjacentHTML(
                     'beforeend',
