@@ -1,7 +1,7 @@
 node_modules/
-dist/
+dist/*
+!dist/Toolasha.user.js
 *.log
 .DS_Store
 .vscode/
 .idea/
-!dist/Toolasha.user.js
