@@ -20576,96 +20576,84 @@
         }
 
         /**
-         * Save collapse state to localStorage
+         * Save collapse state to IndexedDB
          * @param {string} type - 'group' or 'setting'
          * @param {string} key - Group key or setting ID
          * @param {boolean} isCollapsed - Whether collapsed
          */
-        saveCollapseState(type, key, isCollapsed) {
-            const storageKey = 'toolasha-collapse-states';
-            let states = {};
-
+        async saveCollapseState(type, key, isCollapsed) {
             try {
-                const stored = localStorage.getItem(storageKey);
-                if (stored) {
-                    states = JSON.parse(stored);
+                const states = await storage.getJSON('collapse-states', 'settings', {});
+
+                if (!states[type]) {
+                    states[type] = {};
                 }
-            } catch (e) {
-                console.warn('[Toolasha Settings] Failed to load collapse states:', e);
-            }
+                states[type][key] = isCollapsed;
 
-            if (!states[type]) {
-                states[type] = {};
-            }
-            states[type][key] = isCollapsed;
-
-            try {
-                localStorage.setItem(storageKey, JSON.stringify(states));
+                await storage.setJSON('collapse-states', states, 'settings');
             } catch (e) {
                 console.warn('[Toolasha Settings] Failed to save collapse states:', e);
             }
         }
 
         /**
-         * Load collapse state from localStorage
+         * Load collapse state from IndexedDB
          * @param {string} type - 'group' or 'setting'
          * @param {string} key - Group key or setting ID
-         * @returns {boolean|null} Collapse state or null if not found
+         * @returns {Promise<boolean|null>} Collapse state or null if not found
          */
-        loadCollapseState(type, key) {
-            const storageKey = 'toolasha-collapse-states';
-
+        async loadCollapseState(type, key) {
             try {
-                const stored = localStorage.getItem(storageKey);
-                if (stored) {
-                    const states = JSON.parse(stored);
-                    return states[type]?.[key] ?? null;
-                }
+                const states = await storage.getJSON('collapse-states', 'settings', {});
+                return states[type]?.[key] ?? null;
             } catch (e) {
                 console.warn('[Toolasha Settings] Failed to load collapse states:', e);
+                return null;
             }
-
-            return null;
         }
 
         /**
-         * Restore collapse states from localStorage
+         * Restore collapse states from IndexedDB
          * @param {HTMLElement} container - Settings container
          */
-        restoreCollapseStates(container) {
-            // Restore group collapse states
-            const groups = container.querySelectorAll('.toolasha-settings-group');
-            groups.forEach(group => {
-                const groupKey = group.dataset.group;
-                const isCollapsed = this.loadCollapseState('group', groupKey);
-                if (isCollapsed === true) {
-                    group.classList.add('collapsed');
-                }
-            });
-
-            // Restore setting collapse states
-            const settings = container.querySelectorAll('.toolasha-setting');
-            settings.forEach(setting => {
-                const settingId = setting.dataset.settingId;
-                const isCollapsed = this.loadCollapseState('setting', settingId);
-
-                if (isCollapsed === true) {
-                    setting.classList.add('dependents-collapsed');
-
-                    // Update collapse icon rotation
-                    const collapseIcon = setting.querySelector('.setting-collapse-icon');
-                    if (collapseIcon) {
-                        collapseIcon.style.transform = 'rotate(-90deg)';
+        async restoreCollapseStates(container) {
+            try {
+                // Restore group collapse states
+                const groups = container.querySelectorAll('.toolasha-settings-group');
+                for (const group of groups) {
+                    const groupKey = group.dataset.group;
+                    const isCollapsed = await this.loadCollapseState('group', groupKey);
+                    if (isCollapsed === true) {
+                        group.classList.add('collapsed');
                     }
-
-                    // Hide dependents
-                    const allSettings = container.querySelectorAll('.toolasha-setting');
-                    const dependents = Array.from(allSettings).filter(s =>
-                        s.dataset.dependencies && s.dataset.dependencies.split(',').includes(settingId)
-                    );
-                    dependents.forEach(dep => dep.style.display = 'none');
                 }
-            });
+
+                // Restore setting collapse states
+                const settings = container.querySelectorAll('.toolasha-setting');
+                for (const setting of settings) {
+                    const settingId = setting.dataset.settingId;
+                    const isCollapsed = await this.loadCollapseState('setting', settingId);
+
+                    if (isCollapsed === true) {
+                        setting.classList.add('dependents-collapsed');
+
+                        // Update collapse icon rotation
+                        const collapseIcon = setting.querySelector('.setting-collapse-icon');
+                        if (collapseIcon) {
+                            collapseIcon.style.transform = 'rotate(-90deg)';
+                        }
+
+                        // Hide dependents
+                        const allSettings = container.querySelectorAll('.toolasha-setting');
+                        const dependents = Array.from(allSettings).filter(s =>
+                            s.dataset.dependencies && s.dataset.dependencies.split(',').includes(settingId)
+                        );
+                        dependents.forEach(dep => dep.style.display = 'none');
+                    }
+                }
+            } catch (e) {
+                console.warn('[Toolasha Settings] Failed to restore collapse states:', e);
+            }
         }
 
         /**
