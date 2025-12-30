@@ -310,7 +310,7 @@ class InventorySort {
             // In Equipment category, only process charms
             if (isEquipmentCategory) {
                 const itemDetails = gameData.itemDetailMap[itemHrid];
-                const isCharm = itemDetails?.equipmentDetail?.slot === '/equipment_types/charm';
+                const isCharm = itemDetails?.equipmentDetail?.type === '/equipment_types/charm';
                 if (!isCharm) {
                     // Not a charm, skip this equipment item
                     itemElem.dataset.askValue = 0;
