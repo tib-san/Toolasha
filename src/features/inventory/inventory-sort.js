@@ -297,7 +297,10 @@ class InventorySort {
 
             // Find item HRID
             const itemHrid = this.findItemHrid(itemName, gameData);
-            if (!itemHrid) continue;
+            if (!itemHrid) {
+                console.warn('[InventorySort] Could not find HRID for item:', itemName);
+                continue;
+            }
 
             // Get item count
             const countElem = itemElem.querySelector('.Item_count__1HVvv');
@@ -309,6 +312,7 @@ class InventorySort {
             // Get market price
             const marketPrice = marketAPI.getPrice(itemHrid, 0);
             if (!marketPrice) {
+                console.warn('[InventorySort] No market data for:', itemName, itemHrid);
                 itemElem.dataset.askValue = 0;
                 itemElem.dataset.bidValue = 0;
                 marketDataMissing = true;
@@ -318,6 +322,10 @@ class InventorySort {
             // Store both ask and bid values
             const askPrice = marketPrice.ask > 0 ? marketPrice.ask : 0;
             const bidPrice = marketPrice.bid > 0 ? marketPrice.bid : 0;
+
+            if (askPrice === 0 && bidPrice === 0) {
+                console.warn('[InventorySort] Market price is 0 for:', itemName, itemHrid, marketPrice);
+            }
 
             itemElem.dataset.askValue = askPrice * itemCount;
             itemElem.dataset.bidValue = bidPrice * itemCount;
