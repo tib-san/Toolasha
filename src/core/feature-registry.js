@@ -9,6 +9,7 @@ import config from './config.js';
 import tooltipPrices from '../features/market/tooltip-prices.js';
 import expectedValueCalculator from '../features/market/expected-value-calculator.js';
 import tooltipConsumables from '../features/market/tooltip-consumables.js';
+import marketFilter from '../features/market/market-filter.js';
 import { initActionPanelObserver } from '../features/actions/panel-observer.js';
 import actionTimeDisplay from '../features/actions/action-time-display.js';
 import quickInputButtons from '../features/actions/quick-input-buttons.js';
@@ -26,6 +27,7 @@ import inventorySort from '../features/inventory/inventory-sort.js';
 import enhancementTracker from '../features/enhancement/enhancement-tracker.js';
 import { setupEnhancementHandlers } from '../features/enhancement/enhancement-handlers.js';
 import enhancementUI from '../features/enhancement/enhancement-ui.js';
+import emptyQueueNotification from '../features/notifications/empty-queue-notification.js';
 
 /**
  * Feature Registry
@@ -53,6 +55,13 @@ const featureRegistry = [
         category: 'Market',
         initialize: () => tooltipConsumables.initialize(),
         async: true
+    },
+    {
+        key: 'marketFilter',
+        name: 'Market Filter',
+        category: 'Market',
+        initialize: () => marketFilter.initialize(),
+        async: false
     },
 
     // Action Features
@@ -177,6 +186,15 @@ const featureRegistry = [
             setupEnhancementHandlers();
             enhancementUI.initialize();
         },
+        async: true
+    },
+
+    // Notification Features
+    {
+        key: 'notifiEmptyAction',
+        name: 'Empty Queue Notification',
+        category: 'Notifications',
+        initialize: () => emptyQueueNotification.initialize(),
         async: true
     }
 ];

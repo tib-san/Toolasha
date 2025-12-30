@@ -366,8 +366,7 @@ export const settingsGroups = {
                 id: 'marketFilter',
                 label: 'Marketplace: Filter by level, class, slot',
                 type: 'checkbox',
-                default: true,
-                notImplemented: true
+                default: true
             },
             fillMarketOrderPrice: {
                 id: 'fillMarketOrderPrice',
@@ -401,8 +400,7 @@ export const settingsGroups = {
                 label: 'Browser notification when action queue is empty',
                 type: 'checkbox',
                 default: false,
-                help: 'Only works when the game page is open',
-                notImplemented: true
+                help: 'Only works when the game page is open'
             }
         }
     }
