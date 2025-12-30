@@ -314,7 +314,7 @@ export const settingsGroups = {
                 id: 'taskRerollTracker',
                 label: 'Track task reroll costs',
                 type: 'checkbox',
-                default: false,
+                default: true,
                 requiresRefresh: true,
                 help: 'Tracks how much gold/cowbells spent rerolling each task (EXPERIMENTAL - may cause UI freezing)'
             },

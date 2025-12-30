@@ -1,53 +1,36 @@
 /**
  * Task Reroll Cost Tracker
- * Tracks and displays reroll costs for tasks
+ * Tracks and displays reroll costs for tasks using WebSocket messages
  */
 
 import { numberFormatter } from '../../utils/formatters.js';
 import config from '../../core/config.js';
 import domObserver from '../../core/dom-observer.js';
-import storage from '../../core/storage.js';
+import webSocketHook from '../../core/websocket.js';
+import { GAME, TOOLASHA } from '../../utils/selectors.js';
 
 class TaskRerollTracker {
     constructor() {
-        this.rerollSpending = new Map(); // key: slotIndex, value: { goldSpent: total, cowbellSpent: total }
-        this.taskIdentities = new Map(); // key: slotIndex, value: "description|quantity" for tracking task identity
-        this.previousTaskCount = 0; // Track task count to detect deletions/completions
-        this.unregisterHandlers = []; // Store unregister functions
+        this.taskRerollData = new Map(); // key: taskId, value: { coinRerollCount, cowbellRerollCount }
+        this.unregisterHandlers = [];
         this.isInitialized = false;
-        this.isUpdatingAllDisplays = false; // Guard flag to prevent double updates
     }
 
     /**
-     * Initialize the tracker (async to load from IndexedDB)
+     * Initialize the tracker
      */
     async initialize() {
         if (this.isInitialized) return;
 
-        try {
-            // Load saved spending data from centralized storage
-            await this.loadFromStorage();
+        console.log('[Task Reroll Tracker] Initializing WebSocket-based tracker');
 
-            // Register with centralized DOM observer
-            this.registerObservers();
+        // Register WebSocket listener
+        this.registerWebSocketListeners();
 
-            // Add initial displays to existing tasks
-            this.updateAllTaskDisplays();
+        // Register DOM observer for display updates
+        this.registerDOMObservers();
 
-            // Attach listeners to any reroll containers already in the DOM
-            this.attachExistingRerollListeners();
-
-            // Add beforeunload handler to force immediate save when page closes
-            window.addEventListener('beforeunload', () => {
-                this.forceSave();
-            });
-
-            this.isInitialized = true;
-        } catch (error) {
-            console.error('[Task Reroll Tracker] Initialization failed:', error);
-            // Fall back to in-memory only if storage fails
-            this.isInitialized = true;
-        }
+        this.isInitialized = true;
     }
 
     /**
@@ -60,212 +43,187 @@ class TaskRerollTracker {
     }
 
     /**
-     * Attach listeners to reroll containers already in DOM at initialization
+     * Register WebSocket message listeners
      */
-    attachExistingRerollListeners() {
-        const rerollContainers = document.querySelectorAll('[class*="rerollOptionsContainer"]');
-        rerollContainers.forEach(container => {
-            this.handleRerollOptionsAppeared(container);
-        });
-    }
+    registerWebSocketListeners() {
+        const questsHandler = (data) => {
+            if (!data.endCharacterQuests) return;
 
-    /**
-     * Load spending data from storage
-     * @returns {Promise<void>}
-     */
-    async loadFromStorage() {
-        try {
-            const data = await storage.get('spending_data', 'rerollSpending', null);
-            if (data) {
-                this.rerollSpending = new Map(data);
+            // Update our task reroll data from server data
+            for (const quest of data.endCharacterQuests) {
+                this.taskRerollData.set(quest.id, {
+                    coinRerollCount: quest.coinRerollCount || 0,
+                    cowbellRerollCount: quest.cowbellRerollCount || 0,
+                    monsterHrid: quest.monsterHrid || '',
+                    actionHrid: quest.actionHrid || '',
+                    goalCount: quest.goalCount || 0
+                });
             }
-        } catch (error) {
-            console.error('[Task Reroll Tracker] Failed to load from storage:', error);
-            this.rerollSpending = new Map();
-        }
+
+            // Wait for game to update DOM before updating displays
+            setTimeout(() => {
+                this.updateAllTaskDisplays();
+            }, 250);
+        };
+
+        webSocketHook.on('quests_updated', questsHandler);
+
+        // Store handler for cleanup
+        this.unregisterHandlers.push(() => {
+            webSocketHook.off('quests_updated', questsHandler);
+        });
+
+        console.log('[Task Reroll Tracker] WebSocket listener registered');
     }
 
     /**
-     * Save spending data to storage (debounced)
+     * Register DOM observers for display updates
      */
-    saveToStorage() {
-        const data = Array.from(this.rerollSpending.entries());
-        storage.set('spending_data', data, 'rerollSpending'); // Debounced by default
-    }
-
-    /**
-     * Force immediate save (used on page unload)
-     */
-    forceSave() {
-        const data = Array.from(this.rerollSpending.entries());
-        storage.set('spending_data', data, 'rerollSpending', true); // Immediate save
-    }
-
-    /**
-     * Register observers with centralized DOM observer
-     */
-    registerObservers() {
-        // Watch for task list appearing (user navigated to tasks panel)
+    registerDOMObservers() {
+        // Watch for task list appearing
         const unregisterTaskList = domObserver.onClass(
             'TaskRerollTracker-TaskList',
             'TasksPanel_taskList',
             () => {
                 this.updateAllTaskDisplays();
-                this.snapshotTaskIdentities(); // Initial snapshot
             }
         );
         this.unregisterHandlers.push(unregisterTaskList);
 
-        // Watch for reroll options container appearing
-        const unregisterReroll = domObserver.onClass(
-            'TaskRerollTracker-RerollOptions',
-            'rerollOptionsContainer',
-            (container) => {
-                this.handleRerollOptionsAppeared(container);
-            }
-        );
-        this.unregisterHandlers.push(unregisterReroll);
-
-        // Watch for task changes (additions, removals, rerolls)
-        const unregisterTaskChanges = domObserver.onClass(
-            'TaskRerollTracker-TaskChanges',
+        // Watch for individual tasks appearing
+        const unregisterTask = domObserver.onClass(
+            'TaskRerollTracker-Task',
             'RandomTask_randomTask',
             () => {
-                this.handleTaskChange();
+                // Small delay to let task data settle
+                setTimeout(() => this.updateAllTaskDisplays(), 100);
             }
         );
-        this.unregisterHandlers.push(unregisterTaskChanges);
+        this.unregisterHandlers.push(unregisterTask);
     }
 
     /**
-     * Handle reroll options container appearing
+     * Calculate cumulative gold spent from coin reroll count
+     * Formula: 10K, 20K, 40K, 80K, 160K, 320K (doubles, caps at 320K)
+     * @param {number} rerollCount - Number of gold rerolls
+     * @returns {number} Total gold spent
      */
-    handleRerollOptionsAppeared(container) {
-        // Find which task this belongs to
-        const taskElement = container.closest('[class*="RandomTask_randomTask"]');
-        if (!taskElement) return;
+    calculateGoldSpent(rerollCount) {
+        if (rerollCount === 0) return 0;
 
-        const slotIndex = this.getTaskSlotIndex(taskElement);
-        if (slotIndex === -1) return;
+        let total = 0;
+        let cost = 10000; // Start at 10K
 
-        // Attach click listeners to payment buttons
-        this.attachPaymentListeners(container, slotIndex);
+        for (let i = 0; i < rerollCount; i++) {
+            total += cost;
+            // Double the cost, but cap at 320K
+            cost = Math.min(cost * 2, 320000);
+        }
 
-        // Update display
-        this.updateTaskDisplay(taskElement, slotIndex);
+        return total;
     }
 
     /**
-     * Get currency type from button SVG icon
-     * @param {Element} button - Button element
-     * @returns {string|null} 'gold', 'cowbell', or null
+     * Calculate cumulative cowbells spent from cowbell reroll count
+     * Formula: 1, 2, 4, 8, 16, 32 (doubles, caps at 32)
+     * @param {number} rerollCount - Number of cowbell rerolls
+     * @returns {number} Total cowbells spent
      */
-    getCurrencyFromButton(button) {
-        const svg = button.querySelector('svg use');
-        const href = svg ? svg.getAttribute('href') : null;
-        if (!href) return null;
+    calculateCowbellSpent(rerollCount) {
+        if (rerollCount === 0) return 0;
 
-        if (href.includes('cowbell')) return 'cowbell';
-        if (href.includes('coin') || href.includes('gold')) return 'gold';
+        let total = 0;
+        let cost = 1; // Start at 1
+
+        for (let i = 0; i < rerollCount; i++) {
+            total += cost;
+            // Double the cost, but cap at 32
+            cost = Math.min(cost * 2, 32);
+        }
+
+        return total;
+    }
+
+    /**
+     * Get task ID from DOM element by matching task description
+     * @param {Element} taskElement - Task DOM element
+     * @returns {number|null} Task ID or null if not found
+     */
+    getTaskIdFromElement(taskElement) {
+        // Get task description and goal count from DOM
+        const nameEl = taskElement.querySelector(GAME.TASK_NAME);
+        const description = nameEl ? nameEl.textContent.trim() : '';
+
+        if (!description) return null;
+
+        // Get quantity from progress text
+        const progressDivs = taskElement.querySelectorAll('div');
+        let goalCount = 0;
+        for (const div of progressDivs) {
+            const text = div.textContent.trim();
+            if (text.startsWith('Progress:')) {
+                const match = text.match(/Progress:\s*\d+\s*\/\s*(\d+)/);
+                if (match) {
+                    goalCount = parseInt(match[1]);
+                    break;
+                }
+            }
+        }
+
+        // Match against stored task data
+        for (const [taskId, taskData] of this.taskRerollData.entries()) {
+            // Check if goal count matches
+            if (taskData.goalCount !== goalCount) continue;
+
+            // Extract monster/action name from description
+            // Description format: "Kill X" or "Do action X times"
+            const descLower = description.toLowerCase();
+
+            // For monster tasks, check monsterHrid
+            if (taskData.monsterHrid) {
+                const monsterName = taskData.monsterHrid.replace('/monsters/', '').replace(/_/g, ' ');
+                if (descLower.includes(monsterName.toLowerCase())) {
+                    return taskId;
+                }
+            }
+
+            // For action tasks, check actionHrid
+            if (taskData.actionHrid) {
+                const actionParts = taskData.actionHrid.split('/');
+                const actionName = actionParts[actionParts.length - 1].replace(/_/g, ' ');
+                if (descLower.includes(actionName.toLowerCase())) {
+                    return taskId;
+                }
+            }
+        }
+
         return null;
     }
 
     /**
-     * Attach click listeners to payment buttons
-     */
-    attachPaymentListeners(container, slotIndex) {
-        const buttons = container.querySelectorAll('button');
-
-        buttons.forEach(button => {
-            const currency = this.getCurrencyFromButton(button);
-            if (!currency) return;
-
-            // Use capturing phase and immediately defer all work
-            button.addEventListener('click', () => {
-                // Capture cost immediately (synchronously) before button text changes
-                const buttonText = button.textContent || '';
-                const costMatch = buttonText.match(/([\d.]+)\s*([KM])?/);
-
-                let cost = null;
-                if (costMatch) {
-                    const number = parseFloat(costMatch[1]);
-                    const suffix = costMatch[2];
-
-                    if (suffix === 'K') {
-                        cost = Math.floor(number * 1000);
-                    } else if (suffix === 'M') {
-                        cost = Math.floor(number * 1000000);
-                    } else {
-                        cost = Math.floor(number);
-                    }
-                }
-
-                if (!cost) return;
-
-                // Defer ALL work to next event loop to avoid blocking game UI
-                queueMicrotask(() => {
-                    try {
-                        // Record spending
-                        this.recordSpending(slotIndex, currency, cost);
-
-                        // Defer display update even further
-                        setTimeout(() => {
-                            try {
-                                const taskElement = container.closest('[class*="RandomTask_randomTask"]');
-                                if (taskElement && document.body.contains(taskElement)) {
-                                    this.updateTaskDisplay(taskElement, slotIndex);
-                                }
-                            } catch (error) {
-                                console.error('[Task Reroll Tracker] Error updating display:', error);
-                            }
-                        }, 500);
-                    } catch (error) {
-                        console.error('[Task Reroll Tracker] Error recording spending:', error);
-                    }
-                });
-            }, { passive: true }); // Passive listener to avoid blocking
-        });
-    }
-
-    /**
-     * Record spending for a slot
-     */
-    recordSpending(slotIndex, currency, cost) {
-        if (!this.rerollSpending.has(slotIndex)) {
-            this.rerollSpending.set(slotIndex, { goldSpent: 0, cowbellSpent: 0 });
-        }
-
-        const spending = this.rerollSpending.get(slotIndex);
-        if (currency === 'gold') {
-            spending.goldSpent += cost;
-        } else if (currency === 'cowbell') {
-            spending.cowbellSpent += cost;
-        }
-
-        // Debounced save to storage (waits 3 seconds of inactivity)
-        this.saveToStorage();
-    }
-
-    /**
-     * Get task slot index from DOM position
-     */
-    getTaskSlotIndex(taskElement) {
-        const taskList = document.querySelector('[class*="TasksPanel_taskList"]');
-        if (!taskList) return -1;
-
-        const allTasks = Array.from(taskList.querySelectorAll('[class*="RandomTask_randomTask"]'));
-        return allTasks.indexOf(taskElement);
-    }
-
-    /**
      * Update display for a specific task
+     * @param {Element} taskElement - Task DOM element
      */
-    updateTaskDisplay(taskElement, slotIndex) {
-        // Get spending totals
-        const spending = this.rerollSpending.get(slotIndex) || { goldSpent: 0, cowbellSpent: 0 };
+    updateTaskDisplay(taskElement) {
+        const taskId = this.getTaskIdFromElement(taskElement);
+        if (!taskId) {
+            // Remove display if task not found in our data
+            const existingDisplay = taskElement.querySelector('.mwi-reroll-cost-display');
+            if (existingDisplay) {
+                existingDisplay.remove();
+            }
+            return;
+        }
+
+        const taskData = this.taskRerollData.get(taskId);
+        if (!taskData) return;
+
+        // Calculate totals
+        const goldSpent = this.calculateGoldSpent(taskData.coinRerollCount);
+        const cowbellSpent = this.calculateCowbellSpent(taskData.cowbellRerollCount);
 
         // Find or create display element
-        let displayElement = taskElement.querySelector('.mwi-reroll-cost-display');
+        let displayElement = taskElement.querySelector(TOOLASHA.REROLL_COST_DISPLAY);
 
         if (!displayElement) {
             displayElement = document.createElement('div');
@@ -280,7 +238,7 @@ class TaskRerollTracker {
             `;
 
             // Insert at top of task card
-            const taskContent = taskElement.querySelector('[class*="RandomTask_content"]');
+            const taskContent = taskElement.querySelector(GAME.TASK_CONTENT);
             if (taskContent) {
                 taskContent.insertBefore(displayElement, taskContent.firstChild);
             } else {
@@ -288,13 +246,13 @@ class TaskRerollTracker {
             }
         }
 
-        // Format display text - show total spent
+        // Format display text
         const parts = [];
-        if (spending.cowbellSpent > 0) {
-            parts.push(`${spending.cowbellSpent}🔔`);
+        if (cowbellSpent > 0) {
+            parts.push(`${cowbellSpent}🔔`);
         }
-        if (spending.goldSpent > 0) {
-            parts.push(`${numberFormatter(spending.goldSpent)}💰`);
+        if (goldSpent > 0) {
+            parts.push(`${numberFormatter(goldSpent)}💰`);
         }
 
         if (parts.length > 0) {
@@ -309,144 +267,13 @@ class TaskRerollTracker {
      * Update all task displays
      */
     updateAllTaskDisplays() {
-        // Guard against double execution
-        if (this.isUpdatingAllDisplays) return;
-        this.isUpdatingAllDisplays = true;
-
-        const taskList = document.querySelector('[class*="TasksPanel_taskList"]');
-        if (taskList) {
-            const allTasks = taskList.querySelectorAll('[class*="RandomTask_randomTask"]');
-            allTasks.forEach((task, index) => {
-                this.updateTaskDisplay(task, index);
-            });
-        }
-
-        this.isUpdatingAllDisplays = false;
-    }
-
-    /**
-     * Handle task changes (detect rerolls vs deletions/completions)
-     */
-    handleTaskChange() {
-        const currentCount = document.querySelectorAll('[class*="RandomTask_randomTask"]').length;
-
-        if (currentCount < this.previousTaskCount) {
-            // Task count decreased = deletion or completion
-            this.handleTaskRemoval();
-        } else if (currentCount > 0) {
-            // Task count same or increased = reroll or new task
-            // Just update identities snapshot for next comparison
-            this.snapshotTaskIdentities();
-        }
-
-        this.previousTaskCount = currentCount;
-    }
-
-    /**
-     * Snapshot current task identities for tracking
-     */
-    snapshotTaskIdentities() {
-        this.taskIdentities.clear();
-
-        const taskList = document.querySelector('[class*="TasksPanel_taskList"]');
+        const taskList = document.querySelector(GAME.TASK_LIST);
         if (!taskList) return;
 
-        const allTasks = taskList.querySelectorAll('[class*="RandomTask_randomTask"]');
-        allTasks.forEach((task, slot) => {
-            const taskKey = this.getTaskKey(task);
-            if (taskKey) {
-                this.taskIdentities.set(slot, taskKey);
-            }
+        const allTasks = taskList.querySelectorAll(GAME.TASK_CARD);
+        allTasks.forEach((task) => {
+            this.updateTaskDisplay(task);
         });
-
-        this.previousTaskCount = allTasks.length;
-    }
-
-    /**
-     * Handle task removal - preserve costs for remaining tasks
-     */
-    handleTaskRemoval() {
-        // Build map of task identities to their costs
-        const costsByIdentity = new Map();
-        for (const [slot, taskKey] of this.taskIdentities.entries()) {
-            const costs = this.rerollSpending.get(slot);
-            if (costs) {
-                costsByIdentity.set(taskKey, costs);
-            }
-        }
-
-        // Build new cost map based on current tasks
-        const newCosts = new Map();
-        const taskList = document.querySelector('[class*="TasksPanel_taskList"]');
-        if (taskList) {
-            const allTasks = taskList.querySelectorAll('[class*="RandomTask_randomTask"]');
-            allTasks.forEach((task, newSlot) => {
-                const taskKey = this.getTaskKey(task);
-
-                // If this task existed before, keep its costs
-                if (taskKey && costsByIdentity.has(taskKey)) {
-                    newCosts.set(newSlot, costsByIdentity.get(taskKey));
-                }
-                // If it's a new task, it starts at 0 (not in map)
-            });
-        }
-
-        // Replace cost map
-        this.rerollSpending = newCosts;
-
-        // Update identities for next comparison
-        this.snapshotTaskIdentities();
-
-        // Update displays
-        this.updateAllTaskDisplays();
-
-        // Save to storage immediately (not debounced) to prevent data loss on quick refresh
-        this.forceSave();
-    }
-
-    /**
-     * Extract task identity key from DOM element
-     * @param {Element} taskElement - Task DOM element
-     * @returns {string|null} Task key as "description|quantity"
-     */
-    getTaskKey(taskElement) {
-        const nameEl = taskElement.querySelector('[class*="RandomTask_name"]');
-        const description = nameEl ? nameEl.textContent.trim() : '';
-
-        if (!description) return null;
-
-        // Get quantity from progress text
-        const progressDivs = taskElement.querySelectorAll('div');
-        let quantity = 0;
-        for (const div of progressDivs) {
-            const text = div.textContent.trim();
-            if (text.startsWith('Progress:')) {
-                const match = text.match(/Progress:\s*\d+\s*\/\s*(\d+)/);
-                if (match) {
-                    quantity = parseInt(match[1]);
-                    break;
-                }
-            }
-        }
-
-        return `${description}|${quantity}`;
-    }
-
-    /**
-     * Reset reroll spending for a task slot
-     */
-    resetSlot(slotIndex) {
-        this.rerollSpending.delete(slotIndex);
-        this.saveToStorage();
-    }
-
-    /**
-     * Reset all reroll spending
-     */
-    resetAll() {
-        this.rerollSpending.clear();
-        this.saveToStorage();
-        this.updateAllTaskDisplays();
     }
 }
 

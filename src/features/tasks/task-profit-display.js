@@ -6,8 +6,11 @@
 
 import config from '../../core/config.js';
 import dataManager from '../../core/data-manager.js';
+import domObserver from '../../core/dom-observer.js';
+import webSocketHook from '../../core/websocket.js';
 import { numberFormatter, timeReadable } from '../../utils/formatters.js';
 import { calculateTaskProfit } from './task-profit-calculator.js';
+import { GAME, TOOLASHA } from '../../utils/selectors.js';
 
 // Compiled regex pattern (created once, reused for performance)
 const REGEX_TASK_PROGRESS = /(\d+)\s*\/\s*(\d+)/;
@@ -18,7 +21,7 @@ const REGEX_TASK_PROGRESS = /(\d+)\s*\/\s*(\d+)/;
 class TaskProfitDisplay {
     constructor() {
         this.isActive = false;
-        this.observer = null; // Manual MutationObserver for this feature
+        this.unregisterHandlers = []; // Store unregister functions
         this.retryHandler = null; // Retry handler reference for cleanup
         this.pendingTaskNodes = new Set(); // Track task nodes waiting for data
         this.eventListeners = new WeakMap(); // Store listeners for cleanup
@@ -32,6 +35,8 @@ class TaskProfitDisplay {
             return;
         }
 
+        console.log('[Task Profit Display] Initializing WebSocket-based display');
+
         // Set up retry handler for when game data loads
         if (!dataManager.getInitClientData()) {
             if (!this.retryHandler) {
@@ -43,22 +48,65 @@ class TaskProfitDisplay {
             }
         }
 
-        // Set up manual MutationObserver to watch for task panel changes
-        this.observer = new MutationObserver(() => {
-            this.updateTaskProfits();
-        });
+        // Register WebSocket listener for task updates
+        this.registerWebSocketListeners();
 
-        // Start observing the document body for changes
-        this.observer.observe(document.body, {
-            childList: true,
-            subtree: true,
-            characterData: true  // Detect text content changes (for task rerolls)
-        });
+        // Register DOM observers for task panel appearance
+        this.registerDOMObservers();
 
         // Initial update
         this.updateTaskProfits();
 
         this.isActive = true;
+    }
+
+    /**
+     * Register WebSocket message listeners
+     */
+    registerWebSocketListeners() {
+        const questsHandler = (data) => {
+            if (!data.endCharacterQuests) return;
+
+            // Wait for game to update DOM before recalculating profits
+            setTimeout(() => {
+                this.updateTaskProfits();
+            }, 250);
+        };
+
+        webSocketHook.on('quests_updated', questsHandler);
+
+        // Store handler for cleanup
+        this.unregisterHandlers.push(() => {
+            webSocketHook.off('quests_updated', questsHandler);
+        });
+
+        console.log('[Task Profit Display] WebSocket listener registered');
+    }
+
+    /**
+     * Register DOM observers
+     */
+    registerDOMObservers() {
+        // Watch for task list appearing
+        const unregisterTaskList = domObserver.onClass(
+            'TaskProfitDisplay-TaskList',
+            'TasksPanel_taskList',
+            () => {
+                this.updateTaskProfits();
+            }
+        );
+        this.unregisterHandlers.push(unregisterTaskList);
+
+        // Watch for individual tasks appearing
+        const unregisterTask = domObserver.onClass(
+            'TaskProfitDisplay-Task',
+            'RandomTask_randomTask',
+            () => {
+                // Small delay to let task data settle
+                setTimeout(() => this.updateTaskProfits(), 100);
+            }
+        );
+        this.unregisterHandlers.push(unregisterTask);
     }
 
     /**
@@ -69,10 +117,10 @@ class TaskProfitDisplay {
             return;
         }
 
-        const taskListNode = document.querySelector('.TasksPanel_taskList__2xh4k');
+        const taskListNode = document.querySelector(GAME.TASK_LIST);
         if (!taskListNode) return;
 
-        const taskNodes = taskListNode.querySelectorAll('.RandomTask_taskInfo__1uasf');
+        const taskNodes = taskListNode.querySelectorAll(GAME.TASK_INFO);
         for (const taskNode of taskNodes) {
             // Get current task description to detect changes
             const taskData = this.parseTaskData(taskNode);
@@ -81,7 +129,7 @@ class TaskProfitDisplay {
             const currentTaskKey = `${taskData.description}|${taskData.quantity}`;
 
             // Check if already processed
-            const existingProfit = taskNode.querySelector('.mwi-task-profit');
+            const existingProfit = taskNode.querySelector(TOOLASHA.TASK_PROFIT);
             if (existingProfit) {
                 // Check if task has changed (rerolled)
                 const savedTaskKey = existingProfit.dataset.taskKey;
@@ -99,7 +147,7 @@ class TaskProfitDisplay {
                 }
 
                 // Remove ALL old profit displays (visible + hidden markers)
-                taskNode.querySelectorAll('.mwi-task-profit').forEach(el => el.remove());
+                taskNode.querySelectorAll(TOOLASHA.TASK_PROFIT).forEach(el => el.remove());
             }
 
             this.addProfitToTask(taskNode);
@@ -147,7 +195,7 @@ class TaskProfitDisplay {
 
             // Double-check we haven't already processed this task
             // (check again in case another async call beat us to it)
-            if (taskNode.querySelector('.mwi-task-profit')) {
+            if (taskNode.querySelector(TOOLASHA.TASK_PROFIT)) {
                 return;
             }
 
@@ -168,7 +216,7 @@ class TaskProfitDisplay {
                 combatMarker.style.display = 'none';
                 combatMarker.dataset.taskKey = `${taskData.description}|${taskData.quantity}`;
 
-                const actionNode = taskNode.querySelector('.RandomTask_action__3eC6o');
+                const actionNode = taskNode.querySelector(GAME.TASK_ACTION);
                 if (actionNode) {
                     actionNode.appendChild(combatMarker);
                 }
@@ -176,7 +224,7 @@ class TaskProfitDisplay {
             }
 
             // Check one more time before adding (another async call might have added it)
-            if (taskNode.querySelector('.mwi-task-profit')) {
+            if (taskNode.querySelector(TOOLASHA.TASK_PROFIT)) {
                 return;
             }
 
@@ -201,7 +249,7 @@ class TaskProfitDisplay {
      */
     parseTaskData(taskNode) {
         // Get task description
-        const nameNode = taskNode.querySelector('.RandomTask_name__1hl1b');
+        const nameNode = taskNode.querySelector(GAME.TASK_NAME_DIV);
         if (!nameNode) return null;
 
         const description = nameNode.textContent.trim();
@@ -224,13 +272,13 @@ class TaskProfitDisplay {
         }
 
         // Get rewards
-        const rewardsNode = taskNode.querySelector('.RandomTask_rewards__YZk7D');
+        const rewardsNode = taskNode.querySelector(GAME.TASK_REWARDS);
         if (!rewardsNode) return null;
 
         let coinReward = 0;
         let taskTokenReward = 0;
 
-        const itemContainers = rewardsNode.querySelectorAll('.Item_itemContainer__x7kH1');
+        const itemContainers = rewardsNode.querySelectorAll(GAME.ITEM_CONTAINER);
 
         for (const container of itemContainers) {
             const useElement = container.querySelector('use');
@@ -239,12 +287,12 @@ class TaskProfitDisplay {
             const href = useElement.href.baseVal;
 
             if (href.includes('coin')) {
-                const countNode = container.querySelector('.Item_count__1HVvv');
+                const countNode = container.querySelector(GAME.ITEM_COUNT);
                 if (countNode) {
                     coinReward = this.parseItemCount(countNode.textContent);
                 }
             } else if (href.includes('task_token')) {
-                const countNode = container.querySelector('.Item_count__1HVvv');
+                const countNode = container.querySelector(GAME.ITEM_COUNT);
                 if (countNode) {
                     taskTokenReward = this.parseItemCount(countNode.textContent);
                 }
@@ -285,7 +333,7 @@ class TaskProfitDisplay {
      * @param {Object} profitData - Profit calculation result
      */
     displayTaskProfit(taskNode, profitData) {
-        const actionNode = taskNode.querySelector('.RandomTask_action__3eC6o');
+        const actionNode = taskNode.querySelector(GAME.TASK_ACTION);
         if (!actionNode) return;
 
         // Create profit container
@@ -600,7 +648,7 @@ class TaskProfitDisplay {
      * @param {string} message - Error message to display
      */
     displayErrorState(taskNode, message) {
-        const actionNode = taskNode.querySelector('.RandomTask_action__3eC6o');
+        const actionNode = taskNode.querySelector(GAME.TASK_ACTION);
         if (!actionNode) return;
 
         // Create error container
@@ -621,11 +669,9 @@ class TaskProfitDisplay {
      * Disable the feature
      */
     disable() {
-        // Disconnect manual observer
-        if (this.observer) {
-            this.observer.disconnect();
-            this.observer = null;
-        }
+        // Unregister all handlers
+        this.unregisterHandlers.forEach(unregister => unregister());
+        this.unregisterHandlers = [];
 
         // Unregister retry handler
         if (this.retryHandler) {
@@ -637,7 +683,7 @@ class TaskProfitDisplay {
         this.pendingTaskNodes.clear();
 
         // Clean up event listeners before removing profit displays
-        document.querySelectorAll('.mwi-task-profit').forEach(el => {
+        document.querySelectorAll(TOOLASHA.TASK_PROFIT).forEach(el => {
             const listeners = this.eventListeners.get(el);
             if (listeners) {
                 listeners.forEach((listener, element) => {

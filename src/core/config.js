@@ -222,7 +222,7 @@ class Config {
             taskRerollTracker: {
                 id: "taskRerollTracker",
                 desc: "Task panel: Track task reroll costs (EXPERIMENTAL - may cause UI freezing).",
-                isTrue: false,
+                isTrue: true,
             },
             houseUpgradeCosts: {
                 id: "houseUpgradeCosts",
@@ -418,7 +418,7 @@ class Config {
                 settingKey: 'taskProfitCalculator'
             },
             taskRerollTracker: {
-                enabled: false,
+                enabled: true,
                 name: 'Task Reroll Tracker',
                 category: 'Tasks',
                 description: 'Tracks reroll costs and history',
