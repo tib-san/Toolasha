@@ -9938,6 +9938,59 @@
         }
 
         /**
+         * Match an action from cache by reading its name from a queue div
+         * @param {HTMLElement} actionDiv - The queue action div element
+         * @param {Array} cachedActions - Array of actions from dataManager
+         * @returns {Object|null} Matched action object or null
+         */
+        matchActionFromDiv(actionDiv, cachedActions) {
+            // Find the action text element within the div
+            const actionTextContainer = actionDiv.querySelector('[class*="QueuedActions_actionText"]');
+            if (!actionTextContainer) {
+                return null;
+            }
+
+            // Get the text content (format: "#2 Coinify: Foraging Essence\nRepeat ∞ times")
+            const fullText = actionTextContainer.textContent.trim();
+
+            // Extract the action name (first line, after the position number)
+            // Format: "#2 🧪 Coinify: Foraging Essence" or "#2 Coinify: Foraging Essence"
+            const lines = fullText.split('\n');
+            const firstLine = lines[0];
+
+            // Remove position number and icon: "#2 🧪 Coinify: Foraging Essence" → "Coinify: Foraging Essence"
+            // Pattern: Remove "#N " and any emoji/icon characters
+            const actionNameText = firstLine.replace(/^#\d+\s+/, '').replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
+
+            // Parse action name (same logic as main display)
+            let actionNameFromDiv, itemNameFromDiv;
+            if (actionNameText.includes(':')) {
+                const parts = actionNameText.split(':');
+                actionNameFromDiv = parts[0].trim();
+                itemNameFromDiv = parts.slice(1).join(':').trim();
+            } else {
+                actionNameFromDiv = actionNameText;
+                itemNameFromDiv = null;
+            }
+
+            // Match action from cache (same logic as main display)
+            return cachedActions.find(a => {
+                const actionDetails = dataManager.getActionDetails(a.actionHrid);
+                if (!actionDetails || actionDetails.name !== actionNameFromDiv) {
+                    return false;
+                }
+
+                // If there's an item name, match on primaryItemHash
+                if (itemNameFromDiv && a.primaryItemHash) {
+                    const itemHrid = '/items/' + itemNameFromDiv.toLowerCase().replace(/\s+/g, '_');
+                    return a.primaryItemHash.includes(itemHrid);
+                }
+
+                return true;
+            });
+        }
+
+        /**
          * Inject time display into queue tooltip
          * @param {HTMLElement} queueMenu - Queue menu container element
          */
@@ -9965,46 +10018,71 @@
                 let accumulatedTime = 0;
                 let hasInfinite = false;
 
-                // First, calculate time for current action (index 0) to include in total
-                // but don't display it in the queue tooltip
-                if (currentActions.length > 0) {
-                    const currentAction = currentActions[0];
-                    const actionDetails = dataManager.getActionDetails(currentAction.actionHrid);
+                // First, calculate time for current action to include in total
+                // Read from DOM to get the actual current action (not from cache)
+                const actionNameElement = document.querySelector('div.Header_actionName__31-L2');
+                if (actionNameElement && actionNameElement.textContent) {
+                    const actionNameText = actionNameElement.textContent.trim();
 
-                    if (!actionDetails) {
-                        console.warn('[Action Time Display] Unknown action:', currentAction.actionHrid);
-                        // Continue processing other actions in queue
+                    // Parse action name (same logic as main display)
+                    const actionNameMatch = actionNameText.match(/^(.+?)(?:\s*\(#?\d+\))?$/);
+                    const fullNameFromDom = actionNameMatch ? actionNameMatch[1].trim() : actionNameText;
+
+                    let actionNameFromDom, itemNameFromDom;
+                    if (fullNameFromDom.includes(':')) {
+                        const parts = fullNameFromDom.split(':');
+                        actionNameFromDom = parts[0].trim();
+                        itemNameFromDom = parts.slice(1).join(':').trim();
                     } else {
-                        const count = currentAction.maxCount - currentAction.currentCount;
-                        const isInfinite = count === 0 || currentAction.actionHrid.includes('/combat/');
+                        actionNameFromDom = fullNameFromDom;
+                        itemNameFromDom = null;
+                    }
 
-                        if (isInfinite) {
-                            hasInfinite = true;
-                        } else {
-                            const timeData = this.calculateActionTime(actionDetails);
-                            if (timeData) {
-                                const { actionTime } = timeData;
-                                // Efficiency doesn't affect time - queue count is ACTIONS, not outputs
-                                const totalTime = count * actionTime;
-                                accumulatedTime += totalTime;
+                    // Match current action from cache
+                    const currentAction = currentActions.find(a => {
+                        const actionDetails = dataManager.getActionDetails(a.actionHrid);
+                        if (!actionDetails || actionDetails.name !== actionNameFromDom) {
+                            return false;
+                        }
+
+                        if (itemNameFromDom && a.primaryItemHash) {
+                            const itemHrid = '/items/' + itemNameFromDom.toLowerCase().replace(/\s+/g, '_');
+                            return a.primaryItemHash.includes(itemHrid);
+                        }
+
+                        return true;
+                    });
+
+                    if (currentAction) {
+                        const actionDetails = dataManager.getActionDetails(currentAction.actionHrid);
+                        if (actionDetails) {
+                            const count = currentAction.maxCount - currentAction.currentCount;
+                            const isInfinite = count === 0 || currentAction.actionHrid.includes('/combat/');
+
+                            if (isInfinite) {
+                                hasInfinite = true;
+                            } else {
+                                const timeData = this.calculateActionTime(actionDetails);
+                                if (timeData) {
+                                    const { actionTime } = timeData;
+                                    const totalTime = count * actionTime;
+                                    accumulatedTime += totalTime;
+                                }
                             }
                         }
                     }
                 }
 
-                // Now process queued actions (starting from index 1)
-                // Map to actionDivs (which only show queued items, not current)
-                for (let i = 1; i < currentActions.length; i++) {
-                    const actionObj = currentActions[i];
-                    const divIndex = i - 1; // Queue divs are offset by 1 (no div for current action)
+                // Now process queued actions by reading from each div
+                // Each div shows a queued action, and we match it to cache by name
+                for (let divIndex = 0; divIndex < actionDivs.length; divIndex++) {
+                    const actionDiv = actionDivs[divIndex];
 
-                    if (divIndex >= actionDivs.length) break;
+                    // Match this div's action from the cache
+                    const actionObj = this.matchActionFromDiv(actionDiv, currentActions);
 
-                    const actionDetails = dataManager.getActionDetails(actionObj.actionHrid);
-                    if (!actionDetails) {
-                        console.warn('[Action Time Display] Unknown queued action:', actionObj.actionHrid);
-
-                        // Show unknown action in tooltip
+                    if (!actionObj) {
+                        // Could not match action - show unknown
                         const timeDiv = document.createElement('div');
                         timeDiv.className = 'mwi-queue-action-time';
                         timeDiv.style.cssText = `
@@ -10014,16 +10092,20 @@
                     `;
                         timeDiv.textContent = '[Unknown action]';
 
-                        // Find the actionText container and append inside it
-                        const actionTextContainer = actionDivs[divIndex].querySelector('[class*="QueuedActions_actionText"]');
+                        const actionTextContainer = actionDiv.querySelector('[class*="QueuedActions_actionText"]');
                         if (actionTextContainer) {
                             actionTextContainer.appendChild(timeDiv);
                         } else {
-                            // Fallback: append to action div
-                            actionDivs[divIndex].appendChild(timeDiv);
+                            actionDiv.appendChild(timeDiv);
                         }
 
-                        continue; // Skip time calculation for this action
+                        continue;
+                    }
+
+                    const actionDetails = dataManager.getActionDetails(actionObj.actionHrid);
+                    if (!actionDetails) {
+                        console.warn('[Action Time Display] Unknown queued action:', actionObj.actionHrid);
+                        continue;
                     }
 
                     // Calculate count remaining
@@ -10080,12 +10162,12 @@
                     }
 
                     // Find the actionText container and append inside it
-                    const actionTextContainer = actionDivs[divIndex].querySelector('[class*="QueuedActions_actionText"]');
+                    const actionTextContainer = actionDiv.querySelector('[class*="QueuedActions_actionText"]');
                     if (actionTextContainer) {
                         actionTextContainer.appendChild(timeDiv);
                     } else {
                         // Fallback: append to action div
-                        actionDivs[divIndex].appendChild(timeDiv);
+                        actionDiv.appendChild(timeDiv);
                     }
                 }
 
