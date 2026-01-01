@@ -22,14 +22,18 @@ class SettingsUI {
      * Initialize the settings UI
      */
     async initialize() {
+        console.log('[Toolasha Settings] Initializing...');
+
         // Inject CSS styles
         this.injectStyles();
 
         // Load current settings
         this.currentSettings = await settingsStorage.loadSettings();
+        console.log('[Toolasha Settings] Settings loaded, starting observer');
 
         // Wait for game's settings panel to load
         this.observeSettingsPanel();
+        console.log('[Toolasha Settings] Observer started');
     }
 
     /**
@@ -53,9 +57,13 @@ class SettingsUI {
             const tabsContainer = document.querySelector('div[class*="SettingsPanel_tabsComponentContainer"]');
 
             if (tabsContainer) {
+                console.log('[Toolasha Settings] Settings panel detected by observer');
                 // Check if our tab already exists before injecting
                 if (!tabsContainer.querySelector('#toolasha-settings-tab')) {
+                    console.log('[Toolasha Settings] Injecting settings tab');
                     this.injectSettingsTab();
+                } else {
+                    console.log('[Toolasha Settings] Tab already exists, skipping injection');
                 }
                 // Keep observer running - panel might be removed/re-added if user navigates away and back
             }
@@ -83,10 +91,15 @@ class SettingsUI {
         // Also check immediately in case settings is already open
         const existingTabsContainer = document.querySelector('div[class*="SettingsPanel_tabsComponentContainer"]');
         if (existingTabsContainer) {
+            console.log('[Toolasha Settings] Settings panel already open, injecting immediately');
             // Check if our tab already exists
             if (!existingTabsContainer.querySelector('#toolasha-settings-tab')) {
                 this.injectSettingsTab();
+            } else {
+                console.log('[Toolasha Settings] Tab already exists (immediate check)');
             }
+        } else {
+            console.log('[Toolasha Settings] Settings panel not open yet, waiting for observer');
         }
     }
 

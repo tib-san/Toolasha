@@ -58,7 +58,9 @@ if (isCombatSimulatorPage()) {
             await config.initialize();
 
             // Initialize Settings UI (injects tab into game settings panel)
-            settingsUI.initialize();
+            await settingsUI.initialize().catch(error => {
+                console.error('[Toolasha] Settings UI initialization failed:', error);
+            });
 
             // Add beforeunload handler to flush all pending writes
             window.addEventListener('beforeunload', () => {

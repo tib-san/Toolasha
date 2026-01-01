@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.75
+// @version      0.4.76
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -21486,14 +21486,18 @@
          * Initialize the settings UI
          */
         async initialize() {
+            console.log('[Toolasha Settings] Initializing...');
+
             // Inject CSS styles
             this.injectStyles();
 
             // Load current settings
             this.currentSettings = await settingsStorage.loadSettings();
+            console.log('[Toolasha Settings] Settings loaded, starting observer');
 
             // Wait for game's settings panel to load
             this.observeSettingsPanel();
+            console.log('[Toolasha Settings] Observer started');
         }
 
         /**
@@ -21517,9 +21521,13 @@
                 const tabsContainer = document.querySelector('div[class*="SettingsPanel_tabsComponentContainer"]');
 
                 if (tabsContainer) {
+                    console.log('[Toolasha Settings] Settings panel detected by observer');
                     // Check if our tab already exists before injecting
                     if (!tabsContainer.querySelector('#toolasha-settings-tab')) {
+                        console.log('[Toolasha Settings] Injecting settings tab');
                         this.injectSettingsTab();
+                    } else {
+                        console.log('[Toolasha Settings] Tab already exists, skipping injection');
                     }
                     // Keep observer running - panel might be removed/re-added if user navigates away and back
                 }
@@ -21547,10 +21555,15 @@
             // Also check immediately in case settings is already open
             const existingTabsContainer = document.querySelector('div[class*="SettingsPanel_tabsComponentContainer"]');
             if (existingTabsContainer) {
+                console.log('[Toolasha Settings] Settings panel already open, injecting immediately');
                 // Check if our tab already exists
                 if (!existingTabsContainer.querySelector('#toolasha-settings-tab')) {
                     this.injectSettingsTab();
+                } else {
+                    console.log('[Toolasha Settings] Tab already exists (immediate check)');
                 }
+            } else {
+                console.log('[Toolasha Settings] Settings panel not open yet, waiting for observer');
             }
         }
 
@@ -22272,7 +22285,9 @@
                 await config.initialize();
 
                 // Initialize Settings UI (injects tab into game settings panel)
-                settingsUI.initialize();
+                await settingsUI.initialize().catch(error => {
+                    console.error('[Toolasha] Settings UI initialization failed:', error);
+                });
 
                 // Add beforeunload handler to flush all pending writes
                 window.addEventListener('beforeunload', () => {
