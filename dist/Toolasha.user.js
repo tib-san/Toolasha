@@ -22083,18 +22083,20 @@
          */
         observeSettingsPanel() {
             // Watch for settings panel to be added to DOM
+            let isInjecting = false; // Prevent re-entrant observer calls
+
             const observer = new MutationObserver((mutations) => {
+                if (isInjecting) return; // Prevent observer loop
+
                 // Look for the settings tabs container
                 const tabsContainer = document.querySelector('div[class*="SettingsPanel_tabsComponentContainer"]');
 
                 if (tabsContainer) {
-                    console.log('[Toolasha Settings] Settings panel detected by observer');
                     // Check if our tab already exists before injecting
                     if (!tabsContainer.querySelector('#toolasha-settings-tab')) {
-                        console.log('[Toolasha Settings] Injecting settings tab');
+                        isInjecting = true;
                         this.injectSettingsTab();
-                    } else {
-                        console.log('[Toolasha Settings] Tab already exists, skipping injection');
+                        isInjecting = false;
                     }
                     // Keep observer running - panel might be removed/re-added if user navigates away and back
                 }
@@ -22121,16 +22123,8 @@
 
             // Also check immediately in case settings is already open
             const existingTabsContainer = document.querySelector('div[class*="SettingsPanel_tabsComponentContainer"]');
-            if (existingTabsContainer) {
-                console.log('[Toolasha Settings] Settings panel already open, injecting immediately');
-                // Check if our tab already exists
-                if (!existingTabsContainer.querySelector('#toolasha-settings-tab')) {
-                    this.injectSettingsTab();
-                } else {
-                    console.log('[Toolasha Settings] Tab already exists (immediate check)');
-                }
-            } else {
-                console.log('[Toolasha Settings] Settings panel not open yet, waiting for observer');
+            if (existingTabsContainer && !existingTabsContainer.querySelector('#toolasha-settings-tab')) {
+                this.injectSettingsTab();
             }
         }
 
