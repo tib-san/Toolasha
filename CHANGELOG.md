@@ -394,6 +394,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Result:** Players can instantly see equipment levels without hovering, making gear management and progression tracking much faster.
 
+#### **Inventory Sort - Badge Display in "None" Mode**
+
+**BEHAVIORAL CHANGE:** Inventory value badges are now disabled when sort mode is set to "None".
+
+- **Previous Behavior:** "None" mode still displayed Ask price badges by default
+- **Current Behavior:** "None" mode shows no badges at all
+
+- **Rationale:**
+  - When not actively sorting, displaying badges is unnecessary
+  - Reduces visual clutter in "None" mode
+  - Makes badge presence clearly tied to active sorting
+  - Ask and Bid modes still show their respective price badges
+
+- **Files Modified:**
+  - `src/features/inventory/inventory-sort.js` (lines 413-422)
+    - Added `&& this.currentMode !== 'none'` condition to badge display check
+    - Removed ternary fallback to 'askValue' when mode is 'none'
+    - Badges only render when actively sorting by Ask or Bid
+
+**Result:** Clearer visual feedback - badges appear only when inventory is actively sorted by price.
+
 ### Fixed
 
 #### **Production Profit Calculator - Bonus Revenue Integration**

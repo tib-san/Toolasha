@@ -410,10 +410,10 @@ class InventorySort {
                 existingBadge.remove();
             }
 
-            // Show badges if enabled (regardless of sort mode)
-            if (showBadges) {
-                // Use current sort mode's value, default to ask if mode is 'none'
-                const valueKey = this.currentMode === 'none' ? 'askValue' : this.currentMode + 'Value';
+            // Show badges if enabled AND not in 'none' mode
+            if (showBadges && this.currentMode !== 'none') {
+                // Use current sort mode's value
+                const valueKey = this.currentMode + 'Value';
                 const stackValue = parseFloat(itemElem.dataset[valueKey]) || 0;
 
                 if (stackValue > 0) {
