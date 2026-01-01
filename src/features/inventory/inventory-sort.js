@@ -18,6 +18,7 @@ class InventorySort {
         this.unregisterHandlers = [];
         this.controlsContainer = null;
         this.currentInventoryElem = null;
+        this.warnedItems = new Set(); // Track items we've already warned about
     }
 
     /**
@@ -349,7 +350,11 @@ class InventorySort {
             // Get market price
             const marketPrice = marketAPI.getPrice(itemHrid, 0);
             if (!marketPrice) {
-                console.warn('[InventorySort] No market data for:', itemName, itemHrid);
+                // Only warn once per item to avoid console spam
+                if (!this.warnedItems.has(itemHrid)) {
+                    console.warn('[InventorySort] No market data for:', itemName, itemHrid);
+                    this.warnedItems.add(itemHrid);
+                }
                 itemElem.dataset.askValue = 0;
                 itemElem.dataset.bidValue = 0;
                 marketDataMissing = true;

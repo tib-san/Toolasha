@@ -69,7 +69,12 @@ class SettingsUI {
                 subtree: true
             });
         } else {
-            console.warn('[Toolasha Settings] Could not find game panel to observe');
+            // Fallback: observe entire body if game panel not found (Firefox timing issue)
+            console.warn('[Toolasha Settings] Could not find game panel, observing body instead');
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
         }
 
         // Store observer reference

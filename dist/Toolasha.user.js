@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.73
+// @version      0.4.74
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -16982,6 +16982,7 @@
             this.unregisterHandlers = [];
             this.controlsContainer = null;
             this.currentInventoryElem = null;
+            this.warnedItems = new Set(); // Track items we've already warned about
         }
 
         /**
@@ -17312,7 +17313,11 @@
                 // Get market price
                 const marketPrice = marketAPI.getPrice(itemHrid, 0);
                 if (!marketPrice) {
-                    console.warn('[InventorySort] No market data for:', itemName, itemHrid);
+                    // Only warn once per item to avoid console spam
+                    if (!this.warnedItems.has(itemHrid)) {
+                        console.warn('[InventorySort] No market data for:', itemName, itemHrid);
+                        this.warnedItems.add(itemHrid);
+                    }
                     itemElem.dataset.askValue = 0;
                     itemElem.dataset.bidValue = 0;
                     marketDataMissing = true;
@@ -21534,7 +21539,12 @@
                     subtree: true
                 });
             } else {
-                console.warn('[Toolasha Settings] Could not find game panel to observe');
+                // Fallback: observe entire body if game panel not found (Firefox timing issue)
+                console.warn('[Toolasha Settings] Could not find game panel, observing body instead');
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true
+                });
             }
 
             // Store observer reference
