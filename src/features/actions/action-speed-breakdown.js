@@ -43,29 +43,45 @@ class ActionSpeedBreakdown {
             return;
         }
 
-        // Get action info
-        const actionNameElement = actionPanel.querySelector('[class*="SkillActionDetail_skillName"]');
-        if (!actionNameElement) return;
+        try {
+            // Get action info
+            const actionNameElement = actionPanel.querySelector('[class*="SkillActionDetail_skillName"]');
+            if (!actionNameElement) {
+                console.warn('[ActionSpeedBreakdown] Could not find action name element');
+                return;
+            }
 
-        const actionName = actionNameElement.textContent.trim();
-        const actionHrid = this.getActionHridFromName(actionName);
-        if (!actionHrid) return;
+            const actionName = actionNameElement.textContent.trim();
+            const actionHrid = this.getActionHridFromName(actionName);
+            if (!actionHrid) {
+                console.warn('[ActionSpeedBreakdown] Could not find action HRID for:', actionName);
+                return;
+            }
 
-        const actionData = dataManager.getActionData(actionHrid);
-        if (!actionData) return;
+            const actionData = dataManager.getActionData(actionHrid);
+            if (!actionData) {
+                console.warn('[ActionSpeedBreakdown] Could not find action data for:', actionHrid);
+                return;
+            }
 
-        // Calculate speed breakdown
-        const breakdown = this.calculateSpeedBreakdown(actionData);
-        
-        // Create breakdown UI
-        const breakdownElement = this.createBreakdownUI(breakdown, actionData);
+            // Calculate speed breakdown
+            const breakdown = this.calculateSpeedBreakdown(actionData);
 
-        // Find insertion point (after action time display or action name)
-        const insertAfter = actionPanel.querySelector('.mwi-action-time-display') || 
-                           actionNameElement.parentElement;
-        
-        if (insertAfter) {
-            insertAfter.insertAdjacentElement('afterend', breakdownElement);
+            // Create breakdown UI
+            const breakdownElement = this.createBreakdownUI(breakdown, actionData);
+
+            // Find insertion point (after action time display or action name)
+            const insertAfter = actionPanel.querySelector('.mwi-action-time-display') ||
+                               actionNameElement.parentElement;
+
+            if (insertAfter) {
+                insertAfter.insertAdjacentElement('afterend', breakdownElement);
+                console.log('[ActionSpeedBreakdown] Injected speed breakdown for:', actionName);
+            } else {
+                console.warn('[ActionSpeedBreakdown] Could not find insertion point');
+            }
+        } catch (error) {
+            console.error('[ActionSpeedBreakdown] Error injecting breakdown:', error);
         }
     }
 
