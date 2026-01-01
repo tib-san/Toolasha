@@ -11,6 +11,7 @@ class ActionSpeedBreakdown {
     constructor() {
         this.isInitialized = false;
         this.currentActionHrid = null;
+        this.unregister = null;
     }
 
     /**
@@ -28,16 +29,16 @@ class ActionSpeedBreakdown {
         }
 
         // Wait for action panels to appear
-        domObserver.observeNewElement(
+        this.unregister = domObserver.onClass(
             'ActionSpeedBreakdown',
-            'div[class*="SkillActionDetail_skillActionDetail"]',
+            'SkillActionDetail_skillActionDetail',
             (actionPanel) => {
                 console.log('[ActionSpeedBreakdown] Observer triggered! Panel detected:', actionPanel);
                 this.injectSpeedBreakdown(actionPanel);
             }
         );
 
-        console.log('[ActionSpeedBreakdown] Observer registered for selector: div[class*="SkillActionDetail_skillActionDetail"]');
+        console.log('[ActionSpeedBreakdown] Observer registered for class: SkillActionDetail_skillActionDetail');
         this.isInitialized = true;
         console.log('[ActionSpeedBreakdown] Initialization complete');
     }
@@ -457,7 +458,10 @@ class ActionSpeedBreakdown {
      * Cleanup
      */
     disable() {
-        domObserver.unregister('ActionSpeedBreakdown');
+        if (this.unregister) {
+            this.unregister();
+            this.unregister = null;
+        }
         this.isInitialized = false;
     }
 }
