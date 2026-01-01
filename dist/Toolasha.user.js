@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.72
+// @version      0.4.73
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -1510,6 +1510,44 @@
                     }
                 }, 500); // Retry every 500ms
             }
+
+            // FALLBACK: Check if character is already loaded (Firefox race condition fix)
+            // On Firefox, init_character_data may fire before our WebSocket hook is ready
+            // If character data exists in localStorage, manually trigger initialization
+            setTimeout(() => {
+                if (!this.characterData && typeof localStorageUtil !== 'undefined') {
+                    try {
+                        // Try to get character info from localStorage directly
+                        const rawData = localStorage.getItem('character');
+                        if (rawData) {
+                            const characterData = JSON.parse(LZString.decompressFromUTF16(rawData));
+                            if (characterData && characterData.characterSkills) {
+                                console.log('[DataManager] Detected missed init_character_data, manually triggering initialization');
+
+                                // Populate data manager with existing character data
+                                this.characterData = characterData;
+                                this.characterSkills = characterData.characterSkills;
+                                this.characterItems = characterData.characterItems;
+                                this.characterActions = characterData.characterActions ? [...characterData.characterActions] : [];
+
+                                // Build equipment map
+                                this.updateEquipmentMap(characterData.characterItems);
+
+                                // Build house room map
+                                this.updateHouseRoomMap(characterData.characterHouseRoomMap);
+
+                                // Build drink slots map
+                                this.updateDrinkSlotsMap(characterData.actionTypeDrinkSlotsMap);
+
+                                // Fire character_initialized event
+                                this.emit('character_initialized', characterData);
+                            }
+                        }
+                    } catch (error) {
+                        console.warn('[DataManager] Fallback initialization failed:', error);
+                    }
+                }
+            }, 2000); // Wait 2 seconds for normal WebSocket message, then check
         }
 
         /**
