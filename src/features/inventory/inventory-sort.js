@@ -18,6 +18,7 @@ class InventorySort {
         this.unregisterHandlers = [];
         this.controlsContainer = null;
         this.currentInventoryElem = null;
+        this.itemsUpdatedHandler = null; // Handler for inventory updates
     }
 
     /**
@@ -72,6 +73,9 @@ class InventorySort {
         // Listen for market data updates to refresh badges
         this.setupMarketDataListener();
 
+        // Listen for inventory updates (new items, quantity changes)
+        this.setupInventoryUpdateListener();
+
     }
 
     /**
@@ -101,6 +105,21 @@ class InventorySort {
                 }
             }, retryInterval);
         } else {
+        }
+    }
+
+    /**
+     * Setup listener for inventory updates (new items, quantity changes)
+     */
+    setupInventoryUpdateListener() {
+        if (!this.itemsUpdatedHandler) {
+            this.itemsUpdatedHandler = () => {
+                // Only refresh if inventory is currently visible
+                if (this.currentInventoryElem && document.body.contains(this.currentInventoryElem)) {
+                    this.applyCurrentSort();
+                }
+            };
+            dataManager.on('items_updated', this.itemsUpdatedHandler);
         }
     }
 
@@ -508,6 +527,12 @@ class InventorySort {
         // Remove all badges
         const badges = document.querySelectorAll('.mwi-stack-price');
         badges.forEach(badge => badge.remove());
+
+        // Unregister inventory update listener
+        if (this.itemsUpdatedHandler) {
+            dataManager.off('items_updated', this.itemsUpdatedHandler);
+            this.itemsUpdatedHandler = null;
+        }
 
         // Unregister observers
         this.unregisterHandlers.forEach(unregister => unregister());
