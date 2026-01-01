@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.76
+// @version      0.4.77
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -19826,21 +19826,40 @@
             name: 'Action Panel Profit',
             category: 'Actions',
             initialize: () => initActionPanelObserver(),
-            async: false
+            async: false,
+            healthCheck: null // This feature has no DOM presence to check
         },
         {
             key: 'actionTimeDisplay',
             name: 'Action Time Display',
             category: 'Actions',
             initialize: () => actionTimeDisplay.initialize(),
-            async: false
+            async: false,
+            healthCheck: () => {
+                // Check if time display is working by looking for injected time elements
+                const queueMenu = document.querySelector('div[class*="QueuedActions_queuedActionsEditMenu"]');
+                if (!queueMenu) return null; // Queue not open, can't verify
+
+                // Look for our injected time displays
+                const timeDisplays = queueMenu.querySelectorAll('[data-mwi-action-time]');
+                return timeDisplays.length > 0;
+            }
         },
         {
             key: 'quickInputButtons',
             name: 'Quick Input Buttons',
             category: 'Actions',
             initialize: () => quickInputButtons.initialize(),
-            async: false
+            async: false,
+            healthCheck: () => {
+                // Check if quick input buttons exist on any action panel
+                const actionPanel = document.querySelector('[class*="SkillActionDetail_skillActionDetail"]');
+                if (!actionPanel) return null; // No action panel open, can't verify
+
+                // Look for our injected button container
+                const buttons = actionPanel.querySelector('.mwi-quick-input-buttons');
+                return !!buttons;
+            }
         },
 
         // Combat Features
@@ -20021,8 +20040,79 @@
         return featureRegistry.filter(f => f.category === category);
     }
 
+    /**
+     * Check health of all initialized features
+     * @returns {Array<Object>} Array of failed features with details
+     */
+    function checkFeatureHealth() {
+        const failed = [];
+
+        for (const feature of featureRegistry) {
+            // Skip if feature has no health check
+            if (!feature.healthCheck) continue;
+
+            // Skip if feature is not enabled
+            const isEnabled = feature.customCheck
+                ? feature.customCheck()
+                : config.isFeatureEnabled(feature.key);
+
+            if (!isEnabled) continue;
+
+            try {
+                const result = feature.healthCheck();
+
+                // null = can't verify (DOM not ready), false = failed, true = healthy
+                if (result === false) {
+                    failed.push({
+                        key: feature.key,
+                        name: feature.name,
+                        reason: 'Health check returned false'
+                    });
+                }
+            } catch (error) {
+                failed.push({
+                    key: feature.key,
+                    name: feature.name,
+                    reason: `Health check error: ${error.message}`
+                });
+            }
+        }
+
+        return failed;
+    }
+
+    /**
+     * Retry initialization for specific features
+     * @param {Array<Object>} failedFeatures - Array of failed feature objects
+     * @returns {Promise<void>}
+     */
+    async function retryFailedFeatures(failedFeatures) {
+        console.log('[Toolasha] Retrying failed features...');
+
+        for (const failed of failedFeatures) {
+            const feature = getFeature(failed.key);
+            if (!feature) continue;
+
+            try {
+                console.log(`[Toolasha] Retrying ${feature.name}...`);
+
+                if (feature.async) {
+                    await feature.initialize();
+                } else {
+                    feature.initialize();
+                }
+
+                console.log(`[Toolasha] ✓ ${feature.name} retry successful`);
+            } catch (error) {
+                console.error(`[Toolasha] ✗ ${feature.name} retry failed:`, error);
+            }
+        }
+    }
+
     var featureRegistry$1 = {
         initializeFeatures,
+        checkFeatureHealth,
+        retryFailedFeatures,
         getFeature,
         getAllFeatures,
         getFeaturesByCategory
@@ -22308,7 +22398,46 @@
             // Initialize all features using the feature registry
             setTimeout(async () => {
                 try {
+                    console.log('[Toolasha] Initializing features...');
                     await featureRegistry$1.initializeFeatures();
+                    console.log('[Toolasha] Feature initialization complete');
+
+                    // Health check after initialization
+                    setTimeout(async () => {
+                        const failedFeatures = featureRegistry$1.checkFeatureHealth();
+
+                        // Also check settings tab health
+                        const settingsTabExists = document.querySelector('#toolasha-settings-tab');
+                        if (!settingsTabExists) {
+                            console.warn('[Toolasha] Settings tab not found, retrying settings UI initialization...');
+                            try {
+                                await settingsUI.initialize();
+                            } catch (error) {
+                                console.error('[Toolasha] Settings UI retry failed:', error);
+                            }
+                        }
+
+                        if (failedFeatures.length > 0) {
+                            console.warn('[Toolasha] Health check found failed features:', failedFeatures.map(f => f.name));
+                            console.log('[Toolasha] Retrying failed features in 3 seconds...');
+
+                            setTimeout(async () => {
+                                await featureRegistry$1.retryFailedFeatures(failedFeatures);
+
+                                // Final health check
+                                const stillFailed = featureRegistry$1.checkFeatureHealth();
+                                if (stillFailed.length > 0) {
+                                    console.warn('[Toolasha] These features could not initialize:', stillFailed.map(f => f.name));
+                                    console.warn('[Toolasha] Try refreshing the page or reopening the relevant game panels');
+                                } else {
+                                    console.log('[Toolasha] All features healthy after retry!');
+                                }
+                            }, 3000);
+                        } else {
+                            console.log('[Toolasha] All features healthy!');
+                        }
+                    }, 2000); // Wait 2s after initialization to check health
+
                 } catch (error) {
                     console.error('[Toolasha] Feature initialization failed:', error);
                 }

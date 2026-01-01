@@ -81,7 +81,46 @@ if (isCombatSimulatorPage()) {
         // Initialize all features using the feature registry
         setTimeout(async () => {
             try {
+                console.log('[Toolasha] Initializing features...');
                 await featureRegistry.initializeFeatures();
+                console.log('[Toolasha] Feature initialization complete');
+
+                // Health check after initialization
+                setTimeout(async () => {
+                    const failedFeatures = featureRegistry.checkFeatureHealth();
+
+                    // Also check settings tab health
+                    const settingsTabExists = document.querySelector('#toolasha-settings-tab');
+                    if (!settingsTabExists) {
+                        console.warn('[Toolasha] Settings tab not found, retrying settings UI initialization...');
+                        try {
+                            await settingsUI.initialize();
+                        } catch (error) {
+                            console.error('[Toolasha] Settings UI retry failed:', error);
+                        }
+                    }
+
+                    if (failedFeatures.length > 0) {
+                        console.warn('[Toolasha] Health check found failed features:', failedFeatures.map(f => f.name));
+                        console.log('[Toolasha] Retrying failed features in 3 seconds...');
+
+                        setTimeout(async () => {
+                            await featureRegistry.retryFailedFeatures(failedFeatures);
+
+                            // Final health check
+                            const stillFailed = featureRegistry.checkFeatureHealth();
+                            if (stillFailed.length > 0) {
+                                console.warn('[Toolasha] These features could not initialize:', stillFailed.map(f => f.name));
+                                console.warn('[Toolasha] Try refreshing the page or reopening the relevant game panels');
+                            } else {
+                                console.log('[Toolasha] All features healthy after retry!');
+                            }
+                        }, 3000);
+                    } else {
+                        console.log('[Toolasha] All features healthy!');
+                    }
+                }, 2000); // Wait 2s after initialization to check health
+
             } catch (error) {
                 console.error('[Toolasha] Feature initialization failed:', error);
             }

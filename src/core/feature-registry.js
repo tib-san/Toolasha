@@ -78,21 +78,40 @@ const featureRegistry = [
         name: 'Action Panel Profit',
         category: 'Actions',
         initialize: () => initActionPanelObserver(),
-        async: false
+        async: false,
+        healthCheck: null // This feature has no DOM presence to check
     },
     {
         key: 'actionTimeDisplay',
         name: 'Action Time Display',
         category: 'Actions',
         initialize: () => actionTimeDisplay.initialize(),
-        async: false
+        async: false,
+        healthCheck: () => {
+            // Check if time display is working by looking for injected time elements
+            const queueMenu = document.querySelector('div[class*="QueuedActions_queuedActionsEditMenu"]');
+            if (!queueMenu) return null; // Queue not open, can't verify
+
+            // Look for our injected time displays
+            const timeDisplays = queueMenu.querySelectorAll('[data-mwi-action-time]');
+            return timeDisplays.length > 0;
+        }
     },
     {
         key: 'quickInputButtons',
         name: 'Quick Input Buttons',
         category: 'Actions',
         initialize: () => quickInputButtons.initialize(),
-        async: false
+        async: false,
+        healthCheck: () => {
+            // Check if quick input buttons exist on any action panel
+            const actionPanel = document.querySelector('[class*="SkillActionDetail_skillActionDetail"]');
+            if (!actionPanel) return null; // No action panel open, can't verify
+
+            // Look for our injected button container
+            const buttons = actionPanel.querySelector('.mwi-quick-input-buttons');
+            return !!buttons;
+        }
     },
 
     // Combat Features
@@ -273,8 +292,79 @@ function getFeaturesByCategory(category) {
     return featureRegistry.filter(f => f.category === category);
 }
 
+/**
+ * Check health of all initialized features
+ * @returns {Array<Object>} Array of failed features with details
+ */
+function checkFeatureHealth() {
+    const failed = [];
+
+    for (const feature of featureRegistry) {
+        // Skip if feature has no health check
+        if (!feature.healthCheck) continue;
+
+        // Skip if feature is not enabled
+        const isEnabled = feature.customCheck
+            ? feature.customCheck()
+            : config.isFeatureEnabled(feature.key);
+
+        if (!isEnabled) continue;
+
+        try {
+            const result = feature.healthCheck();
+
+            // null = can't verify (DOM not ready), false = failed, true = healthy
+            if (result === false) {
+                failed.push({
+                    key: feature.key,
+                    name: feature.name,
+                    reason: 'Health check returned false'
+                });
+            }
+        } catch (error) {
+            failed.push({
+                key: feature.key,
+                name: feature.name,
+                reason: `Health check error: ${error.message}`
+            });
+        }
+    }
+
+    return failed;
+}
+
+/**
+ * Retry initialization for specific features
+ * @param {Array<Object>} failedFeatures - Array of failed feature objects
+ * @returns {Promise<void>}
+ */
+async function retryFailedFeatures(failedFeatures) {
+    console.log('[Toolasha] Retrying failed features...');
+
+    for (const failed of failedFeatures) {
+        const feature = getFeature(failed.key);
+        if (!feature) continue;
+
+        try {
+            console.log(`[Toolasha] Retrying ${feature.name}...`);
+
+            if (feature.async) {
+                await feature.initialize();
+            } else {
+                feature.initialize();
+            }
+
+            console.log(`[Toolasha] ✓ ${feature.name} retry successful`);
+        } catch (error) {
+            console.error(`[Toolasha] ✗ ${feature.name} retry failed:`, error);
+        }
+    }
+}
+
 export default {
     initializeFeatures,
+    checkFeatureHealth,
+    retryFailedFeatures,
     getFeature,
     getAllFeatures,
     getFeaturesByCategory
