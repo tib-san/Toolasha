@@ -365,17 +365,14 @@ class InventorySort {
             const askPrice = marketPrice.ask > 0 ? marketPrice.ask : 0;
             const bidPrice = marketPrice.bid > 0 ? marketPrice.bid : 0;
 
-            if (askPrice === 0 && bidPrice === 0) {
-                console.warn('[InventorySort] Market price is 0 for:', itemName, itemHrid, marketPrice);
-            }
+            // Removed zero-price warning to reduce console spam
+            // Non-zero prices are normal for many items
 
             itemElem.dataset.askValue = askPrice * itemCount;
             itemElem.dataset.bidValue = bidPrice * itemCount;
         }
 
-        if (marketDataMissing) {
-            console.warn('[InventorySort] Some items missing market data - prices may be incomplete');
-        }
+        // Summary warning removed - individual items already warn once per session
     }
 
     /**

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.74
+// @version      0.4.75
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -17267,8 +17267,6 @@
                 return;
             }
 
-            let marketDataMissing = false;
-
             for (const itemElem of itemElems) {
                 // Get item HRID from SVG aria-label
                 const svg = itemElem.querySelector('svg');
@@ -17320,7 +17318,6 @@
                     }
                     itemElem.dataset.askValue = 0;
                     itemElem.dataset.bidValue = 0;
-                    marketDataMissing = true;
                     continue;
                 }
 
@@ -17328,17 +17325,14 @@
                 const askPrice = marketPrice.ask > 0 ? marketPrice.ask : 0;
                 const bidPrice = marketPrice.bid > 0 ? marketPrice.bid : 0;
 
-                if (askPrice === 0 && bidPrice === 0) {
-                    console.warn('[InventorySort] Market price is 0 for:', itemName, itemHrid, marketPrice);
-                }
+                // Removed zero-price warning to reduce console spam
+                // Non-zero prices are normal for many items
 
                 itemElem.dataset.askValue = askPrice * itemCount;
                 itemElem.dataset.bidValue = bidPrice * itemCount;
             }
 
-            if (marketDataMissing) {
-                console.warn('[InventorySort] Some items missing market data - prices may be incomplete');
-            }
+            // Summary warning removed - individual items already warn once per session
         }
 
         /**
