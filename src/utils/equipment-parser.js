@@ -145,7 +145,10 @@ const VALID_SPEED_FIELDS = [
     'craftingSpeed',
     'tailoringSpeed',
     'brewingSpeed',
-    'cookingSpeed'
+    'cookingSpeed',
+    'alchemySpeed',
+    'enhancingSpeed',
+    'taskSpeed'
 ];
 
 /**
@@ -241,7 +244,8 @@ const VALID_RARE_FIND_FIELDS = [
     'tailoringRareFind',
     'brewingRareFind',
     'cookingRareFind',
-    'alchemyRareFind'
+    'alchemyRareFind',
+    'enhancingRareFind'
 ];
 
 /**

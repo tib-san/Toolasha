@@ -64,11 +64,9 @@ class QuickInputButtons {
                         // Look for main action detail panel (not sub-elements)
                         const actionPanel = node.querySelector?.('[class*="SkillActionDetail_skillActionDetail"]');
                         if (actionPanel) {
-                            console.log('[Quick Input Buttons] Found new action panel via observer');
                             this.injectButtons(actionPanel);
                         } else if (node.className && typeof node.className === 'string' &&
                                    node.className.includes('SkillActionDetail_skillActionDetail')) {
-                            console.log('[Quick Input Buttons] Found new action panel via observer (direct)');
                             this.injectButtons(node);
                         }
                     }
@@ -82,9 +80,7 @@ class QuickInputButtons {
 
             // Check for existing action panels that may already be open
             const existingPanels = document.querySelectorAll('[class*="SkillActionDetail_skillActionDetail"]');
-            console.log('[Quick Input Buttons] Checking for existing panels, found:', existingPanels.length);
             existingPanels.forEach(panel => {
-                console.log('[Quick Input Buttons] Injecting into existing panel');
                 this.injectButtons(panel);
             });
         };
@@ -100,7 +96,6 @@ class QuickInputButtons {
         try {
             // Check if already injected
             if (panel.querySelector('.mwi-collapsible-section')) {
-                console.log('[Quick Input Buttons] Already injected, skipping');
                 return;
             }
 
@@ -431,8 +426,6 @@ class QuickInputButtons {
             if (levelProgressSection) {
                 speedSection.insertAdjacentElement('afterend', levelProgressSection);
             }
-
-            console.log('[Quick Input Buttons] Successfully injected buttons for:', actionName);
 
         } catch (error) {
             console.error('[MWI Tools] Error injecting quick input buttons:', error);

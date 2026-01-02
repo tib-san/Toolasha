@@ -338,9 +338,11 @@ class ActionTimeDisplay {
         // For infinite actions, use inventory count if available
         let remainingActions;
         if (action.hasMaxCount) {
+            // Finite action: maxCount is the target, currentCount is progress toward that target
             remainingActions = action.maxCount - action.currentCount;
         } else if (inventoryCount !== null) {
-            remainingActions = inventoryCount - action.currentCount;
+            // Infinite action: currentCount is lifetime total, so just use inventory count directly
+            remainingActions = inventoryCount;
         } else {
             remainingActions = Infinity;
         }
@@ -533,12 +535,34 @@ class ActionTimeDisplay {
             return null;
         }
 
+        // Check if this is an enhancing action by looking at the SVG icon
+        const svgIcon = firstChildDiv.querySelector('svg use');
+        const isEnhancingAction = svgIcon && svgIcon.getAttribute('href')?.includes('#enhancing');
+
         // Get the text content (format: "#3Coinify: Foraging Essence" - no space after number!)
         const fullText = firstChildDiv.textContent.trim();
 
         // Remove position number: "#3Coinify: Foraging Essence" → "Coinify: Foraging Essence"
         // Note: No space after the number in the actual text
         const actionNameText = fullText.replace(/^#\d+/, '').trim();
+
+        // Handle enhancing actions specially
+        if (isEnhancingAction) {
+            // For enhancing, the text is just the item name (e.g., "Cheese Sword")
+            const itemName = actionNameText;
+            const itemHrid = '/items/' + itemName.toLowerCase().replace(/\s+/g, '_');
+
+            // Find enhancing action matching this item
+            return cachedActions.find(a => {
+                const actionDetails = dataManager.getActionDetails(a.actionHrid);
+                if (!actionDetails || actionDetails.type !== '/action_types/enhancing') {
+                    return false;
+                }
+
+                // Match on primaryItemHash (the item being enhanced)
+                return a.primaryItemHash && a.primaryItemHash.includes(itemHrid);
+            });
+        }
 
         // Parse action name (same logic as main display)
         let actionNameFromDiv, itemNameFromDiv;
@@ -768,9 +792,14 @@ class ActionTimeDisplay {
             `;
 
             if (hasInfinite) {
-                totalDiv.textContent = 'Total time: [∞]';
+                // Show finite time first, then add infinity indicator
+                if (accumulatedTime > 0) {
+                    totalDiv.textContent = `Total time: ${timeReadable(accumulatedTime)} + [∞]`;
+                } else {
+                    totalDiv.textContent = 'Total time: [∞]';
+                }
             } else {
-                totalDiv.textContent = `Total time: [${timeReadable(accumulatedTime)}]`;
+                totalDiv.textContent = `Total time: ${timeReadable(accumulatedTime)}`;
             }
 
             // Insert after queue menu

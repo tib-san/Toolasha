@@ -2484,7 +2484,10 @@
         'craftingSpeed',
         'tailoringSpeed',
         'brewingSpeed',
-        'cookingSpeed'
+        'cookingSpeed',
+        'alchemySpeed',
+        'enhancingSpeed',
+        'taskSpeed'
     ];
 
     /**
@@ -2580,7 +2583,8 @@
         'tailoringRareFind',
         'brewingRareFind',
         'cookingRareFind',
-        'alchemyRareFind'
+        'alchemyRareFind',
+        'enhancingRareFind'
     ];
 
     /**
@@ -9983,9 +9987,11 @@
             // For infinite actions, use inventory count if available
             let remainingActions;
             if (action.hasMaxCount) {
+                // Finite action: maxCount is the target, currentCount is progress toward that target
                 remainingActions = action.maxCount - action.currentCount;
             } else if (inventoryCount !== null) {
-                remainingActions = inventoryCount - action.currentCount;
+                // Infinite action: currentCount is lifetime total, so just use inventory count directly
+                remainingActions = inventoryCount;
             } else {
                 remainingActions = Infinity;
             }
@@ -10178,12 +10184,34 @@
                 return null;
             }
 
+            // Check if this is an enhancing action by looking at the SVG icon
+            const svgIcon = firstChildDiv.querySelector('svg use');
+            const isEnhancingAction = svgIcon && svgIcon.getAttribute('href')?.includes('#enhancing');
+
             // Get the text content (format: "#3Coinify: Foraging Essence" - no space after number!)
             const fullText = firstChildDiv.textContent.trim();
 
             // Remove position number: "#3Coinify: Foraging Essence" → "Coinify: Foraging Essence"
             // Note: No space after the number in the actual text
             const actionNameText = fullText.replace(/^#\d+/, '').trim();
+
+            // Handle enhancing actions specially
+            if (isEnhancingAction) {
+                // For enhancing, the text is just the item name (e.g., "Cheese Sword")
+                const itemName = actionNameText;
+                const itemHrid = '/items/' + itemName.toLowerCase().replace(/\s+/g, '_');
+
+                // Find enhancing action matching this item
+                return cachedActions.find(a => {
+                    const actionDetails = dataManager.getActionDetails(a.actionHrid);
+                    if (!actionDetails || actionDetails.type !== '/action_types/enhancing') {
+                        return false;
+                    }
+
+                    // Match on primaryItemHash (the item being enhanced)
+                    return a.primaryItemHash && a.primaryItemHash.includes(itemHrid);
+                });
+            }
 
             // Parse action name (same logic as main display)
             let actionNameFromDiv, itemNameFromDiv;
@@ -10413,9 +10441,14 @@
             `;
 
                 if (hasInfinite) {
-                    totalDiv.textContent = 'Total time: [∞]';
+                    // Show finite time first, then add infinity indicator
+                    if (accumulatedTime > 0) {
+                        totalDiv.textContent = `Total time: ${timeReadable(accumulatedTime)} + [∞]`;
+                    } else {
+                        totalDiv.textContent = 'Total time: [∞]';
+                    }
                 } else {
-                    totalDiv.textContent = `Total time: [${timeReadable(accumulatedTime)}]`;
+                    totalDiv.textContent = `Total time: ${timeReadable(accumulatedTime)}`;
                 }
 
                 // Insert after queue menu
@@ -10800,11 +10833,9 @@
                             // Look for main action detail panel (not sub-elements)
                             const actionPanel = node.querySelector?.('[class*="SkillActionDetail_skillActionDetail"]');
                             if (actionPanel) {
-                                console.log('[Quick Input Buttons] Found new action panel via observer');
                                 this.injectButtons(actionPanel);
                             } else if (node.className && typeof node.className === 'string' &&
                                        node.className.includes('SkillActionDetail_skillActionDetail')) {
-                                console.log('[Quick Input Buttons] Found new action panel via observer (direct)');
                                 this.injectButtons(node);
                             }
                         }
@@ -10818,9 +10849,7 @@
 
                 // Check for existing action panels that may already be open
                 const existingPanels = document.querySelectorAll('[class*="SkillActionDetail_skillActionDetail"]');
-                console.log('[Quick Input Buttons] Checking for existing panels, found:', existingPanels.length);
                 existingPanels.forEach(panel => {
-                    console.log('[Quick Input Buttons] Injecting into existing panel');
                     this.injectButtons(panel);
                 });
             };
@@ -10836,7 +10865,6 @@
             try {
                 // Check if already injected
                 if (panel.querySelector('.mwi-collapsible-section')) {
-                    console.log('[Quick Input Buttons] Already injected, skipping');
                     return;
                 }
 
@@ -11167,8 +11195,6 @@
                 if (levelProgressSection) {
                     speedSection.insertAdjacentElement('afterend', levelProgressSection);
                 }
-
-                console.log('[Quick Input Buttons] Successfully injected buttons for:', actionName);
 
             } catch (error) {
                 console.error('[MWI Tools] Error injecting quick input buttons:', error);
@@ -17458,7 +17484,7 @@
             // Process each category
             for (const categoryDiv of inventoryElem.children) {
                 // Get category name
-                const categoryButton = categoryDiv.querySelector('.Inventory_categoryButton__35s1x');
+                const categoryButton = categoryDiv.querySelector('[class*="Inventory_categoryButton"]');
                 if (!categoryButton) continue;
 
                 const categoryName = categoryButton.textContent.trim();
@@ -17474,13 +17500,13 @@
                 const shouldSort = !isEquipmentCategory;
 
                 // Ensure category label stays at top
-                const label = categoryDiv.querySelector('.Inventory_label__XEOAx');
+                const label = categoryDiv.querySelector('[class*="Inventory_label"]');
                 if (label) {
                     label.style.order = Number.MIN_SAFE_INTEGER;
                 }
 
                 // Get all item elements
-                const itemElems = categoryDiv.querySelectorAll('.Item_itemContainer__x7kH1');
+                const itemElems = categoryDiv.querySelectorAll('[class*="Item_itemContainer"]');
 
                 // Always calculate prices (for badges), filtering to charms only in Equipment category
                 this.calculateItemPrices(itemElems, isEquipmentCategory);
@@ -17547,7 +17573,7 @@
                 }
 
                 // Get item count
-                const countElem = itemElem.querySelector('.Item_count__1HVvv');
+                const countElem = itemElem.querySelector('[class*="Item_count"]');
                 if (!countElem) continue;
 
                 let itemCount = countElem.textContent;
@@ -17607,7 +17633,7 @@
         updatePriceBadges() {
             if (!this.currentInventoryElem) return;
 
-            const itemElems = this.currentInventoryElem.querySelectorAll('.Item_itemContainer__x7kH1');
+            const itemElems = this.currentInventoryElem.querySelectorAll('[class*="Item_itemContainer"]');
             const showBadges = config.getSetting('invSort_showBadges');
 
             for (const itemElem of itemElems) {
@@ -17656,7 +17682,7 @@
             badge.textContent = formatKMB(Math.round(stackValue), 0);
 
             // Insert into item
-            const itemInner = itemElem.querySelector('.Item_item__2De2O');
+            const itemInner = itemElem.querySelector('[class*="Item_item"]');
             if (itemInner) {
                 itemInner.appendChild(badge);
             }

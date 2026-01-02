@@ -250,7 +250,7 @@ class InventorySort {
         // Process each category
         for (const categoryDiv of inventoryElem.children) {
             // Get category name
-            const categoryButton = categoryDiv.querySelector('.Inventory_categoryButton__35s1x');
+            const categoryButton = categoryDiv.querySelector('[class*="Inventory_categoryButton"]');
             if (!categoryButton) continue;
 
             const categoryName = categoryButton.textContent.trim();
@@ -266,13 +266,13 @@ class InventorySort {
             const shouldSort = !isEquipmentCategory;
 
             // Ensure category label stays at top
-            const label = categoryDiv.querySelector('.Inventory_label__XEOAx');
+            const label = categoryDiv.querySelector('[class*="Inventory_label"]');
             if (label) {
                 label.style.order = Number.MIN_SAFE_INTEGER;
             }
 
             // Get all item elements
-            const itemElems = categoryDiv.querySelectorAll('.Item_itemContainer__x7kH1');
+            const itemElems = categoryDiv.querySelectorAll('[class*="Item_itemContainer"]');
 
             // Always calculate prices (for badges), filtering to charms only in Equipment category
             this.calculateItemPrices(itemElems, isEquipmentCategory);
@@ -341,7 +341,7 @@ class InventorySort {
             }
 
             // Get item count
-            const countElem = itemElem.querySelector('.Item_count__1HVvv');
+            const countElem = itemElem.querySelector('[class*="Item_count"]');
             if (!countElem) continue;
 
             let itemCount = countElem.textContent;
@@ -402,7 +402,7 @@ class InventorySort {
     updatePriceBadges() {
         if (!this.currentInventoryElem) return;
 
-        const itemElems = this.currentInventoryElem.querySelectorAll('.Item_itemContainer__x7kH1');
+        const itemElems = this.currentInventoryElem.querySelectorAll('[class*="Item_itemContainer"]');
         const showBadges = config.getSetting('invSort_showBadges');
 
         for (const itemElem of itemElems) {
@@ -451,7 +451,7 @@ class InventorySort {
         badge.textContent = formatKMB(Math.round(stackValue), 0);
 
         // Insert into item
-        const itemInner = itemElem.querySelector('.Item_item__2De2O');
+        const itemInner = itemElem.querySelector('[class*="Item_item"]');
         if (itemInner) {
             itemInner.appendChild(badge);
         }
