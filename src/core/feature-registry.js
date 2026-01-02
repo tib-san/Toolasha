@@ -108,9 +108,10 @@ const featureRegistry = [
             const actionPanel = document.querySelector('[class*="SkillActionDetail_skillActionDetail"]');
             if (!actionPanel) return null; // No action panel open, can't verify
 
-            // Look for our injected button container
-            const buttons = actionPanel.querySelector('.mwi-quick-input-buttons');
-            return !!buttons;
+            // Look for our injected buttons or collapsible sections
+            const buttons = actionPanel.querySelector('.mwi-quick-input-btn');
+            const sections = actionPanel.querySelector('.mwi-collapsible-section');
+            return !!(buttons || sections);
         }
     },
 
@@ -354,7 +355,19 @@ async function retryFailedFeatures(failedFeatures) {
                 feature.initialize();
             }
 
-            console.log(`[Toolasha] ✓ ${feature.name} retry successful`);
+            // Verify the retry actually worked by running health check
+            if (feature.healthCheck) {
+                const healthResult = feature.healthCheck();
+                if (healthResult === true) {
+                    console.log(`[Toolasha] ✓ ${feature.name} retry successful`);
+                } else if (healthResult === false) {
+                    console.warn(`[Toolasha] ⚠ ${feature.name} retry completed but health check still fails`);
+                } else {
+                    console.log(`[Toolasha] ⚠ ${feature.name} retry completed (unable to verify - DOM not ready)`);
+                }
+            } else {
+                console.log(`[Toolasha] ✓ ${feature.name} retry completed (no health check available)`);
+            }
         } catch (error) {
             console.error(`[Toolasha] ✗ ${feature.name} retry failed:`, error);
         }
