@@ -370,7 +370,8 @@ class QuickInputButtons {
             const levelProgressSection = this.createLevelProgressSection(
                 actionDetails,
                 actionTime,
-                gameData
+                gameData,
+                numberInput
             );
 
             // ===== SECTION 3: Quick Queue Setup =====
@@ -868,6 +869,7 @@ class QuickInputButtons {
     /**
      * Calculate actions and time needed to reach target level
      * Accounts for progressive efficiency gains (+1% per level)
+     * Efficiency reduces actions needed (each action gives more XP) but not time per action
      * @param {number} currentLevel - Current skill level
      * @param {number} currentXP - Current experience points
      * @param {number} targetLevel - Target skill level
@@ -897,13 +899,17 @@ class QuickInputButtons {
             const progressiveEfficiency = baseEfficiency + levelsGained;
             const efficiencyMultiplier = 1 + (progressiveEfficiency / 100);
 
-            // Calculate actions needed for this level
-            const actionsForLevel = Math.ceil(xpNeeded / xpPerAction);
+            // Calculate XP per performed action (base XP × efficiency multiplier)
+            // Efficiency means each action repeats, giving more XP per performed action
+            const xpPerPerformedAction = xpPerAction * efficiencyMultiplier;
+
+            // Calculate real actions needed for this level
+            const actionsForLevel = Math.ceil(xpNeeded / xpPerPerformedAction);
             totalActions += actionsForLevel;
 
-            // Time accounts for efficiency (more actions per hour = less time)
-            // Efficiency doesn't reduce action time, but we do more actions per time unit
-            totalTime += (actionsForLevel / efficiencyMultiplier) * actionTime;
+            // Time is simply actions × time per action
+            // (efficiency already factored into action count)
+            totalTime += actionsForLevel * actionTime;
         }
 
         return { actionsNeeded: totalActions, timeNeeded: totalTime };
@@ -914,9 +920,10 @@ class QuickInputButtons {
      * @param {Object} actionDetails - Action details from game data
      * @param {number} actionTime - Time per action in seconds
      * @param {Object} gameData - Cached game data from dataManager
+     * @param {HTMLInputElement} numberInput - Queue input element
      * @returns {HTMLElement|null} Level progress section or null if not applicable
      */
-    createLevelProgressSection(actionDetails, actionTime, gameData) {
+    createLevelProgressSection(actionDetails, actionTime, gameData, numberInput) {
         try {
             // Get XP information from action
             const experienceGain = actionDetails.experienceGain;
@@ -1104,6 +1111,9 @@ class QuickInputButtons {
                         ${formatWithSeparator(result.actionsNeeded)} actions | ${timeReadable(result.timeNeeded)}
                     `;
                     targetLevelResult.style.color = 'var(--text-color-primary, #fff)';
+
+                    // Auto-fill queue input when target level changes
+                    this.setInputValue(numberInput, result.actionsNeeded);
                 } else {
                     targetLevelResult.textContent = 'Invalid level';
                     targetLevelResult.style.color = 'var(--color-error, #ff4444)';
