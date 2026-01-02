@@ -11117,7 +11117,7 @@
                 const actionsPerHour = (3600 / actionTime).toFixed(0);
                 const initialSummary = `${actionsPerHour}/hr | Total time: 0s`;
 
-                const speedSection = createCollapsibleSection(
+                speedSection = createCollapsibleSection(
                     '⏱',
                     'Action Speed & Time',
                     initialSummary,
@@ -11239,7 +11239,12 @@
                 // Insert sections: inputContainer -> queueContent -> speedSection (if exists) -> levelProgressSection
                 inputContainer.insertAdjacentElement('afterend', queueContent);
 
-                if (speedSection) ; else {
+                if (speedSection) {
+                    queueContent.insertAdjacentElement('afterend', speedSection);
+                    if (levelProgressSection) {
+                        speedSection.insertAdjacentElement('afterend', levelProgressSection);
+                    }
+                } else {
                     // No speedSection for combat - insert levelProgressSection directly after queueContent
                     if (levelProgressSection) {
                         queueContent.insertAdjacentElement('afterend', levelProgressSection);

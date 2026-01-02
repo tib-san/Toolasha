@@ -310,7 +310,7 @@ class QuickInputButtons {
             const actionsPerHour = (3600 / actionTime).toFixed(0);
             const initialSummary = `${actionsPerHour}/hr | Total time: 0s`;
 
-            const speedSection = createCollapsibleSection(
+            speedSection = createCollapsibleSection(
                 '⏱',
                 'Action Speed & Time',
                 initialSummary,
