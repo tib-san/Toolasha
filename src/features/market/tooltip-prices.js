@@ -120,15 +120,32 @@ class TooltipPrices {
      * @param {Element} tooltipElement - The tooltip popper element
      */
     async handleTooltip(tooltipElement) {
-        // Check if it's an item tooltip (has the specific class)
-        const nameElement = tooltipElement.querySelector('div.ItemTooltipText_name__2JAHA');
+        // Check if it's a collection tooltip
+        const collectionContent = tooltipElement.querySelector('div.Collection_tooltipContent__2IcSJ');
+        const isCollectionTooltip = !!collectionContent;
 
-        if (!nameElement) {
-            return; // Not an item tooltip
+        // Check if it's a regular item tooltip
+        const nameElement = tooltipElement.querySelector('div.ItemTooltipText_name__2JAHA');
+        const isItemTooltip = !!nameElement;
+
+        if (!isCollectionTooltip && !isItemTooltip) {
+            return; // Not a tooltip we can enhance
         }
 
-        // Get the item HRID from the tooltip
-        const itemHrid = this.extractItemHrid(tooltipElement);
+        // Extract item name from appropriate element
+        let itemName;
+        if (isCollectionTooltip) {
+            const collectionNameElement = tooltipElement.querySelector('div.Collection_name__10aep');
+            if (!collectionNameElement) {
+                return; // No name element in collection tooltip
+            }
+            itemName = collectionNameElement.textContent.trim();
+        } else {
+            itemName = nameElement.textContent.trim();
+        }
+
+        // Get the item HRID from the name
+        const itemHrid = this.extractItemHridFromName(itemName);
 
         if (!itemHrid) {
             return;
@@ -145,7 +162,7 @@ class TooltipPrices {
         if (itemDetails.isOpenable && config.getSetting('itemTooltip_expectedValue')) {
             const evData = expectedValueCalculator.calculateExpectedValue(itemHrid);
             if (evData) {
-                this.injectExpectedValueDisplay(tooltipElement, evData);
+                this.injectExpectedValueDisplay(tooltipElement, evData, isCollectionTooltip);
             }
             return; // Skip price/profit display for containers
         }
@@ -157,7 +174,7 @@ class TooltipPrices {
         if (price && (price.ask > 0 || price.bid > 0)) {
             // Get item amount from tooltip (for stacks)
             const amount = this.extractItemAmount(tooltipElement);
-            this.injectPriceDisplay(tooltipElement, price, amount);
+            this.injectPriceDisplay(tooltipElement, price, amount, isCollectionTooltip);
         }
 
         // Check if profit calculator is enabled
@@ -166,27 +183,28 @@ class TooltipPrices {
             // Calculate and inject profit information
             const profitData = await profitCalculator.calculateProfit(itemHrid);
             if (profitData) {
-                this.injectProfitDisplay(tooltipElement, profitData);
+                this.injectProfitDisplay(tooltipElement, profitData, isCollectionTooltip);
             }
         }
 
-        // Check for enhancement level in item name (e.g., "+8" in "Cheese Sword +8")
-        // Works even without market data
-        const enhancementLevel = this.extractEnhancementLevel(tooltipElement);
-        if (enhancementLevel > 0) {
-            // Get enhancement configuration
-            const enhancementConfig = getEnhancingParams();
-            if (enhancementConfig) {
-                // Calculate optimal enhancement path
-                const enhancementData = calculateEnhancementPath(
-                    itemHrid,
-                    enhancementLevel,
-                    enhancementConfig
-                );
+        // Only check enhancement level for regular item tooltips (not collection tooltips)
+        if (isItemTooltip && !isCollectionTooltip) {
+            const enhancementLevel = this.extractEnhancementLevel(tooltipElement);
+            if (enhancementLevel > 0) {
+                // Get enhancement configuration
+                const enhancementConfig = getEnhancingParams();
+                if (enhancementConfig) {
+                    // Calculate optimal enhancement path
+                    const enhancementData = calculateEnhancementPath(
+                        itemHrid,
+                        enhancementLevel,
+                        enhancementConfig
+                    );
 
-                if (enhancementData) {
-                    // Inject enhancement analysis into tooltip
-                    this.injectEnhancementDisplay(tooltipElement, enhancementData);
+                    if (enhancementData) {
+                        // Inject enhancement analysis into tooltip
+                        this.injectEnhancementDisplay(tooltipElement, enhancementData);
+                    }
                 }
             }
         }
@@ -269,6 +287,19 @@ class TooltipPrices {
         // This is critical - enhanced items need to lookup the base item
         itemName = itemName.replace(REGEX_ENHANCEMENT_STRIP, '');
 
+        return this.extractItemHridFromName(itemName);
+    }
+
+    /**
+     * Extract item HRID from item name
+     * @param {string} itemName - Item name
+     * @returns {string|null} Item HRID or null
+     */
+    extractItemHridFromName(itemName) {
+        // Strip enhancement level (e.g., "+10" from "Griffin Bulwark +10")
+        // This is critical - enhanced items need to lookup the base item
+        itemName = itemName.replace(REGEX_ENHANCEMENT_STRIP, '');
+
         // Look up item by name in game data
         const initData = dataManager.getInitClientData();
         if (!initData) {
@@ -309,10 +340,13 @@ class TooltipPrices {
      * @param {Element} tooltipElement - Tooltip element
      * @param {Object} price - { ask, bid }
      * @param {number} amount - Item amount
+     * @param {boolean} isCollectionTooltip - True if this is a collection tooltip
      */
-    injectPriceDisplay(tooltipElement, price, amount) {
+    injectPriceDisplay(tooltipElement, price, amount, isCollectionTooltip = false) {
         // Find the tooltip text container
-        const tooltipText = tooltipElement.querySelector('.ItemTooltipText_itemTooltipText__zFq3A');
+        const tooltipText = isCollectionTooltip
+            ? tooltipElement.querySelector('.Collection_tooltipContent__2IcSJ')
+            : tooltipElement.querySelector('.ItemTooltipText_itemTooltipText__zFq3A');
 
         if (!tooltipText) {
             console.warn('[TooltipPrices] Could not find tooltip text container');
@@ -361,10 +395,13 @@ class TooltipPrices {
      * Inject profit display into tooltip
      * @param {Element} tooltipElement - Tooltip element
      * @param {Object} profitData - Profit calculation data
+     * @param {boolean} isCollectionTooltip - True if this is a collection tooltip
      */
-    injectProfitDisplay(tooltipElement, profitData) {
+    injectProfitDisplay(tooltipElement, profitData, isCollectionTooltip = false) {
         // Find the tooltip text container
-        const tooltipText = tooltipElement.querySelector('.ItemTooltipText_itemTooltipText__zFq3A');
+        const tooltipText = isCollectionTooltip
+            ? tooltipElement.querySelector('.Collection_tooltipContent__2IcSJ')
+            : tooltipElement.querySelector('.ItemTooltipText_itemTooltipText__zFq3A');
 
         if (!tooltipText) {
             return;
@@ -417,10 +454,13 @@ class TooltipPrices {
      * Inject expected value display into tooltip
      * @param {Element} tooltipElement - Tooltip element
      * @param {Object} evData - Expected value calculation data
+     * @param {boolean} isCollectionTooltip - True if this is a collection tooltip
      */
-    injectExpectedValueDisplay(tooltipElement, evData) {
+    injectExpectedValueDisplay(tooltipElement, evData, isCollectionTooltip = false) {
         // Find the tooltip text container
-        const tooltipText = tooltipElement.querySelector('.ItemTooltipText_itemTooltipText__zFq3A');
+        const tooltipText = isCollectionTooltip
+            ? tooltipElement.querySelector('.Collection_tooltipContent__2IcSJ')
+            : tooltipElement.querySelector('.ItemTooltipText_itemTooltipText__zFq3A');
 
         if (!tooltipText) {
             return;
