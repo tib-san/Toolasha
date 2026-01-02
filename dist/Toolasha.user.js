@@ -11601,6 +11601,84 @@
         }
 
         /**
+         * Get total efficiency percentage for current action
+         * @param {Object} actionDetails - Action details
+         * @param {Object} gameData - Game data
+         * @returns {number} Total efficiency percentage
+         */
+        getTotalEfficiency(actionDetails, gameData) {
+            const equipment = dataManager.getEquipment();
+            const skills = dataManager.getSkills();
+            const itemDetailMap = gameData?.itemDetailMap || {};
+
+            // Calculate all efficiency components (reuse existing logic)
+            const skillLevel = this.getSkillLevel(skills, actionDetails.type);
+            const baseRequirement = actionDetails.levelRequirement?.level || 1;
+
+            const drinkConcentration = getDrinkConcentration(equipment, itemDetailMap);
+            const activeDrinks = dataManager.getActionDrinkSlots(actionDetails.type);
+
+            const actionLevelBonus = parseActionLevelBonus(activeDrinks, itemDetailMap, drinkConcentration);
+            const effectiveRequirement = baseRequirement + Math.floor(actionLevelBonus);
+
+            const levelEfficiency = Math.max(0, skillLevel - effectiveRequirement);
+            const houseEfficiency = calculateHouseEfficiency(actionDetails.type);
+            const equipmentEfficiency = parseEquipmentEfficiencyBonuses(equipment, actionDetails.type, itemDetailMap);
+
+            const teaBreakdown = parseTeaEfficiencyBreakdown(actionDetails.type, activeDrinks, itemDetailMap, drinkConcentration);
+            const teaEfficiency = teaBreakdown.reduce((sum, tea) => sum + tea.efficiency, 0);
+
+            const communityBuffLevel = dataManager.getCommunityBuffLevel('/community_buff_types/production_efficiency');
+            const communityEfficiency = communityBuffLevel ? (0.14 + ((communityBuffLevel - 1) * 0.003)) * 100 : 0;
+
+            return stackAdditive(levelEfficiency, houseEfficiency, equipmentEfficiency, teaEfficiency, communityEfficiency);
+        }
+
+        /**
+         * Calculate actions and time needed to reach target level
+         * Accounts for progressive efficiency gains (+1% per level)
+         * @param {number} currentLevel - Current skill level
+         * @param {number} currentXP - Current experience points
+         * @param {number} targetLevel - Target skill level
+         * @param {number} baseEfficiency - Starting efficiency percentage
+         * @param {number} actionTime - Time per action in seconds
+         * @param {number} xpPerAction - Modified XP per action (with multipliers)
+         * @param {Object} levelExperienceTable - XP requirements per level
+         * @returns {Object} {actionsNeeded, timeNeeded}
+         */
+        calculateMultiLevelProgress(currentLevel, currentXP, targetLevel, baseEfficiency, actionTime, xpPerAction, levelExperienceTable) {
+            let totalActions = 0;
+            let totalTime = 0;
+
+            for (let level = currentLevel; level < targetLevel; level++) {
+                // Calculate XP needed for this level
+                let xpNeeded;
+                if (level === currentLevel) {
+                    // First level: Account for current progress
+                    xpNeeded = levelExperienceTable[level + 1] - currentXP;
+                } else {
+                    // Subsequent levels: Full level requirement
+                    xpNeeded = levelExperienceTable[level + 1] - levelExperienceTable[level];
+                }
+
+                // Progressive efficiency: +1% per level gained during grind
+                const levelsGained = level - currentLevel;
+                const progressiveEfficiency = baseEfficiency + levelsGained;
+                const efficiencyMultiplier = 1 + (progressiveEfficiency / 100);
+
+                // Calculate actions needed for this level
+                const actionsForLevel = Math.ceil(xpNeeded / xpPerAction);
+                totalActions += actionsForLevel;
+
+                // Time accounts for efficiency (more actions per hour = less time)
+                // Efficiency doesn't reduce action time, but we do more actions per time unit
+                totalTime += (actionsForLevel / efficiencyMultiplier) * actionTime;
+            }
+
+            return { actionsNeeded: totalActions, timeNeeded: totalTime };
+        }
+
+        /**
          * Create level progress section
          * @param {Object} actionDetails - Action details from game data
          * @param {number} actionTime - Time per action in seconds
@@ -11728,15 +11806,84 @@
                     }
                 }
 
+                // Get base efficiency for this action
+                const baseEfficiency = this.getTotalEfficiency(actionDetails, gameData);
+
                 lines.push('');
-                lines.push(`Actions to level: ${formatWithSeparator(actionsNeeded)} actions`);
-                lines.push(`Time to level: ${timeReadable(timeNeeded)}`);
+
+                // Single level progress (always shown)
+                const singleLevel = this.calculateMultiLevelProgress(
+                    currentLevel, currentXP, nextLevel,
+                    baseEfficiency, actionTime, modifiedXP, levelExperienceTable
+                );
+
+                lines.push(`<span style="font-weight: 500; color: var(--text-color-primary, #fff);">To Level ${nextLevel}:</span>`);
+                lines.push(`  Actions: ${formatWithSeparator(singleLevel.actionsNeeded)}`);
+                lines.push(`  Time: ${timeReadable(singleLevel.timeNeeded)}`);
+
+                lines.push('');
+
+                // Multi-level calculator (interactive section)
+                lines.push(`<span style="font-weight: 500; color: var(--text-color-primary, #fff);">Target Level Calculator:</span>`);
+                lines.push(`<div style="margin-top: 4px;">
+                <span>To level </span>
+                <input
+                    type="number"
+                    id="mwi-target-level-input"
+                    value="${nextLevel}"
+                    min="${nextLevel}"
+                    max="200"
+                    style="
+                        width: 50px;
+                        padding: 2px 4px;
+                        background: var(--background-secondary, #2a2a2a);
+                        color: var(--text-color-primary, #fff);
+                        border: 1px solid var(--border-color, #444);
+                        border-radius: 3px;
+                        font-size: 0.9em;
+                    "
+                >
+                <span>:</span>
+            </div>`);
+
+                // Dynamic result line (will be updated by JS)
+                lines.push(`<div id="mwi-target-level-result" style="margin-top: 4px; margin-left: 8px;">
+                ${formatWithSeparator(singleLevel.actionsNeeded)} actions | ${timeReadable(singleLevel.timeNeeded)}
+            </div>`);
+
+                lines.push('');
                 lines.push(`XP/hour: ${formatWithSeparator(Math.round(xpPerHour))} | XP/day: ${formatWithSeparator(Math.round(xpPerDay))}`);
 
                 content.innerHTML = lines.join('<br>');
 
+                // Set up event listeners for interactive calculator
+                const targetLevelInput = content.querySelector('#mwi-target-level-input');
+                const targetLevelResult = content.querySelector('#mwi-target-level-result');
+
+                const updateTargetLevel = () => {
+                    const targetLevel = parseInt(targetLevelInput.value);
+
+                    if (targetLevel > currentLevel && targetLevel <= 200) {
+                        const result = this.calculateMultiLevelProgress(
+                            currentLevel, currentXP, targetLevel,
+                            baseEfficiency, actionTime, modifiedXP, levelExperienceTable
+                        );
+
+                        targetLevelResult.innerHTML = `
+                        ${formatWithSeparator(result.actionsNeeded)} actions | ${timeReadable(result.timeNeeded)}
+                    `;
+                        targetLevelResult.style.color = 'var(--text-color-primary, #fff)';
+                    } else {
+                        targetLevelResult.textContent = 'Invalid level';
+                        targetLevelResult.style.color = 'var(--color-error, #ff4444)';
+                    }
+                };
+
+                targetLevelInput.addEventListener('input', updateTargetLevel);
+                targetLevelInput.addEventListener('change', updateTargetLevel);
+
                 // Create summary for collapsed view (time to next level)
-                const summary = `${timeReadable(timeNeeded)} to Level ${nextLevel}`;
+                const summary = `${timeReadable(singleLevel.timeNeeded)} to Level ${nextLevel}`;
 
                 // Create collapsible section
                 return createCollapsibleSection(
