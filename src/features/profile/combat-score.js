@@ -7,6 +7,8 @@ import config from '../../core/config.js';
 import webSocketHook from '../../core/websocket.js';
 import { calculateCombatScore } from './score-calculator.js';
 import { numberFormatter } from '../../utils/formatters.js';
+import { constructExportObject } from '../combat/combat-sim-export.js';
+import { constructMilkonomyExport } from '../combat/milkonomy-export.js';
 
 /**
  * CombatScore class manages combat score display on profiles
@@ -172,6 +174,30 @@ class CombatScore {
                     ${equipmentBreakdownHTML}
                 </div>
             </div>
+            <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px;">
+                <button id="mwi-combat-sim-export-btn" style="
+                    padding: 8px 12px;
+                    background: ${config.SCRIPT_COLOR_MAIN};
+                    color: black;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-weight: bold;
+                    font-size: 0.85rem;
+                    width: 100%;
+                ">Combat Sim Export</button>
+                <button id="mwi-milkonomy-export-btn" style="
+                    padding: 8px 12px;
+                    background: ${config.SCRIPT_COLOR_MAIN};
+                    color: black;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-weight: bold;
+                    font-size: 0.85rem;
+                    width: 100%;
+                ">Milkonomy Export</button>
+            </div>
         `;
 
         document.body.appendChild(panel);
@@ -282,6 +308,34 @@ class CombatScore {
                     `Equipment: ${numberFormatter(scoreData.equipment.toFixed(1))}`;
             });
         }
+
+        // Combat Sim Export button
+        const combatSimBtn = panel.querySelector('#mwi-combat-sim-export-btn');
+        if (combatSimBtn) {
+            combatSimBtn.addEventListener('click', async () => {
+                await this.handleCombatSimExport(combatSimBtn);
+            });
+            combatSimBtn.addEventListener('mouseenter', () => {
+                combatSimBtn.style.opacity = '0.8';
+            });
+            combatSimBtn.addEventListener('mouseleave', () => {
+                combatSimBtn.style.opacity = '1';
+            });
+        }
+
+        // Milkonomy Export button
+        const milkonomyBtn = panel.querySelector('#mwi-milkonomy-export-btn');
+        if (milkonomyBtn) {
+            milkonomyBtn.addEventListener('click', async () => {
+                await this.handleMilkonomyExport(milkonomyBtn);
+            });
+            milkonomyBtn.addEventListener('mouseenter', () => {
+                milkonomyBtn.style.opacity = '0.8';
+            });
+            milkonomyBtn.addEventListener('mouseleave', () => {
+                milkonomyBtn.style.opacity = '1';
+            });
+        }
     }
 
     /**
@@ -308,6 +362,88 @@ class CombatScore {
             childList: true,
             subtree: true
         });
+    }
+
+    /**
+     * Handle Combat Sim Export button click
+     * @param {Element} button - Button element
+     */
+    async handleCombatSimExport(button) {
+        const originalText = button.textContent;
+        const originalBg = button.style.background;
+
+        try {
+            const exportData = constructExportObject();
+            if (!exportData) {
+                button.textContent = '✗ No Data';
+                button.style.background = '#dc3545';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.background = originalBg;
+                }, 3000);
+                return;
+            }
+
+            const exportString = JSON.stringify(exportData.exportObj);
+            await navigator.clipboard.writeText(exportString);
+
+            button.textContent = '✓ Copied';
+            button.style.background = '#28a745';
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.style.background = originalBg;
+            }, 3000);
+
+        } catch (error) {
+            console.error('[Combat Score] Combat Sim export failed:', error);
+            button.textContent = '✗ Failed';
+            button.style.background = '#dc3545';
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.style.background = originalBg;
+            }, 3000);
+        }
+    }
+
+    /**
+     * Handle Milkonomy Export button click
+     * @param {Element} button - Button element
+     */
+    async handleMilkonomyExport(button) {
+        const originalText = button.textContent;
+        const originalBg = button.style.background;
+
+        try {
+            const exportData = constructMilkonomyExport();
+            if (!exportData) {
+                button.textContent = '✗ No Data';
+                button.style.background = '#dc3545';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.background = originalBg;
+                }, 3000);
+                return;
+            }
+
+            const exportString = JSON.stringify(exportData);
+            await navigator.clipboard.writeText(exportString);
+
+            button.textContent = '✓ Copied';
+            button.style.background = '#28a745';
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.style.background = originalBg;
+            }, 3000);
+
+        } catch (error) {
+            console.error('[Combat Score] Milkonomy export failed:', error);
+            button.textContent = '✗ Failed';
+            button.style.background = '#dc3545';
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.style.background = originalBg;
+            }, 3000);
+        }
     }
 
     /**
