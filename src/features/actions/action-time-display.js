@@ -175,6 +175,13 @@ class ActionTimeDisplay {
             return;
         }
 
+        // Override game's CSS to prevent text truncation
+        actionNameContainer.style.cssText = `
+            overflow: visible !important;
+            text-overflow: clip !important;
+            white-space: normal !important;
+        `;
+
         // Create display element
         this.displayElement = document.createElement('div');
         this.displayElement.id = 'mwi-action-time-display';

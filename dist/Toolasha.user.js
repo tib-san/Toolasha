@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.841
+// @version      0.4.842
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -9871,6 +9871,13 @@
             if (!actionNameContainer) {
                 return;
             }
+
+            // Override game's CSS to prevent text truncation
+            actionNameContainer.style.cssText = `
+            overflow: visible !important;
+            text-overflow: clip !important;
+            white-space: normal !important;
+        `;
 
             // Create display element
             this.displayElement = document.createElement('div');
@@ -23506,7 +23513,7 @@
         const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
         targetWindow.Toolasha = {
-            version: '0.4.841',
+            version: '0.4.842',
 
             // Feature toggle API (for users to manage settings via console)
             features: {
