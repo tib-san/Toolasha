@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.839
+// @version      0.4.840
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -9902,10 +9902,18 @@
             // Get current action - read from game UI which is always correct
             // The game updates the DOM immediately when actions change
             const actionNameElement = document.querySelector('div.Header_actionName__31-L2');
+
+            // CRITICAL: Disconnect observer before making changes to prevent infinite loop
+            if (this.actionNameObserver) {
+                this.actionNameObserver.disconnect();
+            }
+
             if (!actionNameElement || !actionNameElement.textContent) {
                 this.displayElement.innerHTML = '';
                 // Clear any appended stats from the game's div
                 this.clearAppendedStats(actionNameElement);
+                // Reconnect observer
+                this.reconnectActionNameObserver(actionNameElement);
                 return;
             }
 
@@ -9958,11 +9966,15 @@
 
             if (!action) {
                 this.displayElement.innerHTML = '';
+                // Reconnect observer
+                this.reconnectActionNameObserver(actionNameElement);
                 return;
             }
 
             const actionDetails = dataManager.getActionDetails(action.actionHrid);
             if (!actionDetails) {
+                // Reconnect observer
+                this.reconnectActionNameObserver(actionNameElement);
                 return;
             }
 
@@ -10113,6 +10125,25 @@
             } else {
                 this.displayElement.innerHTML = '';
             }
+
+            // Reconnect observer to watch for game's updates
+            this.reconnectActionNameObserver(actionNameElement);
+        }
+
+        /**
+         * Reconnect action name observer after making our changes
+         * @param {HTMLElement} actionNameElement - Action name element
+         */
+        reconnectActionNameObserver(actionNameElement) {
+            if (!actionNameElement || !this.actionNameObserver) {
+                return;
+            }
+
+            this.actionNameObserver.observe(actionNameElement, {
+                childList: true,
+                characterData: true,
+                subtree: true
+            });
         }
 
         /**
@@ -23466,7 +23497,7 @@
         const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
         targetWindow.Toolasha = {
-            version: '0.4.839',
+            version: '0.4.840',
 
             // Feature toggle API (for users to manage settings via console)
             features: {

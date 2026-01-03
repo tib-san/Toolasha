@@ -205,10 +205,18 @@ class ActionTimeDisplay {
         // Get current action - read from game UI which is always correct
         // The game updates the DOM immediately when actions change
         const actionNameElement = document.querySelector('div.Header_actionName__31-L2');
+
+        // CRITICAL: Disconnect observer before making changes to prevent infinite loop
+        if (this.actionNameObserver) {
+            this.actionNameObserver.disconnect();
+        }
+
         if (!actionNameElement || !actionNameElement.textContent) {
             this.displayElement.innerHTML = '';
             // Clear any appended stats from the game's div
             this.clearAppendedStats(actionNameElement);
+            // Reconnect observer
+            this.reconnectActionNameObserver(actionNameElement);
             return;
         }
 
@@ -261,11 +269,15 @@ class ActionTimeDisplay {
 
         if (!action) {
             this.displayElement.innerHTML = '';
+            // Reconnect observer
+            this.reconnectActionNameObserver(actionNameElement);
             return;
         }
 
         const actionDetails = dataManager.getActionDetails(action.actionHrid);
         if (!actionDetails) {
+            // Reconnect observer
+            this.reconnectActionNameObserver(actionNameElement);
             return;
         }
 
@@ -416,6 +428,25 @@ class ActionTimeDisplay {
         } else {
             this.displayElement.innerHTML = '';
         }
+
+        // Reconnect observer to watch for game's updates
+        this.reconnectActionNameObserver(actionNameElement);
+    }
+
+    /**
+     * Reconnect action name observer after making our changes
+     * @param {HTMLElement} actionNameElement - Action name element
+     */
+    reconnectActionNameObserver(actionNameElement) {
+        if (!actionNameElement || !this.actionNameObserver) {
+            return;
+        }
+
+        this.actionNameObserver.observe(actionNameElement, {
+            childList: true,
+            characterData: true,
+            subtree: true
+        });
     }
 
     /**
