@@ -43,7 +43,7 @@ export async function displayGatheringProfit(panel, actionHrid, dropTableSelecto
 
     // Revenue Section
     const revenueDiv = document.createElement('div');
-    revenueDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, #fff); margin-bottom: 4px;">Revenue: ${formatWithSeparator(revenue)}/hr</div>`;
+    revenueDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY}); margin-bottom: 4px;">Revenue: ${formatWithSeparator(revenue)}/hr</div>`;
 
     // Base Output subsection
     const baseOutputContent = document.createElement('div');
@@ -138,7 +138,7 @@ export async function displayGatheringProfit(panel, actionHrid, dropTableSelecto
 
     // Costs Section
     const costsDiv = document.createElement('div');
-    costsDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, #fff); margin-top: 12px; margin-bottom: 4px;">Costs: ${formatWithSeparator(costs)}/hr</div>`;
+    costsDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY}); margin-top: 12px; margin-bottom: 4px;">Costs: ${formatWithSeparator(costs)}/hr</div>`;
 
     // Drink Costs subsection
     const drinkCostsContent = document.createElement('div');
@@ -167,7 +167,7 @@ export async function displayGatheringProfit(panel, actionHrid, dropTableSelecto
     const modifiersDiv = document.createElement('div');
     modifiersDiv.style.cssText = `
         margin-top: 12px;
-        color: var(--text-color-secondary, #888);
+        color: var(--text-color-secondary, ${config.COLOR_TEXT_SECONDARY});
     `;
 
     const modifierLines = [];
@@ -191,7 +191,7 @@ export async function displayGatheringProfit(panel, actionHrid, dropTableSelecto
     }
 
     if (effParts.length > 0) {
-        modifierLines.push(`<div style="font-weight: 500; color: var(--text-color-primary, #fff);">Modifiers:</div>`);
+        modifierLines.push(`<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY});">Modifiers:</div>`);
         modifierLines.push(`<div style="margin-left: 8px;">• Efficiency: +${profitData.totalEfficiency.toFixed(1)}% (${effParts.join(', ')})</div>`);
     }
 
@@ -221,7 +221,7 @@ export async function displayGatheringProfit(panel, actionHrid, dropTableSelecto
     `;
 
     // Add Net Profit line at top level (always visible when Profitability is expanded)
-    const profitColor = profit >= 0 ? '#4ade80' : '#f87171'; // green if positive, red if negative
+    const profitColor = profit >= 0 ? '#4ade80' : '${config.COLOR_LOSS}'; // green if positive, red if negative
     const netProfitLine = document.createElement('div');
     netProfitLine.style.cssText = `
         font-weight: 500;
@@ -322,7 +322,7 @@ export async function displayProductionProfit(panel, actionHrid, dropTableSelect
 
     // Revenue Section
     const revenueDiv = document.createElement('div');
-    revenueDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, #fff); margin-bottom: 4px;">Revenue: ${formatWithSeparator(revenue)}/hr</div>`;
+    revenueDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY}); margin-bottom: 4px;">Revenue: ${formatWithSeparator(revenue)}/hr</div>`;
 
     // Base Output subsection
     const baseOutputContent = document.createElement('div');
@@ -428,7 +428,7 @@ export async function displayProductionProfit(panel, actionHrid, dropTableSelect
 
     // Costs Section
     const costsDiv = document.createElement('div');
-    costsDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, #fff); margin-top: 12px; margin-bottom: 4px;">Costs: ${formatWithSeparator(costs)}/hr</div>`;
+    costsDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY}); margin-top: 12px; margin-bottom: 4px;">Costs: ${formatWithSeparator(costs)}/hr</div>`;
 
     // Material Costs subsection
     const materialCostsContent = document.createElement('div');
@@ -494,21 +494,21 @@ export async function displayProductionProfit(panel, actionHrid, dropTableSelect
     const modifiersDiv = document.createElement('div');
     modifiersDiv.style.cssText = `
         margin-top: 12px;
-        color: var(--text-color-secondary, #888);
+        color: var(--text-color-secondary, ${config.COLOR_TEXT_SECONDARY});
     `;
 
     const modifierLines = [];
 
     // Artisan Bonus (still shown here for reference, also embedded in materials)
     if (profitData.artisanBonus > 0) {
-        modifierLines.push(`<div style="font-weight: 500; color: var(--text-color-primary, #fff);">Modifiers:</div>`);
+        modifierLines.push(`<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY});">Modifiers:</div>`);
         modifierLines.push(`<div style="margin-left: 8px;">• Artisan: -${(profitData.artisanBonus * 100).toFixed(1)}% material requirement</div>`);
     }
 
     // Gourmet Bonus
     if (profitData.gourmetBonus > 0) {
         if (modifierLines.length === 0) {
-            modifierLines.push(`<div style="font-weight: 500; color: var(--text-color-primary, #fff);">Modifiers:</div>`);
+            modifierLines.push(`<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY});">Modifiers:</div>`);
         }
         modifierLines.push(`<div style="margin-left: 8px;">• Gourmet: +${(profitData.gourmetBonus * 100).toFixed(1)}% bonus items</div>`);
     }
@@ -529,7 +529,7 @@ export async function displayProductionProfit(panel, actionHrid, dropTableSelect
     `;
 
     // Add Net Profit line at top level (always visible when Profitability is expanded)
-    const profitColor = profit >= 0 ? '#4ade80' : '#f87171'; // green if positive, red if negative
+    const profitColor = profit >= 0 ? '#4ade80' : '${config.COLOR_LOSS}'; // green if positive, red if negative
     const netProfitLine = document.createElement('div');
     netProfitLine.style.cssText = `
         font-weight: 500;

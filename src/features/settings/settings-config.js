@@ -410,6 +410,76 @@ export const settingsGroups = {
                 help: 'Only works when the game page is open'
             }
         }
+    },
+
+    colors: {
+        title: 'Color Customization',
+        icon: '🎨',
+        settings: {
+            color_profit: {
+                id: 'color_profit',
+                label: 'Profit/Positive Values',
+                type: 'color',
+                default: '#047857',
+                help: 'Color used for profit, gains, and positive values'
+            },
+            color_loss: {
+                id: 'color_loss',
+                label: 'Loss/Negative Values',
+                type: 'color',
+                default: '#f87171',
+                help: 'Color used for losses, costs, and negative values'
+            },
+            color_warning: {
+                id: 'color_warning',
+                label: 'Warnings',
+                type: 'color',
+                default: '#ffa500',
+                help: 'Color used for warnings and important notices'
+            },
+            color_info: {
+                id: 'color_info',
+                label: 'Informational',
+                type: 'color',
+                default: '#60a5fa',
+                help: 'Color used for informational text and highlights'
+            },
+            color_text_primary: {
+                id: 'color_text_primary',
+                label: 'Primary Text',
+                type: 'color',
+                default: '#ffffff',
+                help: 'Main text color'
+            },
+            color_text_secondary: {
+                id: 'color_text_secondary',
+                label: 'Secondary Text',
+                type: 'color',
+                default: '#888888',
+                help: 'Dimmed/secondary text color'
+            },
+            color_border: {
+                id: 'color_border',
+                label: 'Borders',
+                type: 'color',
+                default: '#444444',
+                help: 'Border and separator color'
+            },
+            color_gold: {
+                id: 'color_gold',
+                label: 'Gold/Currency',
+                type: 'color',
+                default: '#ffa500',
+                help: 'Color used for gold and currency displays'
+            },
+            color_accent: {
+                id: 'color_accent',
+                label: 'Script Accent Color',
+                type: 'color',
+                default: '#22c55e',
+                help: 'Primary accent color for script UI elements (buttons, headers, zone numbers, XP percentages, etc.)'
+            }
+        }
     }
 };
 

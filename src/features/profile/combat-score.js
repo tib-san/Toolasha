@@ -124,17 +124,17 @@ class CombatScore {
 
         // Build house breakdown HTML
         const houseBreakdownHTML = scoreData.breakdown.houses.map(item =>
-            `<div style="margin-left: 10px; font-size: 0.8rem; color: #bbb;">${item.name}: ${numberFormatter(item.value)}</div>`
+            `<div style="margin-left: 10px; font-size: 0.8rem; color: ${config.COLOR_TEXT_SECONDARY};">${item.name}: ${numberFormatter(item.value)}</div>`
         ).join('');
 
         // Build ability breakdown HTML
         const abilityBreakdownHTML = scoreData.breakdown.abilities.map(item =>
-            `<div style="margin-left: 10px; font-size: 0.8rem; color: #bbb;">${item.name}: ${numberFormatter(item.value)}</div>`
+            `<div style="margin-left: 10px; font-size: 0.8rem; color: ${config.COLOR_TEXT_SECONDARY};">${item.name}: ${numberFormatter(item.value)}</div>`
         ).join('');
 
         // Build equipment breakdown HTML
         const equipmentBreakdownHTML = scoreData.breakdown.equipment.map(item =>
-            `<div style="margin-left: 10px; font-size: 0.8rem; color: #bbb;">${item.name}: ${numberFormatter(item.value)}</div>`
+            `<div style="margin-left: 10px; font-size: 0.8rem; color: ${config.COLOR_TEXT_SECONDARY};">${item.name}: ${numberFormatter(item.value)}</div>`
         ).join('');
 
         // Create panel HTML
@@ -149,10 +149,10 @@ class CombatScore {
                     line-height: 1;
                 " title="Close">×</span>
             </div>
-            <div style="cursor: pointer; font-weight: bold; margin-bottom: 8px; color: #4CAF50;" id="mwi-score-toggle">
+            <div style="cursor: pointer; font-weight: bold; margin-bottom: 8px; color: ${config.COLOR_PROFIT};" id="mwi-score-toggle">
                 + Combat Score: ${numberFormatter(scoreData.total.toFixed(1))}${equipmentHiddenText}
             </div>
-            <div id="mwi-score-details" style="display: none; margin-left: 10px; color: #ddd;">
+            <div id="mwi-score-details" style="display: none; margin-left: 10px; color: ${config.COLOR_TEXT_PRIMARY};">
                 <div style="cursor: pointer; margin-bottom: 4px;" id="mwi-house-toggle">
                     + House: ${numberFormatter(scoreData.house.toFixed(1))}
                 </div>
@@ -376,7 +376,7 @@ class CombatScore {
             const exportData = constructExportObject();
             if (!exportData) {
                 button.textContent = '✗ No Data';
-                button.style.background = '#dc3545';
+                button.style.background = '${config.COLOR_LOSS}';
                 setTimeout(() => {
                     button.textContent = originalText;
                     button.style.background = originalBg;
@@ -388,7 +388,7 @@ class CombatScore {
             await navigator.clipboard.writeText(exportString);
 
             button.textContent = '✓ Copied';
-            button.style.background = '#28a745';
+            button.style.background = '${config.COLOR_PROFIT}';
             setTimeout(() => {
                 button.textContent = originalText;
                 button.style.background = originalBg;
@@ -397,7 +397,7 @@ class CombatScore {
         } catch (error) {
             console.error('[Combat Score] Combat Sim export failed:', error);
             button.textContent = '✗ Failed';
-            button.style.background = '#dc3545';
+            button.style.background = '${config.COLOR_LOSS}';
             setTimeout(() => {
                 button.textContent = originalText;
                 button.style.background = originalBg;
@@ -417,7 +417,7 @@ class CombatScore {
             const exportData = constructMilkonomyExport();
             if (!exportData) {
                 button.textContent = '✗ No Data';
-                button.style.background = '#dc3545';
+                button.style.background = '${config.COLOR_LOSS}';
                 setTimeout(() => {
                     button.textContent = originalText;
                     button.style.background = originalBg;
@@ -429,7 +429,7 @@ class CombatScore {
             await navigator.clipboard.writeText(exportString);
 
             button.textContent = '✓ Copied';
-            button.style.background = '#28a745';
+            button.style.background = '${config.COLOR_PROFIT}';
             setTimeout(() => {
                 button.textContent = originalText;
                 button.style.background = originalBg;
@@ -438,7 +438,7 @@ class CombatScore {
         } catch (error) {
             console.error('[Combat Score] Milkonomy export failed:', error);
             button.textContent = '✗ Failed';
-            button.style.background = '#dc3545';
+            button.style.background = '${config.COLOR_LOSS}';
             setTimeout(() => {
                 button.textContent = originalText;
                 button.style.background = originalBg;

@@ -222,7 +222,7 @@ class InventorySort {
                 button.style.fontWeight = 'bold';
             } else {
                 button.style.backgroundColor = '#444';
-                button.style.color = '#ccc';
+                button.style.color = '${config.COLOR_TEXT_SECONDARY}';
                 button.style.fontWeight = 'normal';
             }
         });

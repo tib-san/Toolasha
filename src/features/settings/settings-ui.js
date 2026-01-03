@@ -538,6 +538,24 @@ class SettingsUI {
                 `;
             }
 
+            case 'color': {
+                const value = currentSetting?.value ?? settingDef.value ?? settingDef.default ?? '#000000';
+                return `
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <input type="color"
+                            id="${settingId}"
+                            class="toolasha-color-input"
+                            value="${value}">
+                        <input type="text"
+                            id="${settingId}_text"
+                            class="toolasha-color-text-input"
+                            value="${value}"
+                            style="width: 80px; padding: 4px; background: #2a2a2a; color: white; border: 1px solid #555; border-radius: 3px;"
+                            readonly>
+                    </div>
+                `;
+            }
+
             default:
                 return `<span style="color: red;">Unknown type: ${type}</span>`;
         }
@@ -663,6 +681,13 @@ class SettingsUI {
             value = input.checked;
         } else if (type === 'number') {
             value = parseFloat(input.value) || 0;
+        } else if (type === 'color') {
+            value = input.value;
+            // Update the text display
+            const textInput = document.getElementById(`${settingId}_text`);
+            if (textInput) {
+                textInput.value = value;
+            }
         } else {
             value = input.value;
         }
@@ -675,6 +700,11 @@ class SettingsUI {
             this.config.setSetting(settingId, value);
         } else {
             this.config.setSettingValue(settingId, value);
+        }
+
+        // Apply color settings immediately if this is a color setting
+        if (type === 'color') {
+            this.config.applyColorSettings();
         }
 
         // Update dependencies

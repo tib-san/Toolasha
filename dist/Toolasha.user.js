@@ -310,6 +310,657 @@
     const storage = new Storage();
 
     /**
+     * Settings Configuration
+     * Organizes all script settings into logical groups for the settings UI
+     */
+
+    const settingsGroups = {
+        general: {
+            title: 'General Settings',
+            icon: '⚙️',
+            settings: {
+                networkAlert: {
+                    id: 'networkAlert',
+                    label: 'Show alert when market price data cannot be fetched',
+                    type: 'checkbox',
+                    default: true
+                }
+            }
+        },
+
+        actionPanel: {
+            title: 'Action Panel Enhancements',
+            icon: '⚡',
+            settings: {
+                totalActionTime: {
+                    id: 'totalActionTime',
+                    label: 'Top left: Estimated total time and completion time',
+                    type: 'checkbox',
+                    default: true
+                },
+                actionPanel_totalTime: {
+                    id: 'actionPanel_totalTime',
+                    label: 'Action panel: Total time, times to reach target level, exp/hour',
+                    type: 'checkbox',
+                    default: true
+                },
+                actionPanel_totalTime_quickInputs: {
+                    id: 'actionPanel_totalTime_quickInputs',
+                    label: 'Action panel: Quick input buttons (hours, count presets, Max)',
+                    type: 'checkbox',
+                    default: true,
+                    dependencies: ['actionPanel_totalTime']
+                },
+                actionPanel_foragingTotal: {
+                    id: 'actionPanel_foragingTotal',
+                    label: 'Action panel: Overall profit for multi-outcome foraging',
+                    type: 'checkbox',
+                    default: true,
+                    dependencies: ['actionPanel_totalTime']
+                },
+                actionQueue: {
+                    id: 'actionQueue',
+                    label: 'Queued actions: Show total time and completion time',
+                    type: 'checkbox',
+                    default: true
+                }
+            }
+        },
+
+        tooltips: {
+            title: 'Item Tooltip Enhancements',
+            icon: '💬',
+            settings: {
+                itemTooltip_prices: {
+                    id: 'itemTooltip_prices',
+                    label: 'Show 24-hour average market prices',
+                    type: 'checkbox',
+                    default: true
+                },
+                itemTooltip_profit: {
+                    id: 'itemTooltip_profit',
+                    label: 'Show production cost and profit',
+                    type: 'checkbox',
+                    default: true,
+                    dependencies: ['itemTooltip_prices']
+                },
+                itemTooltip_expectedValue: {
+                    id: 'itemTooltip_expectedValue',
+                    label: 'Show expected value for openable containers',
+                    type: 'checkbox',
+                    default: true,
+                    dependencies: ['itemTooltip_prices']
+                },
+                expectedValue_showDrops: {
+                    id: 'expectedValue_showDrops',
+                    label: 'Expected value drop display',
+                    type: 'select',
+                    default: 'All',
+                    options: [
+                        { value: 'Top 5', label: 'Top 5' },
+                        { value: 'Top 10', label: 'Top 10' },
+                        { value: 'All', label: 'All Drops' },
+                        { value: 'None', label: 'Summary Only' }
+                    ],
+                    dependencies: ['itemTooltip_expectedValue']
+                },
+                expectedValue_respectPricingMode: {
+                    id: 'expectedValue_respectPricingMode',
+                    label: 'Use pricing mode for expected value calculations',
+                    type: 'checkbox',
+                    default: true,
+                    dependencies: ['itemTooltip_expectedValue']
+                },
+                showConsumTips: {
+                    id: 'showConsumTips',
+                    label: 'HP/MP consumables: Restore speed, cost performance',
+                    type: 'checkbox',
+                    default: true
+                },
+                enhanceSim: {
+                    id: 'enhanceSim',
+                    label: 'Show enhancement simulator calculations',
+                    type: 'checkbox',
+                    default: true
+                }
+            }
+        },
+
+        enhancementSimulator: {
+            title: 'Enhancement Simulator Settings',
+            icon: '✨',
+            settings: {
+                enhanceSim_autoDetect: {
+                    id: 'enhanceSim_autoDetect',
+                    label: 'Auto-detect your stats (false = use market defaults)',
+                    type: 'checkbox',
+                    default: false,
+                    help: 'Most players should use market defaults to see realistic professional enhancer costs'
+                },
+                enhanceSim_enhancingLevel: {
+                    id: 'enhanceSim_enhancingLevel',
+                    label: 'Enhancing skill level',
+                    type: 'number',
+                    default: 125,
+                    min: 1,
+                    max: 150,
+                    help: 'Default: 125 (professional enhancer level)'
+                },
+                enhanceSim_houseLevel: {
+                    id: 'enhanceSim_houseLevel',
+                    label: 'Observatory house room level',
+                    type: 'number',
+                    default: 6,
+                    min: 0,
+                    max: 8,
+                    help: 'Default: 6 (realistic market level)'
+                },
+                enhanceSim_toolBonus: {
+                    id: 'enhanceSim_toolBonus',
+                    label: 'Tool success bonus %',
+                    type: 'number',
+                    default: 5.42,
+                    min: 0,
+                    max: 30,
+                    step: 0.01,
+                    help: 'Default: 5.42 (Celestial Enhancer +10)'
+                },
+                enhanceSim_speedBonus: {
+                    id: 'enhanceSim_speedBonus',
+                    label: 'Speed bonus %',
+                    type: 'number',
+                    default: 0,
+                    min: 0,
+                    max: 50,
+                    step: 0.01,
+                    help: 'Default: 0 (not critical for cost calculations)'
+                },
+                enhanceSim_blessedTea: {
+                    id: 'enhanceSim_blessedTea',
+                    label: 'Blessed Tea active',
+                    type: 'checkbox',
+                    default: true,
+                    help: 'Professional enhancers use this to reduce attempts'
+                },
+                enhanceSim_ultraEnhancingTea: {
+                    id: 'enhanceSim_ultraEnhancingTea',
+                    label: 'Ultra Enhancing Tea active',
+                    type: 'checkbox',
+                    default: true,
+                    help: 'Provides +8 base skill levels (scales with drink concentration)'
+                },
+                enhanceSim_superEnhancingTea: {
+                    id: 'enhanceSim_superEnhancingTea',
+                    label: 'Super Enhancing Tea active',
+                    type: 'checkbox',
+                    default: false,
+                    help: 'Provides +6 base skill levels (Ultra is better)'
+                },
+                enhanceSim_enhancingTea: {
+                    id: 'enhanceSim_enhancingTea',
+                    label: 'Enhancing Tea active',
+                    type: 'checkbox',
+                    default: false,
+                    help: 'Provides +3 base skill levels (Ultra is better)'
+                },
+                enhanceSim_drinkConcentration: {
+                    id: 'enhanceSim_drinkConcentration',
+                    label: 'Drink Concentration %',
+                    type: 'number',
+                    default: 10.32,
+                    min: 0,
+                    max: 20,
+                    step: 0.01,
+                    help: 'Default: 10.32 (Guzzling Pouch +10)'
+                }
+            }
+        },
+
+        enhancementTracker: {
+            title: 'Enhancement Tracker',
+            icon: '📊',
+            settings: {
+                enhancementTracker: {
+                    id: 'enhancementTracker',
+                    label: 'Enable Enhancement Tracker',
+                    type: 'checkbox',
+                    default: false,
+                    requiresRefresh: true,
+                    help: 'Track enhancement attempts, costs, and statistics'
+                },
+                enhancementTracker_showOnlyOnEnhancingScreen: {
+                    id: 'enhancementTracker_showOnlyOnEnhancingScreen',
+                    label: 'Show tracker only on Enhancing screen',
+                    type: 'checkbox',
+                    default: false,
+                    dependencies: ['enhancementTracker'],
+                    help: 'Hide tracker when not on the Enhancing screen'
+                }
+            }
+        },
+
+        economy: {
+            title: 'Economy & Inventory',
+            icon: '💰',
+            settings: {
+                networth: {
+                    id: 'networth',
+                    label: 'Top right: Show current assets (net worth)',
+                    type: 'checkbox',
+                    default: true,
+                    help: 'Enhanced items valued by enhancement simulator'
+                },
+                invWorth: {
+                    id: 'invWorth',
+                    label: 'Below inventory: Show inventory summary',
+                    type: 'checkbox',
+                    default: true,
+                    dependencies: ['networth']
+                },
+                invSort: {
+                    id: 'invSort',
+                    label: 'Sort inventory items by value',
+                    type: 'checkbox',
+                    default: true,
+                    dependencies: ['networth']
+                },
+                invSort_showBadges: {
+                    id: 'invSort_showBadges',
+                    label: 'Show stack value badges when sorting by Ask/Bid',
+                    type: 'checkbox',
+                    default: false,
+                    dependencies: ['invSort']
+                },
+                invSort_badgesOnNone: {
+                    id: 'invSort_badgesOnNone',
+                    label: 'Badge type when "None" sort is selected',
+                    type: 'select',
+                    default: 'None',
+                    options: ['None', 'Ask', 'Bid'],
+                    dependencies: ['invSort']
+                },
+                profitCalc_pricingMode: {
+                    id: 'profitCalc_pricingMode',
+                    label: 'Profit calculation pricing mode',
+                    type: 'select',
+                    default: 'hybrid',
+                    options: [
+                        { value: 'conservative', label: 'Conservative (Ask/Bid - instant trading)' },
+                        { value: 'hybrid', label: 'Hybrid (Ask/Ask - instant buy, patient sell)' },
+                        { value: 'optimistic', label: 'Optimistic (Bid/Ask - patient trading)' }
+                    ]
+                }
+            }
+        },
+
+        skills: {
+            title: 'Skills',
+            icon: '📚',
+            settings: {
+                skillbook: {
+                    id: 'skillbook',
+                    label: 'Skill books: Show books needed to reach target level',
+                    type: 'checkbox',
+                    default: true
+                }
+            }
+        },
+
+        combat: {
+            title: 'Combat Features',
+            icon: '⚔️',
+            settings: {
+                combatScore: {
+                    id: 'combatScore',
+                    label: 'Profile panel: Show gear score',
+                    type: 'checkbox',
+                    default: true
+                }
+            }
+        },
+
+        tasks: {
+            title: 'Tasks',
+            icon: '📋',
+            settings: {
+                taskProfitCalculator: {
+                    id: 'taskProfitCalculator',
+                    label: 'Show total profit for gathering/production tasks',
+                    type: 'checkbox',
+                    default: true
+                },
+                taskRerollTracker: {
+                    id: 'taskRerollTracker',
+                    label: 'Track task reroll costs',
+                    type: 'checkbox',
+                    default: true,
+                    requiresRefresh: true,
+                    help: 'Tracks how much gold/cowbells spent rerolling each task (EXPERIMENTAL - may cause UI freezing)'
+                },
+                taskMapIndex: {
+                    id: 'taskMapIndex',
+                    label: 'Show combat zone index numbers on tasks',
+                    type: 'checkbox',
+                    default: true
+                }
+            }
+        },
+
+        ui: {
+            title: 'UI Enhancements',
+            icon: '🎨',
+            settings: {
+                expPercentage: {
+                    id: 'expPercentage',
+                    label: 'Left sidebar: Show skill XP percentages',
+                    type: 'checkbox',
+                    default: true
+                },
+                itemIconLevel: {
+                    id: 'itemIconLevel',
+                    label: 'Bottom left corner of icons: Show equipment level',
+                    type: 'checkbox',
+                    default: true
+                },
+                showsKeyInfoInIcon: {
+                    id: 'showsKeyInfoInIcon',
+                    label: 'Bottom left corner of key icons: Show zone index',
+                    type: 'checkbox',
+                    default: true,
+                    dependencies: ['itemIconLevel']
+                },
+                mapIndex: {
+                    id: 'mapIndex',
+                    label: 'Combat zones: Show zone index numbers',
+                    type: 'checkbox',
+                    default: true
+                },
+                alchemyItemDimming: {
+                    id: 'alchemyItemDimming',
+                    label: 'Alchemy panel: Dim items requiring higher level',
+                    type: 'checkbox',
+                    default: true
+                },
+                marketFilter: {
+                    id: 'marketFilter',
+                    label: 'Marketplace: Filter by level, class, slot',
+                    type: 'checkbox',
+                    default: true
+                },
+                fillMarketOrderPrice: {
+                    id: 'fillMarketOrderPrice',
+                    label: 'Auto-fill marketplace orders with optimal price',
+                    type: 'checkbox',
+                    default: true
+                }
+            }
+        },
+
+        house: {
+            title: 'House',
+            icon: '🏠',
+            settings: {
+                houseUpgradeCosts: {
+                    id: 'houseUpgradeCosts',
+                    label: 'Show upgrade costs with market prices and inventory comparison',
+                    type: 'checkbox',
+                    default: true
+                }
+            }
+        },
+
+        notifications: {
+            title: 'Notifications',
+            icon: '🔔',
+            settings: {
+                notifiEmptyAction: {
+                    id: 'notifiEmptyAction',
+                    label: 'Browser notification when action queue is empty',
+                    type: 'checkbox',
+                    default: false,
+                    help: 'Only works when the game page is open'
+                }
+            }
+        },
+
+        colors: {
+            title: 'Color Customization',
+            icon: '🎨',
+            settings: {
+                color_profit: {
+                    id: 'color_profit',
+                    label: 'Profit/Positive Values',
+                    type: 'color',
+                    default: '#047857',
+                    help: 'Color used for profit, gains, and positive values'
+                },
+                color_loss: {
+                    id: 'color_loss',
+                    label: 'Loss/Negative Values',
+                    type: 'color',
+                    default: '#f87171',
+                    help: 'Color used for losses, costs, and negative values'
+                },
+                color_warning: {
+                    id: 'color_warning',
+                    label: 'Warnings',
+                    type: 'color',
+                    default: '#ffa500',
+                    help: 'Color used for warnings and important notices'
+                },
+                color_info: {
+                    id: 'color_info',
+                    label: 'Informational',
+                    type: 'color',
+                    default: '#60a5fa',
+                    help: 'Color used for informational text and highlights'
+                },
+                color_text_primary: {
+                    id: 'color_text_primary',
+                    label: 'Primary Text',
+                    type: 'color',
+                    default: '#ffffff',
+                    help: 'Main text color'
+                },
+                color_text_secondary: {
+                    id: 'color_text_secondary',
+                    label: 'Secondary Text',
+                    type: 'color',
+                    default: '#888888',
+                    help: 'Dimmed/secondary text color'
+                },
+                color_border: {
+                    id: 'color_border',
+                    label: 'Borders',
+                    type: 'color',
+                    default: '#444444',
+                    help: 'Border and separator color'
+                },
+                color_gold: {
+                    id: 'color_gold',
+                    label: 'Gold/Currency',
+                    type: 'color',
+                    default: '#ffa500',
+                    help: 'Color used for gold and currency displays'
+                },
+                color_accent: {
+                    id: 'color_accent',
+                    label: 'Script Accent Color',
+                    type: 'color',
+                    default: '#22c55e',
+                    help: 'Primary accent color for script UI elements (buttons, headers, zone numbers, XP percentages, etc.)'
+                }
+            }
+        }
+    };
+
+    /**
+     * Settings Storage Module
+     * Handles persistence of settings to chrome.storage.local
+     */
+
+
+    class SettingsStorage {
+        constructor() {
+            this.storageKey = 'script_settingsMap';
+            this.storageArea = 'settings';
+        }
+
+        /**
+         * Load all settings from storage
+         * Merges saved values with defaults from settings-config
+         * @returns {Promise<Object>} Settings map
+         */
+        async loadSettings() {
+            const saved = await storage.getJSON(this.storageKey, this.storageArea, null);
+            const settings = {};
+
+            // Build default settings from config
+            for (const group of Object.values(settingsGroups)) {
+                for (const [settingId, settingDef] of Object.entries(group.settings)) {
+                    settings[settingId] = {
+                        id: settingId,
+                        desc: settingDef.label,
+                        type: settingDef.type || 'checkbox'
+                    };
+
+                    // Set default value
+                    if (settingDef.type === 'checkbox') {
+                        settings[settingId].isTrue = settingDef.default ?? false;
+                    } else {
+                        settings[settingId].value = settingDef.default ?? '';
+                    }
+
+                    // Copy other properties
+                    if (settingDef.options) {
+                        settings[settingId].options = settingDef.options;
+                    }
+                    if (settingDef.min !== undefined) {
+                        settings[settingId].min = settingDef.min;
+                    }
+                    if (settingDef.max !== undefined) {
+                        settings[settingId].max = settingDef.max;
+                    }
+                    if (settingDef.step !== undefined) {
+                        settings[settingId].step = settingDef.step;
+                    }
+                }
+            }
+
+            // Merge saved settings
+            if (saved) {
+                for (const [settingId, savedValue] of Object.entries(saved)) {
+                    if (settings[settingId]) {
+                        // Merge saved boolean values
+                        if (savedValue.hasOwnProperty('isTrue')) {
+                            settings[settingId].isTrue = savedValue.isTrue;
+                        }
+                        // Merge saved non-boolean values
+                        if (savedValue.hasOwnProperty('value')) {
+                            settings[settingId].value = savedValue.value;
+                        }
+                    }
+                }
+            }
+
+            return settings;
+        }
+
+        /**
+         * Save all settings to storage
+         * @param {Object} settings - Settings map
+         * @returns {Promise<void>}
+         */
+        async saveSettings(settings) {
+            await storage.setJSON(this.storageKey, settings, this.storageArea, true);
+        }
+
+        /**
+         * Get a single setting value
+         * @param {string} settingId - Setting ID
+         * @param {*} defaultValue - Default value if not found
+         * @returns {Promise<*>} Setting value
+         */
+        async getSetting(settingId, defaultValue = null) {
+            const settings = await this.loadSettings();
+            const setting = settings[settingId];
+
+            if (!setting) {
+                return defaultValue;
+            }
+
+            // Return boolean for checkbox settings
+            if (setting.type === 'checkbox') {
+                return setting.isTrue ?? defaultValue;
+            }
+
+            // Return value for other settings
+            return setting.value ?? defaultValue;
+        }
+
+        /**
+         * Set a single setting value
+         * @param {string} settingId - Setting ID
+         * @param {*} value - New value
+         * @returns {Promise<void>}
+         */
+        async setSetting(settingId, value) {
+            const settings = await this.loadSettings();
+
+            if (!settings[settingId]) {
+                console.warn(`Setting '${settingId}' not found`);
+                return;
+            }
+
+            // Update value
+            if (settings[settingId].type === 'checkbox') {
+                settings[settingId].isTrue = value;
+            } else {
+                settings[settingId].value = value;
+            }
+
+            await this.saveSettings(settings);
+        }
+
+        /**
+         * Reset all settings to defaults
+         * @returns {Promise<void>}
+         */
+        async resetToDefaults() {
+            // Simply clear storage - loadSettings() will return defaults
+            await storage.remove(this.storageKey, this.storageArea);
+        }
+
+        /**
+         * Export settings as JSON
+         * @returns {Promise<string>} JSON string
+         */
+        async exportSettings() {
+            const settings = await this.loadSettings();
+            return JSON.stringify(settings, null, 2);
+        }
+
+        /**
+         * Import settings from JSON
+         * @param {string} jsonString - JSON string
+         * @returns {Promise<boolean>} Success
+         */
+        async importSettings(jsonString) {
+            try {
+                const imported = JSON.parse(jsonString);
+                await this.saveSettings(imported);
+                return true;
+            } catch (error) {
+                console.error('[Settings Storage] Import failed:', error);
+                return false;
+            }
+        }
+    }
+
+    // Create and export singleton instance
+    const settingsStorage = new SettingsStorage();
+
+    /**
      * Configuration Module
      * Manages all script constants and user settings
      */
@@ -328,9 +979,20 @@
             this.THOUSAND_SEPARATOR = new Intl.NumberFormat().format(1111).replaceAll("1", "").at(0) || "";
             this.DECIMAL_SEPARATOR = new Intl.NumberFormat().format(1.1).replaceAll("1", "").at(0);
 
-            // Script colors (can be changed by settings)
-            this.SCRIPT_COLOR_MAIN = "green";
-            this.SCRIPT_COLOR_TOOLTIP = "darkgreen";
+            // Extended color palette (configurable)
+            this.COLOR_PROFIT = "#047857";      // Emerald green for positive values
+            this.COLOR_LOSS = "#f87171";        // Red for negative values
+            this.COLOR_WARNING = "#ffa500";     // Orange for warnings
+            this.COLOR_INFO = "#60a5fa";        // Blue for informational
+            this.COLOR_TEXT_PRIMARY = "#ffffff"; // Primary text color
+            this.COLOR_TEXT_SECONDARY = "#888888"; // Secondary text color
+            this.COLOR_BORDER = "#444444";      // Border color
+            this.COLOR_GOLD = "#ffa500";        // Gold/currency color
+            this.COLOR_ACCENT = "#22c55e";      // Script accent color (green)
+
+            // Legacy color constants (mapped to COLOR_ACCENT)
+            this.SCRIPT_COLOR_MAIN = this.COLOR_ACCENT;
+            this.SCRIPT_COLOR_TOOLTIP = this.COLOR_ACCENT;
             this.SCRIPT_COLOR_ALERT = "red";
 
             // Market API URL
@@ -338,239 +1000,8 @@
 
             // === SETTINGS MAP ===
 
-            this.settingsMap = {
-                useOrangeAsMainColor: {
-                    id: "useOrangeAsMainColor",
-                    desc: "Use orange as the main color for the script.",
-                    isTrue: true,
-                },
-                totalActionTime: {
-                    id: "totalActionTime",
-                    desc: "Top left: Estimated total time of the current action, estimated complete time.",
-                    isTrue: true,
-                },
-                actionPanel_totalTime: {
-                    id: "actionPanel_totalTime",
-                    desc: "Action panel: Estimated total time of the action, times needed to reach a target skill level, exp/hour.",
-                    isTrue: true,
-                },
-                actionPanel_totalTime_quickInputs: {
-                    id: "actionPanel_totalTime_quickInputs",
-                    desc: "Action panel: Quick input buttons (hours, count presets, Max). [Depends on the previous selection]",
-                    isTrue: true,
-                },
-                actionPanel_foragingTotal: {
-                    id: "actionPanel_foragingTotal",
-                    desc: "Action panel: Overall profit of the foraging maps with multiple outcomes. [Depends on the previous selection]",
-                    isTrue: true,
-                },
-                networth: {
-                    id: "networth",
-                    desc: "Top right: Current assets (Items with at least 2 enhancement levels are valued by enchancing simulator).",
-                    isTrue: true,
-                },
-                invWorth: {
-                    id: "invWorth",
-                    desc: "Below inventory search bar: Inventory and character summery. [Depends on the previous selection]",
-                    isTrue: true,
-                },
-                invSort: {
-                    id: "invSort",
-                    desc: "Inventory: Sort inventory items. [Depends on the previous selection]",
-                    isTrue: true,
-                },
-                invSort_showBadges: {
-                    id: "invSort_showBadges",
-                    desc: "Inventory: Show stack value badges on items. [Depends on the previous selection]",
-                    isTrue: false,
-                },
-                invSort_badgesOnNone: {
-                    id: "invSort_badgesOnNone",
-                    desc: "Inventory: Badge type to show when 'None' sort is selected.",
-                    options: ['None', 'Ask', 'Bid'],
-                    default: 'None'
-                },
-                itemTooltip_prices: {
-                    id: "itemTooltip_prices",
-                    desc: "Item tooltip: 24 hours average market price.",
-                    isTrue: true,
-                },
-                itemTooltip_profit: {
-                    id: "itemTooltip_profit",
-                    desc: "Item tooltip: Production cost and profit. [Depends on the previous selection]",
-                    isTrue: true,
-                },
-                itemTooltip_expectedValue: {
-                    id: "itemTooltip_expectedValue",
-                    desc: "Item tooltip: Expected value for openable containers (crates, chests, Purple's Gift). [Depends on the first selection]",
-                    isTrue: true,
-                },
-                expectedValue_showDrops: {
-                    id: "expectedValue_showDrops",
-                    desc: "Expected value drop display: 'Top 5' = 5 highest value drops, 'Top 10' = 10 highest, 'All' = all drops, 'None' = summary only. [Depends on the previous selection]",
-                    value: "All",
-                },
-                expectedValue_respectPricingMode: {
-                    id: "expectedValue_respectPricingMode",
-                    desc: "Use pricing mode for expected value calculations (same as profit calculator). [Depends on the previous selection]",
-                    isTrue: true,
-                },
-                enhanceSim_autoDetect: {
-                    id: "enhanceSim_autoDetect",
-                    desc: "Enhancement tooltips: Auto-detect your current stats (true) or use market defaults (false). Most players should use market defaults to see realistic professional enhancer costs.",
-                    isTrue: false,
-                },
-                enhanceSim_enhancingLevel: {
-                    id: "enhanceSim_enhancingLevel",
-                    desc: "Enhancement skill level for cost calculations (default: 125 - professional enhancer level).",
-                    value: 125,
-                },
-                enhanceSim_houseLevel: {
-                    id: "enhanceSim_houseLevel",
-                    desc: "Observatory house room level (default: 6 - realistic market level, max: 8).",
-                    value: 6,
-                },
-                enhanceSim_toolBonus: {
-                    id: "enhanceSim_toolBonus",
-                    desc: "Tool success bonus percentage (default: 5.42 = Celestial Enhancer +10).",
-                    value: 5.42,
-                },
-                enhanceSim_speedBonus: {
-                    id: "enhanceSim_speedBonus",
-                    desc: "Speed bonus percentage (default: 0 - not critical for cost calculations).",
-                    value: 0,
-                },
-                enhanceSim_blessedTea: {
-                    id: "enhanceSim_blessedTea",
-                    desc: "Blessed Tea active (default: true - professional enhancers use it to reduce attempts).",
-                    isTrue: true,
-                },
-                enhanceSim_ultraEnhancingTea: {
-                    id: "enhanceSim_ultraEnhancingTea",
-                    desc: "Ultra Enhancing Tea active (default: true - provides +8 base skill levels, scales with drink concentration).",
-                    isTrue: true,
-                },
-                enhanceSim_superEnhancingTea: {
-                    id: "enhanceSim_superEnhancingTea",
-                    desc: "Super Enhancing Tea active (default: false - provides +6 base skill levels, Ultra is better).",
-                    isTrue: false,
-                },
-                enhanceSim_enhancingTea: {
-                    id: "enhanceSim_enhancingTea",
-                    desc: "Enhancing Tea active (default: false - provides +3 base skill levels, Ultra is better).",
-                    isTrue: false,
-                },
-                enhanceSim_drinkConcentration: {
-                    id: "enhanceSim_drinkConcentration",
-                    desc: "Drink Concentration percentage (default: 10.32 = Guzzling Pouch +10).",
-                    value: 10.32,
-                },
-                profitCalc_pricingMode: {
-                    id: "profitCalc_pricingMode",
-                    desc: "Profit calculation pricing mode: 'conservative' = instant trading (Ask/Bid), 'hybrid' = instant buy + sell orders (Ask/Ask), 'optimistic' = patient trading (Bid/Ask).",
-                    value: "hybrid",
-                },
-                showConsumTips: {
-                    id: "showConsumTips",
-                    desc: "Item tooltip: HP/MP consumables restore speed, cost performance, max cost per day.",
-                    isTrue: true,
-                },
-                networkAlert: {
-                    id: "networkAlert",
-                    desc: "Top right: Alert message when market price data can not be fetched.",
-                    isTrue: true,
-                },
-                expPercentage: {
-                    id: "expPercentage",
-                    desc: "Left sidebar: Percentages of exp of the skill levels.",
-                    isTrue: true,
-                },
-                itemIconLevel: {
-                    id: "itemIconLevel",
-                    desc: "Top right corner of equipment icons: Equipment level.",
-                    isTrue: true,
-                },
-                showsKeyInfoInIcon: {
-                    id: "showsKeyInfoInIcon",
-                    desc: "Top right corner of key/fragment icons: Corresponding combat zone index number. [Depends on the previous selection]",
-                    isTrue: true,
-                },
-                alchemyItemDimming: {
-                    id: "alchemyItemDimming",
-                    desc: "Alchemy panel: Dim items that require higher Alchemy level than you have.",
-                    isTrue: true,
-                },
-                marketFilter: {
-                    id: "marketFilter",
-                    desc: "Marketplace: Filter by equipment level, class, slot.",
-                    isTrue: true,
-                },
-                taskMapIndex: {
-                    id: "taskMapIndex",
-                    desc: "Tasks page: Combat zone index number.",
-                    isTrue: true,
-                },
-                mapIndex: {
-                    id: "mapIndex",
-                    desc: "Combat zones page: Combat zone index number.",
-                    isTrue: true,
-                },
-                skillbook: {
-                    id: "skillbook",
-                    desc: "Item dictionary of skill books: Number of books needed to reach target skill level.",
-                    isTrue: true,
-                },
-                combatScore: {
-                    id: "combatScore",
-                    desc: "Profile panel: Gear score based on houses, abilities, and equipment.",
-                    isTrue: true,
-                },
-                taskProfitCalculator: {
-                    id: "taskProfitCalculator",
-                    desc: "Task panel: Show total profit for gathering and production tasks (rewards + action profit).",
-                    isTrue: true,
-                },
-                taskRerollTracker: {
-                    id: "taskRerollTracker",
-                    desc: "Task panel: Track task reroll costs (EXPERIMENTAL - may cause UI freezing).",
-                    isTrue: true,
-                },
-                houseUpgradeCosts: {
-                    id: "houseUpgradeCosts",
-                    desc: "House panel: Show upgrade costs with market prices, inventory comparison, and cumulative costs to target level.",
-                    isTrue: true,
-                },
-                actionQueue: {
-                    id: "actionQueue",
-                    desc: "Queued actions panel at the top: Estimated total time and complete time of each queued action.",
-                    isTrue: true,
-                },
-                enhanceSim: {
-                    id: "enhanceSim",
-                    desc: "Tooltip of equipment with enhancement level: Enhancing simulator calculations.",
-                    isTrue: true,
-                },
-                notifiEmptyAction: {
-                    id: "notifiEmptyAction",
-                    desc: "Browser notification: Action queue is empty. (Works only when the game page is open.)",
-                    isTrue: false,
-                },
-                fillMarketOrderPrice: {
-                    id: "fillMarketOrderPrice",
-                    desc: "Automatically input price with the smallest increasement/decreasement when posting marketplace bid/sell orders.",
-                    isTrue: true,
-                },
-                enhancementTracker: {
-                    id: "enhancementTracker",
-                    desc: "Enhancement: Track enhancement attempts, costs, and statistics across multiple sessions.",
-                    isTrue: false,
-                },
-                enhancementTracker_showOnlyOnEnhancingScreen: {
-                    id: "enhancementTracker_showOnlyOnEnhancingScreen",
-                    desc: "Enhancement Tracker: Show tracker only on Enhancing screen (hides when viewing other screens).",
-                    isTrue: false,
-                },
-            };
+            // Settings loaded from settings-config.js via settings-storage.js
+            this.settingsMap = {};
 
             // === FEATURE REGISTRY ===
             // Feature toggles with metadata for future UI
@@ -777,39 +1208,15 @@
          * @returns {Promise<void>}
          */
         async loadSettings() {
-            const saved = await storage.getJSON('script_settingsMap', 'settings', null);
-
-            if (saved) {
-                // Merge saved settings with defaults
-                for (const option of Object.values(saved)) {
-                    if (this.settingsMap.hasOwnProperty(option.id)) {
-                        // Load both isTrue (boolean settings) and value (numeric/string settings)
-                        if (option.hasOwnProperty('isTrue')) {
-                            this.settingsMap[option.id].isTrue = option.isTrue;
-                        }
-                        if (option.hasOwnProperty('value')) {
-                            this.settingsMap[option.id].value = option.value;
-                        }
-                    }
-                }
-            }
+            // Load settings from settings-storage (which uses settings-config.js as source of truth)
+            this.settingsMap = await settingsStorage.loadSettings();
         }
 
         /**
          * Save settings to storage (immediately)
          */
         saveSettings() {
-            storage.setJSON('script_settingsMap', this.settingsMap, 'settings', true);
-        }
-
-        /**
-         * Apply color customization based on settings
-         */
-        applyColorSettings() {
-            if (this.settingsMap.useOrangeAsMainColor.isTrue) {
-                this.SCRIPT_COLOR_MAIN = "gold";
-                this.SCRIPT_COLOR_TOOLTIP = "#806B00";
-            }
+            settingsStorage.saveSettings(this.settingsMap);
         }
 
         /**
@@ -867,6 +1274,11 @@
             if (this.settingsMap[key]) {
                 this.settingsMap[key].value = value;
                 this.saveSettings();
+
+                // Re-apply color settings if this is a color setting
+                if (key.startsWith('color_')) {
+                    this.applyColorSettings();
+                }
             }
         }
 
@@ -900,6 +1312,26 @@
 
             this.saveSettings();
             this.applyColorSettings();
+        }
+
+        /**
+         * Apply color settings to color constants
+         */
+        applyColorSettings() {
+            // Apply extended color palette from settings
+            this.COLOR_PROFIT = this.getSettingValue('color_profit', "#047857");
+            this.COLOR_LOSS = this.getSettingValue('color_loss', "#f87171");
+            this.COLOR_WARNING = this.getSettingValue('color_warning', "#ffa500");
+            this.COLOR_INFO = this.getSettingValue('color_info', "#60a5fa");
+            this.COLOR_TEXT_PRIMARY = this.getSettingValue('color_text_primary', "#ffffff");
+            this.COLOR_TEXT_SECONDARY = this.getSettingValue('color_text_secondary', "#888888");
+            this.COLOR_BORDER = this.getSettingValue('color_border', "#444444");
+            this.COLOR_GOLD = this.getSettingValue('color_gold', "#ffa500");
+            this.COLOR_ACCENT = this.getSettingValue('color_accent', "#22c55e");
+
+            // Set legacy SCRIPT_COLOR_MAIN to accent color
+            this.SCRIPT_COLOR_MAIN = this.COLOR_ACCENT;
+            this.SCRIPT_COLOR_TOOLTIP = this.COLOR_ACCENT; // Keep tooltip same as main
         }
 
         // === FEATURE TOGGLE METHODS ===
@@ -1012,7 +1444,7 @@
     }
 
     // Create and export singleton instance
-    const config = new Config();
+    const config$1 = new Config();
 
     /**
      * WebSocket Hook Module
@@ -1961,7 +2393,7 @@
          * Initialize network alert display
          */
         initialize() {
-            if (!config.getSetting('networkAlert')) {
+            if (!config$1.getSetting('networkAlert')) {
                 return;
             }
 
@@ -2023,7 +2455,7 @@
          * @param {string} message - Alert message to display
          */
         show(message = '⚠️ Market data unavailable') {
-            if (!config.getSetting('networkAlert')) {
+            if (!config$1.getSetting('networkAlert')) {
                 return;
             }
 
@@ -3628,8 +4060,8 @@
                 const bagPrice = marketAPI.getPrice(this.COWBELL_BAG_HRID, 0);
                 if (bagPrice) {
                     // Respect pricing mode for Cowbell Bag price
-                    const pricingMode = config.getSettingValue('profitCalc_pricingMode', 'conservative');
-                    const respectPricingMode = config.getSettingValue('expectedValue_respectPricingMode', true);
+                    const pricingMode = config$1.getSettingValue('profitCalc_pricingMode', 'conservative');
+                    const respectPricingMode = config$1.getSettingValue('expectedValue_respectPricingMode', true);
 
                     let bagValue = 0;
                     if (respectPricingMode) {
@@ -3654,8 +4086,8 @@
             }
 
             // Regular market item - get price based on pricing mode
-            const pricingMode = config.getSettingValue('profitCalc_pricingMode', 'conservative');
-            const respectPricingMode = config.getSettingValue('expectedValue_respectPricingMode', true);
+            const pricingMode = config$1.getSettingValue('profitCalc_pricingMode', 'conservative');
+            const respectPricingMode = config$1.getSettingValue('expectedValue_respectPricingMode', true);
 
             // Get market price
             const price = marketAPI.getPrice(itemHrid, 0);
@@ -4149,7 +4581,7 @@
             const itemPrice = marketAPI.getPrice(itemHrid, 0) || { ask: 0, bid: 0 };
 
             // Check pricing mode setting
-            const pricingMode = config.getSettingValue('profitCalc_pricingMode', 'conservative');
+            const pricingMode = config$1.getSettingValue('profitCalc_pricingMode', 'conservative');
 
             // Get output price based on pricing mode
             // conservative: Bid price (instant sell)
@@ -4276,7 +4708,7 @@
             const costs = [];
 
             // Check pricing mode setting
-            const pricingMode = config.getSettingValue('profitCalc_pricingMode', 'conservative');
+            const pricingMode = config$1.getSettingValue('profitCalc_pricingMode', 'conservative');
 
             // Check for upgrade item (e.g., Crimson Bulwark → Rainbow Bulwark)
             if (actionDetails.upgradeItemHrid) {
@@ -4472,7 +4904,7 @@
             }
 
             // Check pricing mode for tea costs
-            const pricingMode = config.getSettingValue('profitCalc_pricingMode', 'conservative');
+            const pricingMode = config$1.getSettingValue('profitCalc_pricingMode', 'conservative');
 
             const costs = [];
 
@@ -4811,7 +5243,7 @@
      * @returns {Object} Enhancement parameters for simulator
      */
     function getEnhancingParams() {
-        const autoDetect = config.getSettingValue('enhanceSim_autoDetect', false);
+        const autoDetect = config$1.getSettingValue('enhanceSim_autoDetect', false);
 
         if (autoDetect) {
             return getAutoDetectedParams();
@@ -4979,7 +5411,7 @@
     function getManualParams() {
         // Get values directly from config
         const getValue = (key, defaultValue) => {
-            return config.getSettingValue(key, defaultValue);
+            return config$1.getSettingValue(key, defaultValue);
         };
 
         const houseLevel = getValue('enhanceSim_houseLevel', 6);
@@ -5833,16 +6265,16 @@
 
         switch (colorType) {
             case 'main':
-                color = config.SCRIPT_COLOR_MAIN;
+                color = config$1.SCRIPT_COLOR_MAIN;
                 break;
             case 'tooltip':
-                color = config.SCRIPT_COLOR_TOOLTIP;
+                color = config$1.SCRIPT_COLOR_TOOLTIP;
                 break;
             case 'alert':
-                color = config.SCRIPT_COLOR_ALERT;
+                color = config$1.SCRIPT_COLOR_ALERT;
                 break;
             default:
-                color = config.SCRIPT_COLOR_MAIN;
+                color = config$1.SCRIPT_COLOR_MAIN;
         }
 
         return createStyledSpan({ color }, text);
@@ -6036,7 +6468,7 @@
          */
         async initialize() {
             // Check if feature is enabled
-            if (!config.getSetting('itemTooltip_prices')) {
+            if (!config$1.getSetting('itemTooltip_prices')) {
                 return;
             }
 
@@ -6161,7 +6593,7 @@
             }
 
             // Check if this is an openable container first (they have no market price)
-            if (itemDetails.isOpenable && config.getSetting('itemTooltip_expectedValue')) {
+            if (itemDetails.isOpenable && config$1.getSetting('itemTooltip_expectedValue')) {
                 const evData = expectedValueCalculator.calculateExpectedValue(itemHrid);
                 if (evData) {
                     this.injectExpectedValueDisplay(tooltipElement, evData, isCollectionTooltip);
@@ -6188,7 +6620,7 @@
             // Check if profit calculator is enabled
             // Only run for base items (enhancementLevel = 0), not enhanced items
             // Enhanced items show their cost in the enhancement path section instead
-            if (config.getSetting('itemTooltip_profit') && enhancementLevel === 0) {
+            if (config$1.getSetting('itemTooltip_profit') && enhancementLevel === 0) {
                 // Calculate and inject profit information
                 const profitData = await profitCalculator.calculateProfit(itemHrid);
                 if (profitData) {
@@ -6261,7 +6693,7 @@
 
             // Create enhancement display container
             const enhancementDiv = dom.createStyledDiv(
-                { color: config.SCRIPT_COLOR_TOOLTIP },
+                { color: config$1.SCRIPT_COLOR_TOOLTIP },
                 '',
                 'market-enhancement-injected'
             );
@@ -6366,7 +6798,7 @@
 
             // Create price display
             const priceDiv = dom.createStyledDiv(
-                { color: config.SCRIPT_COLOR_TOOLTIP },
+                { color: config$1.SCRIPT_COLOR_TOOLTIP },
                 '',
                 'market-price-injected'
             );
@@ -6420,7 +6852,7 @@
 
             // Create profit display container
             const profitDiv = dom.createStyledDiv(
-                { color: config.SCRIPT_COLOR_TOOLTIP, marginTop: '8px' },
+                { color: config$1.SCRIPT_COLOR_TOOLTIP, marginTop: '8px' },
                 '',
                 'market-profit-injected'
             );
@@ -6434,7 +6866,7 @@
                 html += '<div style="font-size: 0.9em; margin-left: 8px;">';
 
                 const profitPerDay = profitData.profitPerHour * 24;
-                const profitColor = profitData.profitPerHour >= 0 ? '#047857' : '#f87171'; // darker emerald if positive, red if negative
+                const profitColor = profitData.profitPerHour >= 0 ? config$1.COLOR_PROFIT : config$1.COLOR_LOSS;
 
                 html += `<div style="color: ${profitColor}; font-weight: bold;">Net: ${numberFormatter(profitData.profitPerHour)}/hr (${formatKMB(profitPerDay)}/day)</div>`;
             } else {
@@ -6444,8 +6876,8 @@
                 const teaCostPerItem = profitData.totalTeaCostPerHour / profitData.itemsPerHour;
                 const productionCost = profitData.totalMaterialCost + teaCostPerItem;
 
-                html += `<div style="font-weight: bold; color: #60a5fa;">Cost: ${numberFormatter(productionCost)}/item</div>`;
-                html += `<div style="color: #999; font-style: italic; margin-top: 4px;">No market data available</div>`;
+                html += `<div style="font-weight: bold; color: ${config$1.COLOR_INFO};">Cost: ${numberFormatter(productionCost)}/item</div>`;
+                html += `<div style="color: ${config$1.COLOR_TEXT_SECONDARY}; font-style: italic; margin-top: 4px;">No market data available</div>`;
             }
 
             html += '</div>';
@@ -6479,7 +6911,7 @@
 
             // Create EV display container
             const evDiv = dom.createStyledDiv(
-                { color: config.SCRIPT_COLOR_TOOLTIP, marginTop: '8px' },
+                { color: config$1.SCRIPT_COLOR_TOOLTIP, marginTop: '8px' },
                 '',
                 'market-ev-injected'
             );
@@ -6492,12 +6924,12 @@
             html += '<div style="font-size: 0.9em; margin-left: 8px;">';
 
             // Expected value (simple display)
-            html += `<div style="color: #047857; font-weight: bold;">Expected Return: ${numberFormatter(evData.expectedValue)}</div>`;
+            html += `<div style="color: ${config$1.COLOR_PROFIT}; font-weight: bold;">Expected Return: ${numberFormatter(evData.expectedValue)}</div>`;
 
             html += '</div>'; // Close summary section
 
             // Drop breakdown (if configured to show)
-            const showDropsSetting = config.getSettingValue('expectedValue_showDrops', 'All');
+            const showDropsSetting = config$1.getSettingValue('expectedValue_showDrops', 'All');
 
             if (showDropsSetting !== 'None' && evData.drops.length > 0) {
                 html += '<div style="border-top: 1px solid rgba(255,255,255,0.2); margin: 8px 0;"></div>';
@@ -6521,7 +6953,7 @@
                 for (const drop of dropsToShow) {
                     if (!drop.hasPriceData) {
                         // Show item without price data in gray
-                        html += `<div style="color: #aaa;">• ${drop.itemName} (${(drop.dropRate * 100).toFixed(2)}%): ${drop.avgCount.toFixed(2)} avg → No price data</div>`;
+                        html += `<div style="color: ${config$1.COLOR_TEXT_SECONDARY};">• ${drop.itemName} (${(drop.dropRate * 100).toFixed(2)}%): ${drop.avgCount.toFixed(2)} avg → No price data</div>`;
                     } else {
                         // Format drop rate percentage
                         const dropRatePercent = (drop.dropRate * 100).toFixed(2);
@@ -6582,7 +7014,7 @@
          */
         async initialize() {
             // Check if feature is enabled
-            if (!config.getSetting('showConsumTips')) {
+            if (!config$1.getSetting('showConsumTips')) {
                 return;
             }
 
@@ -6815,7 +7247,7 @@
 
             // Create consumable display container
             const consumableDiv = dom.createStyledDiv(
-                { color: config.SCRIPT_COLOR_TOOLTIP, marginTop: '8px' },
+                { color: config$1.SCRIPT_COLOR_TOOLTIP, marginTop: '8px' },
                 '',
                 'consumable-stats-injected'
             );
@@ -6906,7 +7338,7 @@
          * Initialize market filter
          */
         initialize() {
-            if (!config.getSetting('marketFilter')) {
+            if (!config$1.getSetting('marketFilter')) {
                 return;
             }
 
@@ -7269,7 +7701,7 @@
          * Initialize auto-fill price feature
          */
         initialize() {
-            if (!config.getSetting('fillMarketOrderPrice')) {
+            if (!config$1.getSetting('fillMarketOrderPrice')) {
                 return;
             }
 
@@ -7891,7 +8323,7 @@
     async function displayEnhancementStats(panel, itemHrid) {
         try {
             // Check if feature is enabled
-            if (!config.getSetting('enhanceSim')) {
+            if (!config$1.getSetting('enhanceSim')) {
                 // Remove existing calculator if present
                 const existing = panel.querySelector('#mwi-enhancement-stats');
                 if (existing) {
@@ -8600,7 +9032,7 @@
 
         // Revenue Section
         const revenueDiv = document.createElement('div');
-        revenueDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, #fff); margin-bottom: 4px;">Revenue: ${formatWithSeparator(revenue)}/hr</div>`;
+        revenueDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY}); margin-bottom: 4px;">Revenue: ${formatWithSeparator(revenue)}/hr</div>`;
 
         // Base Output subsection
         const baseOutputContent = document.createElement('div');
@@ -8695,7 +9127,7 @@
 
         // Costs Section
         const costsDiv = document.createElement('div');
-        costsDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, #fff); margin-top: 12px; margin-bottom: 4px;">Costs: ${formatWithSeparator(costs)}/hr</div>`;
+        costsDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY}); margin-top: 12px; margin-bottom: 4px;">Costs: ${formatWithSeparator(costs)}/hr</div>`;
 
         // Drink Costs subsection
         const drinkCostsContent = document.createElement('div');
@@ -8724,7 +9156,7 @@
         const modifiersDiv = document.createElement('div');
         modifiersDiv.style.cssText = `
         margin-top: 12px;
-        color: var(--text-color-secondary, #888);
+        color: var(--text-color-secondary, ${config.COLOR_TEXT_SECONDARY});
     `;
 
         const modifierLines = [];
@@ -8748,7 +9180,7 @@
         }
 
         if (effParts.length > 0) {
-            modifierLines.push(`<div style="font-weight: 500; color: var(--text-color-primary, #fff);">Modifiers:</div>`);
+            modifierLines.push(`<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY});">Modifiers:</div>`);
             modifierLines.push(`<div style="margin-left: 8px;">• Efficiency: +${profitData.totalEfficiency.toFixed(1)}% (${effParts.join(', ')})</div>`);
         }
 
@@ -8778,7 +9210,7 @@
     `;
 
         // Add Net Profit line at top level (always visible when Profitability is expanded)
-        const profitColor = profit >= 0 ? '#4ade80' : '#f87171'; // green if positive, red if negative
+        const profitColor = profit >= 0 ? '#4ade80' : '${config.COLOR_LOSS}'; // green if positive, red if negative
         const netProfitLine = document.createElement('div');
         netProfitLine.style.cssText = `
         font-weight: 500;
@@ -8879,7 +9311,7 @@
 
         // Revenue Section
         const revenueDiv = document.createElement('div');
-        revenueDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, #fff); margin-bottom: 4px;">Revenue: ${formatWithSeparator(revenue)}/hr</div>`;
+        revenueDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY}); margin-bottom: 4px;">Revenue: ${formatWithSeparator(revenue)}/hr</div>`;
 
         // Base Output subsection
         const baseOutputContent = document.createElement('div');
@@ -8985,7 +9417,7 @@
 
         // Costs Section
         const costsDiv = document.createElement('div');
-        costsDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, #fff); margin-top: 12px; margin-bottom: 4px;">Costs: ${formatWithSeparator(costs)}/hr</div>`;
+        costsDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY}); margin-top: 12px; margin-bottom: 4px;">Costs: ${formatWithSeparator(costs)}/hr</div>`;
 
         // Material Costs subsection
         const materialCostsContent = document.createElement('div');
@@ -9051,21 +9483,21 @@
         const modifiersDiv = document.createElement('div');
         modifiersDiv.style.cssText = `
         margin-top: 12px;
-        color: var(--text-color-secondary, #888);
+        color: var(--text-color-secondary, ${config.COLOR_TEXT_SECONDARY});
     `;
 
         const modifierLines = [];
 
         // Artisan Bonus (still shown here for reference, also embedded in materials)
         if (profitData.artisanBonus > 0) {
-            modifierLines.push(`<div style="font-weight: 500; color: var(--text-color-primary, #fff);">Modifiers:</div>`);
+            modifierLines.push(`<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY});">Modifiers:</div>`);
             modifierLines.push(`<div style="margin-left: 8px;">• Artisan: -${(profitData.artisanBonus * 100).toFixed(1)}% material requirement</div>`);
         }
 
         // Gourmet Bonus
         if (profitData.gourmetBonus > 0) {
             if (modifierLines.length === 0) {
-                modifierLines.push(`<div style="font-weight: 500; color: var(--text-color-primary, #fff);">Modifiers:</div>`);
+                modifierLines.push(`<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY});">Modifiers:</div>`);
             }
             modifierLines.push(`<div style="margin-left: 8px;">• Gourmet: +${(profitData.gourmetBonus * 100).toFixed(1)}% bonus items</div>`);
         }
@@ -9086,7 +9518,7 @@
     `;
 
         // Add Net Profit line at top level (always visible when Profitability is expanded)
-        const profitColor = profit >= 0 ? '#4ade80' : '#f87171'; // green if positive, red if negative
+        const profitColor = profit >= 0 ? '#4ade80' : '${config.COLOR_LOSS}'; // green if positive, red if negative
         const netProfitLine = document.createElement('div');
         netProfitLine.style.cssText = `
         font-weight: 500;
@@ -9740,7 +10172,7 @@
             }
 
             // Check if feature is enabled
-            const enabled = config.getSettingValue('totalActionTime', true);
+            const enabled = config$1.getSettingValue('totalActionTime', true);
             if (!enabled) {
                 return;
             }
@@ -9884,7 +10316,7 @@
             this.displayElement.id = 'mwi-action-time-display';
             this.displayElement.style.cssText = `
             font-size: 0.9em;
-            color: var(--text-color-secondary, #888);
+            color: var(--text-color-secondary, ${config$1.COLOR_TEXT_SECONDARY});
             margin-top: 2px;
             line-height: 1.4;
             text-align: left;
@@ -10205,7 +10637,7 @@
             // Create marker span for our additions
             const statsSpan = document.createElement('span');
             statsSpan.className = 'mwi-appended-stats';
-            statsSpan.style.cssText = 'color: var(--text-color-secondary, #888);';
+            statsSpan.style.cssText = `color: var(--text-color-secondary, ${config$1.COLOR_TEXT_SECONDARY});`;
             statsSpan.textContent = ' ' + statsText;
 
             // Append to action name element
@@ -10470,7 +10902,7 @@
                         const timeDiv = document.createElement('div');
                         timeDiv.className = 'mwi-queue-action-time';
                         timeDiv.style.cssText = `
-                        color: var(--text-color-secondary, #888);
+                        color: var(--text-color-secondary, ${config$1.COLOR_TEXT_SECONDARY});
                         font-size: 0.85em;
                         margin-top: 2px;
                     `;
@@ -10538,7 +10970,7 @@
                     const timeDiv = document.createElement('div');
                     timeDiv.className = 'mwi-queue-action-time';
                     timeDiv.style.cssText = `
-                    color: var(--text-color-secondary, #888);
+                    color: var(--text-color-secondary, ${config$1.COLOR_TEXT_SECONDARY});
                     font-size: 0.85em;
                     margin-top: 2px;
                 `;
@@ -10564,11 +10996,11 @@
                 const totalDiv = document.createElement('div');
                 totalDiv.id = 'mwi-queue-total-time';
                 totalDiv.style.cssText = `
-                color: var(--text-color-primary, #fff);
+                color: var(--text-color-primary, ${config$1.COLOR_TEXT_PRIMARY});
                 font-weight: bold;
                 margin-top: 12px;
                 padding: 8px;
-                border-top: 1px solid var(--border-color, #444);
+                border-top: 1px solid var(--border-color, ${config$1.COLOR_BORDER});
                 text-align: center;
             `;
 
@@ -11075,7 +11507,7 @@
                 if (hasNormalXP) {
                     const speedContent = document.createElement('div');
                 speedContent.style.cssText = `
-                color: var(--text-color-secondary, #888);
+                color: var(--text-color-secondary, ${config.COLOR_TEXT_SECONDARY});
                 font-size: 0.9em;
                 line-height: 1.6;
             `;
@@ -11111,7 +11543,7 @@
 
                 // Add Efficiency breakdown
                 speedLines.push(''); // Empty line
-                speedLines.push(`<span style="font-weight: 500; color: var(--text-color-primary, #fff);">Efficiency: +${totalEfficiency.toFixed(1)}% → Output: ×${efficiencyMultiplier.toFixed(2)} (${Math.round((3600 / actionTime) * efficiencyMultiplier)}/hr)</span>`);
+                speedLines.push(`<span style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY});">Efficiency: +${totalEfficiency.toFixed(1)}% → Output: ×${efficiencyMultiplier.toFixed(2)} (${Math.round((3600 / actionTime) * efficiencyMultiplier)}/hr)</span>`);
 
                 // Detailed efficiency breakdown
                 if (efficiencyBreakdown.levelEfficiency > 0 || (efficiencyBreakdown.actionLevelBreakdown && efficiencyBreakdown.actionLevelBreakdown.length > 0)) {
@@ -11166,7 +11598,7 @@
                 // Total time (dynamic)
                 const totalTimeLine = document.createElement('div');
                 totalTimeLine.style.cssText = `
-                color: var(--text-color-main, #6fb8e8);
+                color: var(--text-color-main, ${config.COLOR_INFO});
                 font-weight: 500;
                 margin-top: 4px;
             `;
@@ -11292,7 +11724,7 @@
                 // ===== SECTION 3: Quick Queue Setup =====
                 const queueContent = document.createElement('div');
                 queueContent.style.cssText = `
-                color: var(--text-color-secondary, #888);
+                color: var(--text-color-secondary, ${config.COLOR_TEXT_SECONDARY});
                 font-size: 0.9em;
                 margin-top: 8px;
                 margin-bottom: 8px;
@@ -11917,7 +12349,7 @@
                 // Create content
                 const content = document.createElement('div');
                 content.style.cssText = `
-                color: var(--text-color-secondary, #888);
+                color: var(--text-color-secondary, ${config.COLOR_TEXT_SECONDARY});
                 font-size: 0.9em;
                 line-height: 1.6;
             `;
@@ -11978,14 +12410,14 @@
                     baseEfficiency, actionTime, modifiedXP, levelExperienceTable
                 );
 
-                lines.push(`<span style="font-weight: 500; color: var(--text-color-primary, #fff);">To Level ${nextLevel}:</span>`);
+                lines.push(`<span style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY});">To Level ${nextLevel}:</span>`);
                 lines.push(`  Actions: ${formatWithSeparator(singleLevel.actionsNeeded)}`);
                 lines.push(`  Time: ${timeReadable(singleLevel.timeNeeded)}`);
 
                 lines.push('');
 
                 // Multi-level calculator (interactive section)
-                lines.push(`<span style="font-weight: 500; color: var(--text-color-primary, #fff);">Target Level Calculator:</span>`);
+                lines.push(`<span style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY});">Target Level Calculator:</span>`);
                 lines.push(`<div style="margin-top: 4px;">
                 <span>To level </span>
                 <input
@@ -11998,8 +12430,8 @@
                         width: 50px;
                         padding: 2px 4px;
                         background: var(--background-secondary, #2a2a2a);
-                        color: var(--text-color-primary, #fff);
-                        border: 1px solid var(--border-color, #444);
+                        color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY});
+                        border: 1px solid var(--border-color, ${config.COLOR_BORDER});
                         border-radius: 3px;
                         font-size: 0.9em;
                     "
@@ -12033,7 +12465,7 @@
                         targetLevelResult.innerHTML = `
                         ${formatWithSeparator(result.actionsNeeded)} actions | ${timeReadable(result.timeNeeded)}
                     `;
-                        targetLevelResult.style.color = 'var(--text-color-primary, #fff)';
+                        targetLevelResult.style.color = 'var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY})';
 
                         // Auto-fill queue input when target level changes
                         this.setInputValue(numberInput, result.actionsNeeded);
@@ -12106,7 +12538,7 @@
          */
         initialize() {
             // Check if feature is enabled
-            if (!config.getSetting('skillbook')) {
+            if (!config$1.getSetting('skillbook')) {
                 return;
             }
 
@@ -12266,7 +12698,7 @@
             // Create calculator HTML
             const calculatorDiv = dom.createStyledDiv(
                 {
-                    color: config.SCRIPT_COLOR_MAIN,
+                    color: config$1.SCRIPT_COLOR_MAIN,
                     textAlign: 'left',
                     marginTop: '16px',
                     padding: '12px',
@@ -12317,7 +12749,7 @@
                     Cost: ${numberFormatter(Math.ceil(books * ask))} / ${numberFormatter(Math.ceil(books * bid))} (ask / bid)
                 `;
                 } else {
-                    display.innerHTML = '<span style="color: #f87171;">Invalid target level</span>';
+                    display.innerHTML = '<span style="color: ${config.COLOR_LOSS};">Invalid target level</span>';
                 }
             };
 
@@ -12390,8 +12822,8 @@
          */
         initialize() {
             // Check if either feature is enabled
-            this.taskMapIndexEnabled = config.getSetting('taskMapIndex');
-            this.mapIndexEnabled = config.getSetting('mapIndex');
+            this.taskMapIndexEnabled = config$1.getSetting('taskMapIndex');
+            this.mapIndexEnabled = config$1.getSetting('mapIndex');
 
             if (!this.taskMapIndexEnabled && !this.mapIndexEnabled) {
                 return;
@@ -12512,7 +12944,7 @@
                     // Add index to the name element
                     nameElement.insertAdjacentHTML(
                         'beforeend',
-                        `<span class="script_taskMapIndex" style="margin-left: 4px; color: ${config.SCRIPT_COLOR_MAIN};">Z${zoneIndex}</span>`
+                        `<span class="script_taskMapIndex" style="margin-left: 4px; color: ${config$1.SCRIPT_COLOR_MAIN};">Z${zoneIndex}</span>`
                     );
                 }
             }
@@ -12543,7 +12975,7 @@
                 // Add index at the beginning
                 button.insertAdjacentHTML(
                     'afterbegin',
-                    `<span class="script_mapIndex" style="color: ${config.SCRIPT_COLOR_MAIN};">${index}. </span>`
+                    `<span class="script_mapIndex" style="color: ${config$1.SCRIPT_COLOR_MAIN};">${index}. </span>`
                 );
 
                 index++;
@@ -14000,7 +14432,7 @@
          */
         initialize() {
             // Check if feature is enabled
-            if (!config.getSetting('combatScore')) {
+            if (!config$1.getSetting('combatScore')) {
                 return;
             }
 
@@ -14100,23 +14532,23 @@
 
             // Build house breakdown HTML
             const houseBreakdownHTML = scoreData.breakdown.houses.map(item =>
-                `<div style="margin-left: 10px; font-size: 0.8rem; color: #bbb;">${item.name}: ${numberFormatter(item.value)}</div>`
+                `<div style="margin-left: 10px; font-size: 0.8rem; color: ${config$1.COLOR_TEXT_SECONDARY};">${item.name}: ${numberFormatter(item.value)}</div>`
             ).join('');
 
             // Build ability breakdown HTML
             const abilityBreakdownHTML = scoreData.breakdown.abilities.map(item =>
-                `<div style="margin-left: 10px; font-size: 0.8rem; color: #bbb;">${item.name}: ${numberFormatter(item.value)}</div>`
+                `<div style="margin-left: 10px; font-size: 0.8rem; color: ${config$1.COLOR_TEXT_SECONDARY};">${item.name}: ${numberFormatter(item.value)}</div>`
             ).join('');
 
             // Build equipment breakdown HTML
             const equipmentBreakdownHTML = scoreData.breakdown.equipment.map(item =>
-                `<div style="margin-left: 10px; font-size: 0.8rem; color: #bbb;">${item.name}: ${numberFormatter(item.value)}</div>`
+                `<div style="margin-left: 10px; font-size: 0.8rem; color: ${config$1.COLOR_TEXT_SECONDARY};">${item.name}: ${numberFormatter(item.value)}</div>`
             ).join('');
 
             // Create panel HTML
             panel.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                <div style="font-weight: bold; color: ${config.SCRIPT_COLOR_MAIN}; font-size: 0.9rem;">${playerName}</div>
+                <div style="font-weight: bold; color: ${config$1.SCRIPT_COLOR_MAIN}; font-size: 0.9rem;">${playerName}</div>
                 <span id="mwi-score-close-btn" style="
                     cursor: pointer;
                     font-size: 18px;
@@ -14125,10 +14557,10 @@
                     line-height: 1;
                 " title="Close">×</span>
             </div>
-            <div style="cursor: pointer; font-weight: bold; margin-bottom: 8px; color: #4CAF50;" id="mwi-score-toggle">
+            <div style="cursor: pointer; font-weight: bold; margin-bottom: 8px; color: ${config$1.COLOR_PROFIT};" id="mwi-score-toggle">
                 + Combat Score: ${numberFormatter(scoreData.total.toFixed(1))}${equipmentHiddenText}
             </div>
-            <div id="mwi-score-details" style="display: none; margin-left: 10px; color: #ddd;">
+            <div id="mwi-score-details" style="display: none; margin-left: 10px; color: ${config$1.COLOR_TEXT_PRIMARY};">
                 <div style="cursor: pointer; margin-bottom: 4px;" id="mwi-house-toggle">
                     + House: ${numberFormatter(scoreData.house.toFixed(1))}
                 </div>
@@ -14153,7 +14585,7 @@
             <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px;">
                 <button id="mwi-combat-sim-export-btn" style="
                     padding: 8px 12px;
-                    background: ${config.SCRIPT_COLOR_MAIN};
+                    background: ${config$1.SCRIPT_COLOR_MAIN};
                     color: black;
                     border: none;
                     border-radius: 4px;
@@ -14164,7 +14596,7 @@
                 ">Combat Sim Export</button>
                 <button id="mwi-milkonomy-export-btn" style="
                     padding: 8px 12px;
-                    background: ${config.SCRIPT_COLOR_MAIN};
+                    background: ${config$1.SCRIPT_COLOR_MAIN};
                     color: black;
                     border: none;
                     border-radius: 4px;
@@ -14352,7 +14784,7 @@
                 const exportData = constructExportObject();
                 if (!exportData) {
                     button.textContent = '✗ No Data';
-                    button.style.background = '#dc3545';
+                    button.style.background = '${config.COLOR_LOSS}';
                     setTimeout(() => {
                         button.textContent = originalText;
                         button.style.background = originalBg;
@@ -14364,7 +14796,7 @@
                 await navigator.clipboard.writeText(exportString);
 
                 button.textContent = '✓ Copied';
-                button.style.background = '#28a745';
+                button.style.background = '${config.COLOR_PROFIT}';
                 setTimeout(() => {
                     button.textContent = originalText;
                     button.style.background = originalBg;
@@ -14373,7 +14805,7 @@
             } catch (error) {
                 console.error('[Combat Score] Combat Sim export failed:', error);
                 button.textContent = '✗ Failed';
-                button.style.background = '#dc3545';
+                button.style.background = '${config.COLOR_LOSS}';
                 setTimeout(() => {
                     button.textContent = originalText;
                     button.style.background = originalBg;
@@ -14393,7 +14825,7 @@
                 const exportData = constructMilkonomyExport();
                 if (!exportData) {
                     button.textContent = '✗ No Data';
-                    button.style.background = '#dc3545';
+                    button.style.background = '${config.COLOR_LOSS}';
                     setTimeout(() => {
                         button.textContent = originalText;
                         button.style.background = originalBg;
@@ -14405,7 +14837,7 @@
                 await navigator.clipboard.writeText(exportString);
 
                 button.textContent = '✓ Copied';
-                button.style.background = '#28a745';
+                button.style.background = '${config.COLOR_PROFIT}';
                 setTimeout(() => {
                     button.textContent = originalText;
                     button.style.background = originalBg;
@@ -14414,7 +14846,7 @@
             } catch (error) {
                 console.error('[Combat Score] Milkonomy export failed:', error);
                 button.textContent = '✗ Failed';
-                button.style.background = '#dc3545';
+                button.style.background = '${config.COLOR_LOSS}';
                 setTimeout(() => {
                     button.textContent = originalText;
                     button.style.background = originalBg;
@@ -14460,7 +14892,7 @@
          */
         initialize() {
             // Check if feature is enabled
-            if (!config.getSetting('itemIconLevel')) {
+            if (!config$1.getSetting('itemIconLevel')) {
                 return;
             }
 
@@ -14546,7 +14978,7 @@
                     if (abilityLevelReq && abilityLevelReq.length > 0 && abilityLevelReq[0].level > 0) {
                         displayText = abilityLevelReq[0].level.toString();
                     }
-                } else if (config.getSetting('showsKeyInfoInIcon') && this.isKeyOrFragment(itemHrid)) {
+                } else if (config$1.getSetting('showsKeyInfoInIcon') && this.isKeyOrFragment(itemHrid)) {
                     // Keys and fragments: Show zone/dungeon info
                     displayText = this.getKeyDisplayText(itemHrid);
                 }
@@ -14560,7 +14992,7 @@
 
                     div.insertAdjacentHTML(
                         'beforeend',
-                        `<div class="script_itemLevel" style="z-index: 1; position: absolute; ${position} color: ${config.SCRIPT_COLOR_MAIN};">${displayText}</div>`
+                        `<div class="script_itemLevel" style="z-index: 1; position: absolute; ${position} color: ${config$1.SCRIPT_COLOR_MAIN};">${displayText}</div>`
                     );
                     // Mark as processed
                     this.processedDivs.add(div);
@@ -14662,7 +15094,7 @@
          */
         initialize() {
             // Check if feature is enabled
-            if (!config.getSetting('alchemyItemDimming')) {
+            if (!config$1.getSetting('alchemyItemDimming')) {
                 return;
             }
 
@@ -14819,7 +15251,7 @@
          * Initialize the display system
          */
         initialize() {
-            if (!config.isFeatureEnabled('skillExperiencePercentage')) {
+            if (!config$1.isFeatureEnabled('skillExperiencePercentage')) {
                 return;
             }
 
@@ -14896,7 +15328,7 @@
                 percentageSpan.className = 'mwi-exp-percentage';
                 percentageSpan.textContent = formattedPercentage;
                 percentageSpan.style.fontSize = '0.875rem';
-                percentageSpan.style.color = config.SCRIPT_COLOR_MAIN;
+                percentageSpan.style.color = config$1.SCRIPT_COLOR_MAIN;
 
                 // Insert percentage before children[1] (same as original)
                 levelContainer.insertBefore(percentageSpan, levelContainer.children[1]);
@@ -15414,7 +15846,7 @@
          * Initialize task profit display
          */
         initialize() {
-            if (!config.getSetting('taskProfitCalculator')) {
+            if (!config$1.getSetting('taskProfitCalculator')) {
                 return;
             }
 
@@ -15502,7 +15934,7 @@
          * Update all task profit displays
          */
         updateTaskProfits() {
-            if (!config.getSetting('taskProfitCalculator')) {
+            if (!config$1.getSetting('taskProfitCalculator')) {
                 return;
             }
 
@@ -15754,7 +16186,7 @@
             // Check for error state
             if (profitData.error) {
                 profitContainer.innerHTML = `
-                <div style="color: ${config.SCRIPT_COLOR_ALERT};">
+                <div style="color: ${config$1.SCRIPT_COLOR_ALERT};">
                     Unable to calculate profit
                 </div>
             `;
@@ -15780,7 +16212,7 @@
             // Create main profit display (Option B format: compact with time)
             const profitLine = document.createElement('div');
             profitLine.style.cssText = `
-            color: ${config.SCRIPT_COLOR_MAIN};
+            color: ${config$1.SCRIPT_COLOR_MAIN};
             cursor: pointer;
             user-select: none;
         `;
@@ -15858,7 +16290,7 @@
 
             // Show warning if market data unavailable
             if (profitData.rewards.error) {
-                lines.push(`<div style="color: ${config.SCRIPT_COLOR_ALERT}; margin-bottom: 6px; font-style: italic;">⚠ ${profitData.rewards.error} - Token values unavailable</div>`);
+                lines.push(`<div style="color: ${config$1.SCRIPT_COLOR_ALERT}; margin-bottom: 6px; font-style: italic;">⚠ ${profitData.rewards.error} - Token values unavailable</div>`);
             }
 
             // Task Rewards section
@@ -16038,7 +16470,7 @@
 
             // Total
             lines.push('<div style="border-top: 1px solid #555; margin-top: 6px; padding-top: 4px;"></div>');
-            lines.push(`<div style="font-weight: bold; color: ${config.SCRIPT_COLOR_MAIN};">Total Profit: ${numberFormatter(profitData.totalProfit)}</div>`);
+            lines.push(`<div style="font-weight: bold; color: ${config$1.SCRIPT_COLOR_MAIN};">Total Profit: ${numberFormatter(profitData.totalProfit)}</div>`);
 
             return lines.join('');
         }
@@ -16058,7 +16490,7 @@
             errorContainer.style.cssText = `
             margin-top: 4px;
             font-size: 0.75rem;
-            color: ${config.SCRIPT_COLOR_ALERT};
+            color: ${config$1.SCRIPT_COLOR_ALERT};
             font-style: italic;
         `;
             errorContainer.textContent = `⚠ ${message}`;
@@ -16358,7 +16790,7 @@
                 displayElement = document.createElement('div');
                 displayElement.className = 'mwi-reroll-cost-display';
                 displayElement.style.cssText = `
-                color: ${config.SCRIPT_COLOR_SECONDARY};
+                color: ${config$1.SCRIPT_COLOR_SECONDARY};
                 font-size: 0.75rem;
                 margin-top: 4px;
                 padding: 2px 4px;
@@ -16556,7 +16988,7 @@
             }
 
             // Use pricing mode from config
-            const pricingMode = config.getSetting('marketPricingMode') || 'hybrid';
+            const pricingMode = config$1.getSetting('marketPricingMode') || 'hybrid';
 
             let ask = priceData.ask || 0;
             let bid = priceData.bid || 0;
@@ -16636,7 +17068,7 @@
          * Initialize the display system
          */
         initialize() {
-            if (!config.getSetting('houseUpgradeCosts')) {
+            if (!config$1.getSetting('houseUpgradeCosts')) {
                 return;
             }
 
@@ -16804,14 +17236,14 @@
             align-items: center;
             gap: 8px;
             font-size: 0.75rem;
-            color: ${config.SCRIPT_COLOR_MAIN};
+            color: ${config$1.SCRIPT_COLOR_MAIN};
             padding-left: 8px;
             white-space: nowrap;
         `;
 
             pricingCell.innerHTML = `
-            <span style="color: ${config.SCRIPT_COLOR_SECONDARY};">@ ${coinFormatter(materialData.marketPrice)}</span>
-            <span style="color: ${config.SCRIPT_COLOR_MAIN}; font-weight: bold;">= ${coinFormatter(materialData.totalValue)}</span>
+            <span style="color: ${config$1.SCRIPT_COLOR_SECONDARY};">@ ${coinFormatter(materialData.marketPrice)}</span>
+            <span style="color: ${config$1.SCRIPT_COLOR_MAIN}; font-weight: bold;">= ${coinFormatter(materialData.totalValue)}</span>
             <span style="color: ${hasEnough ? '#4ade80' : '#f87171'}; margin-left: auto; text-align: right;">${coinFormatter(amountNeeded)}</span>
         `;
 
@@ -16830,10 +17262,10 @@
             totalDiv.style.cssText = `
             margin-top: 12px;
             padding-top: 12px;
-            border-top: 2px solid ${config.SCRIPT_COLOR_MAIN};
+            border-top: 2px solid ${config$1.SCRIPT_COLOR_MAIN};
             font-weight: bold;
             font-size: 1rem;
-            color: ${config.SCRIPT_COLOR_MAIN};
+            color: ${config$1.SCRIPT_COLOR_MAIN};
             text-align: center;
         `;
             totalDiv.textContent = `Total Market Value: ${coinFormatter(costData.totalValue)}`;
@@ -16854,7 +17286,7 @@
             padding: 8px;
             background: rgba(0, 0, 0, 0.3);
             border-radius: 8px;
-            border: 1px solid ${config.SCRIPT_COLOR_SECONDARY};
+            border: 1px solid ${config$1.SCRIPT_COLOR_SECONDARY};
         `;
 
             // Compact header with inline dropdown
@@ -16869,7 +17301,7 @@
 
             const label = document.createElement('span');
             label.style.cssText = `
-            color: ${config.SCRIPT_COLOR_MAIN};
+            color: ${config$1.SCRIPT_COLOR_MAIN};
             font-weight: bold;
             font-size: 0.875rem;
         `;
@@ -16879,8 +17311,8 @@
             dropdown.style.cssText = `
             padding: 4px 8px;
             background: rgba(0, 0, 0, 0.3);
-            border: 1px solid ${config.SCRIPT_COLOR_SECONDARY};
-            color: ${config.SCRIPT_COLOR_MAIN};
+            border: 1px solid ${config$1.SCRIPT_COLOR_SECONDARY};
+            color: ${config$1.SCRIPT_COLOR_MAIN};
             border-radius: 4px;
             cursor: pointer;
             font-size: 0.875rem;
@@ -16966,10 +17398,10 @@
             totalDiv.style.cssText = `
             margin-top: 12px;
             padding-top: 12px;
-            border-top: 2px solid ${config.SCRIPT_COLOR_MAIN};
+            border-top: 2px solid ${config$1.SCRIPT_COLOR_MAIN};
             font-weight: bold;
             font-size: 1rem;
-            color: ${config.SCRIPT_COLOR_MAIN};
+            color: ${config$1.SCRIPT_COLOR_MAIN};
             text-align: center;
         `;
             totalDiv.textContent = `Total Market Value: ${coinFormatter(costData.totalValue)}`;
@@ -17010,7 +17442,7 @@
             const priceSpan = document.createElement('span');
             if (!isCoin) {
                 priceSpan.style.cssText = `
-                color: ${config.SCRIPT_COLOR_SECONDARY};
+                color: ${config$1.SCRIPT_COLOR_SECONDARY};
                 font-size: 0.75rem;
                 text-align: left;
             `;
@@ -17022,7 +17454,7 @@
             const totalSpan = document.createElement('span');
             if (isCoin) {
                 totalSpan.style.cssText = `
-                color: ${config.SCRIPT_COLOR_MAIN};
+                color: ${config$1.SCRIPT_COLOR_MAIN};
                 font-weight: bold;
                 font-size: 0.75rem;
                 text-align: left;
@@ -17030,7 +17462,7 @@
                 totalSpan.textContent = `= ${coinFormatter(material.totalValue)}`;
             } else {
                 totalSpan.style.cssText = `
-                color: ${config.SCRIPT_COLOR_MAIN};
+                color: ${config$1.SCRIPT_COLOR_MAIN};
                 font-weight: bold;
                 font-size: 0.75rem;
                 text-align: left;
@@ -18027,7 +18459,7 @@
             this.container.style.cssText = `
             font-size: 0.875rem;
             font-weight: 500;
-            color: ${config.SCRIPT_COLOR_MAIN};
+            color: ${config$1.SCRIPT_COLOR_MAIN};
             text-wrap: nowrap;
         `;
 
@@ -18120,7 +18552,7 @@
             this.container.className = 'mwi-networth-panel';
             this.container.style.cssText = `
             text-align: left;
-            color: ${config.SCRIPT_COLOR_MAIN};
+            color: ${config$1.SCRIPT_COLOR_MAIN};
             font-size: 0.875rem;
             margin-bottom: 12px;
         `;
@@ -18488,12 +18920,12 @@
             if (this.isActive) return;
 
             // Initialize header display (always enabled with networth feature)
-            if (config.isFeatureEnabled('networth')) {
+            if (config$1.isFeatureEnabled('networth')) {
                 networthHeaderDisplay.initialize();
             }
 
             // Initialize inventory panel display (separate toggle)
-            if (config.isFeatureEnabled('inventorySummary')) {
+            if (config$1.isFeatureEnabled('inventorySummary')) {
                 networthInventoryDisplay.initialize();
             }
 
@@ -18516,11 +18948,11 @@
                 this.currentData = networthData;
 
                 // Update displays
-                if (config.isFeatureEnabled('networth')) {
+                if (config$1.isFeatureEnabled('networth')) {
                     networthHeaderDisplay.update(networthData);
                 }
 
-                if (config.isFeatureEnabled('inventorySummary')) {
+                if (config$1.isFeatureEnabled('inventorySummary')) {
                     networthInventoryDisplay.update(networthData);
                 }
             } catch (error) {
@@ -18570,7 +19002,7 @@
          * Initialize inventory sort feature
          */
         initialize() {
-            if (!config.getSetting('invSort')) {
+            if (!config$1.getSetting('invSort')) {
                 return;
             }
 
@@ -18694,7 +19126,7 @@
             this.controlsContainer = document.createElement('div');
             this.controlsContainer.className = 'mwi-inventory-sort-controls';
             this.controlsContainer.style.cssText = `
-            color: ${config.SCRIPT_COLOR_MAIN};
+            color: ${config$1.SCRIPT_COLOR_MAIN};
             font-size: 0.875rem;
             text-align: left;
             margin-bottom: 8px;
@@ -18761,12 +19193,12 @@
                 const isActive = button.dataset.mode === this.currentMode;
 
                 if (isActive) {
-                    button.style.backgroundColor = config.SCRIPT_COLOR_MAIN;
+                    button.style.backgroundColor = config$1.SCRIPT_COLOR_MAIN;
                     button.style.color = 'black';
                     button.style.fontWeight = 'bold';
                 } else {
                     button.style.backgroundColor = '#444';
-                    button.style.color = '#ccc';
+                    button.style.color = '${config.COLOR_TEXT_SECONDARY}';
                     button.style.fontWeight = 'normal';
                 }
             });
@@ -18951,14 +19383,14 @@
 
             if (this.currentMode === 'none') {
                 // When sort mode is 'none', check invSort_badgesOnNone setting
-                const badgesOnNone = config.getSettingValue('invSort_badgesOnNone', 'None');
+                const badgesOnNone = config$1.getSettingValue('invSort_badgesOnNone', 'None');
                 if (badgesOnNone !== 'None') {
                     showBadges = true;
                     badgeValueKey = badgesOnNone.toLowerCase() + 'Value'; // 'askValue' or 'bidValue'
                 }
             } else {
                 // When sort mode is 'ask' or 'bid', check invSort_showBadges setting
-                const showBadgesSetting = config.getSetting('invSort_showBadges');
+                const showBadgesSetting = config$1.getSetting('invSort_showBadges');
                 if (showBadgesSetting) {
                     showBadges = true;
                     badgeValueKey = this.currentMode + 'Value'; // 'askValue' or 'bidValue'
@@ -19000,7 +19432,7 @@
             top: 2px;
             left: 2px;
             z-index: 1;
-            color: ${config.SCRIPT_COLOR_MAIN};
+            color: ${config$1.SCRIPT_COLOR_MAIN};
             font-size: 0.7rem;
             font-weight: bold;
             text-align: left;
@@ -19783,7 +20215,7 @@
                 return;
             }
 
-            if (!config.getSetting('enhancementTracker')) {
+            if (!config$1.getSetting('enhancementTracker')) {
                 return;
             }
 
@@ -20171,7 +20603,7 @@
          */
         setupScreenObserver() {
             // Check if setting is enabled
-            if (!config.getSetting('enhancementTracker_showOnlyOnEnhancingScreen')) {
+            if (!config$1.getSetting('enhancementTracker_showOnlyOnEnhancingScreen')) {
                 // Setting is disabled, always show tracker
                 this.isOnEnhancingScreen = true;
                 this.show();
@@ -20221,7 +20653,7 @@
          * Update visibility based on screen state and settings
          */
         updateVisibility() {
-            const showOnlyOnEnhancingScreen = config.getSetting('enhancementTracker_showOnlyOnEnhancingScreen');
+            const showOnlyOnEnhancingScreen = config$1.getSetting('enhancementTracker_showOnlyOnEnhancingScreen');
 
             if (!showOnlyOnEnhancingScreen) {
                 // Setting is disabled, always show
@@ -20924,7 +21356,7 @@
      * @param {Object} data - WebSocket message data
      */
     async function handleActionCompleted(data) {
-        if (!config.getSetting('enhancementTracker')) return;
+        if (!config$1.getSetting('enhancementTracker')) return;
         if (!enhancementTracker.isInitialized) return;
 
         const action = data.endCharacterAction;
@@ -21251,7 +21683,7 @@
          * Initialize empty queue notification
          */
         async initialize() {
-            if (!config.getSetting('notifiEmptyAction')) {
+            if (!config$1.getSetting('notifiEmptyAction')) {
                 return;
             }
 
@@ -21306,7 +21738,7 @@
          * @param {Object} data - WebSocket data
          */
         checkActionQueue(data) {
-            if (!config.getSetting('notifiEmptyAction')) {
+            if (!config$1.getSetting('notifiEmptyAction')) {
                 return;
             }
 
@@ -21561,7 +21993,7 @@
             initialize: () => networthFeature.initialize(),
             async: true,
             // Also initialize if inventorySummary is enabled
-            customCheck: () => config.isFeatureEnabled('networth') || config.isFeatureEnabled('inventorySummary')
+            customCheck: () => config$1.isFeatureEnabled('networth') || config$1.isFeatureEnabled('inventorySummary')
         },
         {
             key: 'inventorySort',
@@ -21606,7 +22038,7 @@
                 // Check if feature is enabled
                 const isEnabled = feature.customCheck
                     ? feature.customCheck()
-                    : config.isFeatureEnabled(feature.key);
+                    : config$1.isFeatureEnabled(feature.key);
 
                 if (!isEnabled) {
                     continue;
@@ -21674,7 +22106,7 @@
             // Skip if feature is not enabled
             const isEnabled = feature.customCheck
                 ? feature.customCheck()
-                : config.isFeatureEnabled(feature.key);
+                : config$1.isFeatureEnabled(feature.key);
 
             if (!isEnabled) continue;
 
@@ -21804,7 +22236,7 @@
         button.id = 'toolasha-import-button';
         // Include hidden text for JIGS compatibility (JIGS searches for "Import solo/group")
         button.innerHTML = 'Import from Toolasha<span style="display:none;">Import solo/group</span>';
-        button.style.backgroundColor = config.SCRIPT_COLOR_MAIN;
+        button.style.backgroundColor = config$1.SCRIPT_COLOR_MAIN;
         button.style.color = 'white';
         button.style.padding = '10px 20px';
         button.style.border = 'none';
@@ -21850,7 +22282,7 @@
                 button.style.backgroundColor = '#dc3545'; // Red
                 setTimeout(() => {
                     button.innerHTML = 'Import from Toolasha<span style="display:none;">Import solo/group</span>';
-                    button.style.backgroundColor = config.SCRIPT_COLOR_MAIN;
+                    button.style.backgroundColor = config$1.SCRIPT_COLOR_MAIN;
                 }, 3000);
                 console.error('[Toolasha Combat Sim] No export data available');
                 alert('No character data found. Please:\n1. Refresh the game page\n2. Wait for it to fully load\n3. Try again');
@@ -21970,7 +22402,7 @@
                 button.style.backgroundColor = '#28a745'; // Green
                 setTimeout(() => {
                     button.innerHTML = 'Import from Toolasha<span style="display:none;">Import solo/group</span>';
-                    button.style.backgroundColor = config.SCRIPT_COLOR_MAIN;
+                    button.style.backgroundColor = config$1.SCRIPT_COLOR_MAIN;
                 }, 3000);
 
                 console.log('[Toolasha Combat Sim] Import complete');
@@ -21982,7 +22414,7 @@
             button.style.backgroundColor = '#dc3545'; // Red
             setTimeout(() => {
                 button.innerHTML = 'Import from Toolasha<span style="display:none;">Import solo/group</span>';
-                button.style.backgroundColor = config.SCRIPT_COLOR_MAIN;
+                button.style.backgroundColor = config$1.SCRIPT_COLOR_MAIN;
             }, 3000);
         }
     }
@@ -22038,587 +22470,6 @@
         }
     }
 
-    /**
-     * Settings Configuration
-     * Organizes all script settings into logical groups for the settings UI
-     */
-
-    const settingsGroups = {
-        general: {
-            title: 'General Settings',
-            icon: '⚙️',
-            settings: {
-                networkAlert: {
-                    id: 'networkAlert',
-                    label: 'Show alert when market price data cannot be fetched',
-                    type: 'checkbox',
-                    default: true
-                }
-            }
-        },
-
-        actionPanel: {
-            title: 'Action Panel Enhancements',
-            icon: '⚡',
-            settings: {
-                totalActionTime: {
-                    id: 'totalActionTime',
-                    label: 'Top left: Estimated total time and completion time',
-                    type: 'checkbox',
-                    default: true
-                },
-                actionPanel_totalTime: {
-                    id: 'actionPanel_totalTime',
-                    label: 'Action panel: Total time, times to reach target level, exp/hour',
-                    type: 'checkbox',
-                    default: true
-                },
-                actionPanel_totalTime_quickInputs: {
-                    id: 'actionPanel_totalTime_quickInputs',
-                    label: 'Action panel: Quick input buttons (hours, count presets, Max)',
-                    type: 'checkbox',
-                    default: true,
-                    dependencies: ['actionPanel_totalTime']
-                },
-                actionPanel_foragingTotal: {
-                    id: 'actionPanel_foragingTotal',
-                    label: 'Action panel: Overall profit for multi-outcome foraging',
-                    type: 'checkbox',
-                    default: true,
-                    dependencies: ['actionPanel_totalTime']
-                },
-                actionQueue: {
-                    id: 'actionQueue',
-                    label: 'Queued actions: Show total time and completion time',
-                    type: 'checkbox',
-                    default: true
-                }
-            }
-        },
-
-        tooltips: {
-            title: 'Item Tooltip Enhancements',
-            icon: '💬',
-            settings: {
-                itemTooltip_prices: {
-                    id: 'itemTooltip_prices',
-                    label: 'Show 24-hour average market prices',
-                    type: 'checkbox',
-                    default: true
-                },
-                itemTooltip_profit: {
-                    id: 'itemTooltip_profit',
-                    label: 'Show production cost and profit',
-                    type: 'checkbox',
-                    default: true,
-                    dependencies: ['itemTooltip_prices']
-                },
-                itemTooltip_expectedValue: {
-                    id: 'itemTooltip_expectedValue',
-                    label: 'Show expected value for openable containers',
-                    type: 'checkbox',
-                    default: true,
-                    dependencies: ['itemTooltip_prices']
-                },
-                expectedValue_showDrops: {
-                    id: 'expectedValue_showDrops',
-                    label: 'Expected value drop display',
-                    type: 'select',
-                    default: 'All',
-                    options: [
-                        { value: 'Top 5', label: 'Top 5' },
-                        { value: 'Top 10', label: 'Top 10' },
-                        { value: 'All', label: 'All Drops' },
-                        { value: 'None', label: 'Summary Only' }
-                    ],
-                    dependencies: ['itemTooltip_expectedValue']
-                },
-                expectedValue_respectPricingMode: {
-                    id: 'expectedValue_respectPricingMode',
-                    label: 'Use pricing mode for expected value calculations',
-                    type: 'checkbox',
-                    default: true,
-                    dependencies: ['itemTooltip_expectedValue']
-                },
-                showConsumTips: {
-                    id: 'showConsumTips',
-                    label: 'HP/MP consumables: Restore speed, cost performance',
-                    type: 'checkbox',
-                    default: true
-                },
-                enhanceSim: {
-                    id: 'enhanceSim',
-                    label: 'Show enhancement simulator calculations',
-                    type: 'checkbox',
-                    default: true
-                }
-            }
-        },
-
-        enhancementSimulator: {
-            title: 'Enhancement Simulator Settings',
-            icon: '✨',
-            settings: {
-                enhanceSim_autoDetect: {
-                    id: 'enhanceSim_autoDetect',
-                    label: 'Auto-detect your stats (false = use market defaults)',
-                    type: 'checkbox',
-                    default: false,
-                    help: 'Most players should use market defaults to see realistic professional enhancer costs'
-                },
-                enhanceSim_enhancingLevel: {
-                    id: 'enhanceSim_enhancingLevel',
-                    label: 'Enhancing skill level',
-                    type: 'number',
-                    default: 125,
-                    min: 1,
-                    max: 150,
-                    help: 'Default: 125 (professional enhancer level)'
-                },
-                enhanceSim_houseLevel: {
-                    id: 'enhanceSim_houseLevel',
-                    label: 'Observatory house room level',
-                    type: 'number',
-                    default: 6,
-                    min: 0,
-                    max: 8,
-                    help: 'Default: 6 (realistic market level)'
-                },
-                enhanceSim_toolBonus: {
-                    id: 'enhanceSim_toolBonus',
-                    label: 'Tool success bonus %',
-                    type: 'number',
-                    default: 5.42,
-                    min: 0,
-                    max: 30,
-                    step: 0.01,
-                    help: 'Default: 5.42 (Celestial Enhancer +10)'
-                },
-                enhanceSim_speedBonus: {
-                    id: 'enhanceSim_speedBonus',
-                    label: 'Speed bonus %',
-                    type: 'number',
-                    default: 0,
-                    min: 0,
-                    max: 50,
-                    step: 0.01,
-                    help: 'Default: 0 (not critical for cost calculations)'
-                },
-                enhanceSim_blessedTea: {
-                    id: 'enhanceSim_blessedTea',
-                    label: 'Blessed Tea active',
-                    type: 'checkbox',
-                    default: true,
-                    help: 'Professional enhancers use this to reduce attempts'
-                },
-                enhanceSim_ultraEnhancingTea: {
-                    id: 'enhanceSim_ultraEnhancingTea',
-                    label: 'Ultra Enhancing Tea active',
-                    type: 'checkbox',
-                    default: true,
-                    help: 'Provides +8 base skill levels (scales with drink concentration)'
-                },
-                enhanceSim_superEnhancingTea: {
-                    id: 'enhanceSim_superEnhancingTea',
-                    label: 'Super Enhancing Tea active',
-                    type: 'checkbox',
-                    default: false,
-                    help: 'Provides +6 base skill levels (Ultra is better)'
-                },
-                enhanceSim_enhancingTea: {
-                    id: 'enhanceSim_enhancingTea',
-                    label: 'Enhancing Tea active',
-                    type: 'checkbox',
-                    default: false,
-                    help: 'Provides +3 base skill levels (Ultra is better)'
-                },
-                enhanceSim_drinkConcentration: {
-                    id: 'enhanceSim_drinkConcentration',
-                    label: 'Drink Concentration %',
-                    type: 'number',
-                    default: 10.32,
-                    min: 0,
-                    max: 20,
-                    step: 0.01,
-                    help: 'Default: 10.32 (Guzzling Pouch +10)'
-                }
-            }
-        },
-
-        enhancementTracker: {
-            title: 'Enhancement Tracker',
-            icon: '📊',
-            settings: {
-                enhancementTracker: {
-                    id: 'enhancementTracker',
-                    label: 'Enable Enhancement Tracker',
-                    type: 'checkbox',
-                    default: false,
-                    requiresRefresh: true,
-                    help: 'Track enhancement attempts, costs, and statistics'
-                },
-                enhancementTracker_showOnlyOnEnhancingScreen: {
-                    id: 'enhancementTracker_showOnlyOnEnhancingScreen',
-                    label: 'Show tracker only on Enhancing screen',
-                    type: 'checkbox',
-                    default: false,
-                    dependencies: ['enhancementTracker'],
-                    help: 'Hide tracker when not on the Enhancing screen'
-                }
-            }
-        },
-
-        economy: {
-            title: 'Economy & Inventory',
-            icon: '💰',
-            settings: {
-                networth: {
-                    id: 'networth',
-                    label: 'Top right: Show current assets (net worth)',
-                    type: 'checkbox',
-                    default: true,
-                    help: 'Enhanced items valued by enhancement simulator'
-                },
-                invWorth: {
-                    id: 'invWorth',
-                    label: 'Below inventory: Show inventory summary',
-                    type: 'checkbox',
-                    default: true,
-                    dependencies: ['networth']
-                },
-                invSort: {
-                    id: 'invSort',
-                    label: 'Sort inventory items by value',
-                    type: 'checkbox',
-                    default: true,
-                    dependencies: ['networth']
-                },
-                invSort_showBadges: {
-                    id: 'invSort_showBadges',
-                    label: 'Show stack value badges when sorting by Ask/Bid',
-                    type: 'checkbox',
-                    default: false,
-                    dependencies: ['invSort']
-                },
-                invSort_badgesOnNone: {
-                    id: 'invSort_badgesOnNone',
-                    label: 'Badge type when "None" sort is selected',
-                    type: 'select',
-                    default: 'None',
-                    options: ['None', 'Ask', 'Bid'],
-                    dependencies: ['invSort']
-                },
-                profitCalc_pricingMode: {
-                    id: 'profitCalc_pricingMode',
-                    label: 'Profit calculation pricing mode',
-                    type: 'select',
-                    default: 'hybrid',
-                    options: [
-                        { value: 'conservative', label: 'Conservative (Ask/Bid - instant trading)' },
-                        { value: 'hybrid', label: 'Hybrid (Ask/Ask - instant buy, patient sell)' },
-                        { value: 'optimistic', label: 'Optimistic (Bid/Ask - patient trading)' }
-                    ]
-                }
-            }
-        },
-
-        skills: {
-            title: 'Skills',
-            icon: '📚',
-            settings: {
-                skillbook: {
-                    id: 'skillbook',
-                    label: 'Skill books: Show books needed to reach target level',
-                    type: 'checkbox',
-                    default: true
-                }
-            }
-        },
-
-        combat: {
-            title: 'Combat Features',
-            icon: '⚔️',
-            settings: {
-                combatScore: {
-                    id: 'combatScore',
-                    label: 'Profile panel: Show gear score',
-                    type: 'checkbox',
-                    default: true
-                }
-            }
-        },
-
-        tasks: {
-            title: 'Tasks',
-            icon: '📋',
-            settings: {
-                taskProfitCalculator: {
-                    id: 'taskProfitCalculator',
-                    label: 'Show total profit for gathering/production tasks',
-                    type: 'checkbox',
-                    default: true
-                },
-                taskRerollTracker: {
-                    id: 'taskRerollTracker',
-                    label: 'Track task reroll costs',
-                    type: 'checkbox',
-                    default: true,
-                    requiresRefresh: true,
-                    help: 'Tracks how much gold/cowbells spent rerolling each task (EXPERIMENTAL - may cause UI freezing)'
-                },
-                taskMapIndex: {
-                    id: 'taskMapIndex',
-                    label: 'Show combat zone index numbers on tasks',
-                    type: 'checkbox',
-                    default: true
-                }
-            }
-        },
-
-        ui: {
-            title: 'UI Enhancements',
-            icon: '🎨',
-            settings: {
-                expPercentage: {
-                    id: 'expPercentage',
-                    label: 'Left sidebar: Show skill XP percentages',
-                    type: 'checkbox',
-                    default: true
-                },
-                itemIconLevel: {
-                    id: 'itemIconLevel',
-                    label: 'Bottom left corner of icons: Show equipment level',
-                    type: 'checkbox',
-                    default: true
-                },
-                showsKeyInfoInIcon: {
-                    id: 'showsKeyInfoInIcon',
-                    label: 'Bottom left corner of key icons: Show zone index',
-                    type: 'checkbox',
-                    default: true,
-                    dependencies: ['itemIconLevel']
-                },
-                mapIndex: {
-                    id: 'mapIndex',
-                    label: 'Combat zones: Show zone index numbers',
-                    type: 'checkbox',
-                    default: true
-                },
-                alchemyItemDimming: {
-                    id: 'alchemyItemDimming',
-                    label: 'Alchemy panel: Dim items requiring higher level',
-                    type: 'checkbox',
-                    default: true
-                },
-                marketFilter: {
-                    id: 'marketFilter',
-                    label: 'Marketplace: Filter by level, class, slot',
-                    type: 'checkbox',
-                    default: true
-                },
-                fillMarketOrderPrice: {
-                    id: 'fillMarketOrderPrice',
-                    label: 'Auto-fill marketplace orders with optimal price',
-                    type: 'checkbox',
-                    default: true
-                }
-            }
-        },
-
-        house: {
-            title: 'House',
-            icon: '🏠',
-            settings: {
-                houseUpgradeCosts: {
-                    id: 'houseUpgradeCosts',
-                    label: 'Show upgrade costs with market prices and inventory comparison',
-                    type: 'checkbox',
-                    default: true
-                }
-            }
-        },
-
-        notifications: {
-            title: 'Notifications',
-            icon: '🔔',
-            settings: {
-                notifiEmptyAction: {
-                    id: 'notifiEmptyAction',
-                    label: 'Browser notification when action queue is empty',
-                    type: 'checkbox',
-                    default: false,
-                    help: 'Only works when the game page is open'
-                }
-            }
-        }
-    };
-
-    /**
-     * Settings Storage Module
-     * Handles persistence of settings to chrome.storage.local
-     */
-
-
-    class SettingsStorage {
-        constructor() {
-            this.storageKey = 'script_settingsMap';
-            this.storageArea = 'settings';
-        }
-
-        /**
-         * Load all settings from storage
-         * Merges saved values with defaults from settings-config
-         * @returns {Promise<Object>} Settings map
-         */
-        async loadSettings() {
-            const saved = await storage.getJSON(this.storageKey, this.storageArea, null);
-            const settings = {};
-
-            // Build default settings from config
-            for (const group of Object.values(settingsGroups)) {
-                for (const [settingId, settingDef] of Object.entries(group.settings)) {
-                    settings[settingId] = {
-                        id: settingId,
-                        desc: settingDef.label,
-                        type: settingDef.type || 'checkbox'
-                    };
-
-                    // Set default value
-                    if (settingDef.type === 'checkbox') {
-                        settings[settingId].isTrue = settingDef.default ?? false;
-                    } else {
-                        settings[settingId].value = settingDef.default ?? '';
-                    }
-
-                    // Copy other properties
-                    if (settingDef.options) {
-                        settings[settingId].options = settingDef.options;
-                    }
-                    if (settingDef.min !== undefined) {
-                        settings[settingId].min = settingDef.min;
-                    }
-                    if (settingDef.max !== undefined) {
-                        settings[settingId].max = settingDef.max;
-                    }
-                    if (settingDef.step !== undefined) {
-                        settings[settingId].step = settingDef.step;
-                    }
-                }
-            }
-
-            // Merge saved settings
-            if (saved) {
-                for (const [settingId, savedValue] of Object.entries(saved)) {
-                    if (settings[settingId]) {
-                        // Merge saved boolean values
-                        if (savedValue.hasOwnProperty('isTrue')) {
-                            settings[settingId].isTrue = savedValue.isTrue;
-                        }
-                        // Merge saved non-boolean values
-                        if (savedValue.hasOwnProperty('value')) {
-                            settings[settingId].value = savedValue.value;
-                        }
-                    }
-                }
-            }
-
-            return settings;
-        }
-
-        /**
-         * Save all settings to storage
-         * @param {Object} settings - Settings map
-         * @returns {Promise<void>}
-         */
-        async saveSettings(settings) {
-            await storage.setJSON(this.storageKey, settings, this.storageArea, true);
-        }
-
-        /**
-         * Get a single setting value
-         * @param {string} settingId - Setting ID
-         * @param {*} defaultValue - Default value if not found
-         * @returns {Promise<*>} Setting value
-         */
-        async getSetting(settingId, defaultValue = null) {
-            const settings = await this.loadSettings();
-            const setting = settings[settingId];
-
-            if (!setting) {
-                return defaultValue;
-            }
-
-            // Return boolean for checkbox settings
-            if (setting.type === 'checkbox') {
-                return setting.isTrue ?? defaultValue;
-            }
-
-            // Return value for other settings
-            return setting.value ?? defaultValue;
-        }
-
-        /**
-         * Set a single setting value
-         * @param {string} settingId - Setting ID
-         * @param {*} value - New value
-         * @returns {Promise<void>}
-         */
-        async setSetting(settingId, value) {
-            const settings = await this.loadSettings();
-
-            if (!settings[settingId]) {
-                console.warn(`Setting '${settingId}' not found`);
-                return;
-            }
-
-            // Update value
-            if (settings[settingId].type === 'checkbox') {
-                settings[settingId].isTrue = value;
-            } else {
-                settings[settingId].value = value;
-            }
-
-            await this.saveSettings(settings);
-        }
-
-        /**
-         * Reset all settings to defaults
-         * @returns {Promise<void>}
-         */
-        async resetToDefaults() {
-            // Simply clear storage - loadSettings() will return defaults
-            await storage.remove(this.storageKey, this.storageArea);
-        }
-
-        /**
-         * Export settings as JSON
-         * @returns {Promise<string>} JSON string
-         */
-        async exportSettings() {
-            const settings = await this.loadSettings();
-            return JSON.stringify(settings, null, 2);
-        }
-
-        /**
-         * Import settings from JSON
-         * @param {string} jsonString - JSON string
-         * @returns {Promise<boolean>} Success
-         */
-        async importSettings(jsonString) {
-            try {
-                const imported = JSON.parse(jsonString);
-                await this.saveSettings(imported);
-                return true;
-            } catch (error) {
-                console.error('[Settings Storage] Import failed:', error);
-                return false;
-            }
-        }
-    }
-
-    // Create and export singleton instance
-    const settingsStorage = new SettingsStorage();
-
     var settingsCSS = "/* Toolasha Settings UI Styles\n * Modern, compact design\n */\n\n/* CSS Variables */\n:root {\n    --toolasha-accent: #5b8def;\n    --toolasha-accent-hover: #7aa3f3;\n    --toolasha-accent-dim: rgba(91, 141, 239, 0.15);\n    --toolasha-secondary: #8A2BE2;\n    --toolasha-text: rgba(255, 255, 255, 0.9);\n    --toolasha-text-dim: rgba(255, 255, 255, 0.5);\n    --toolasha-bg: rgba(20, 25, 35, 0.6);\n    --toolasha-border: rgba(91, 141, 239, 0.2);\n    --toolasha-toggle-off: rgba(100, 100, 120, 0.4);\n    --toolasha-toggle-on: var(--toolasha-accent);\n}\n\n/* Settings Card Container */\n.toolasha-settings-card {\n    display: flex;\n    flex-direction: column;\n    padding: 12px 16px;\n    font-size: 12px;\n    line-height: 1.3;\n    color: var(--toolasha-text);\n    position: relative;\n    overflow-y: auto;\n    gap: 6px;\n    max-height: calc(100vh - 250px);\n}\n\n/* Top gradient line */\n.toolasha-settings-card::before {\n    display: none;\n}\n\n/* Scrollbar styling */\n.toolasha-settings-card::-webkit-scrollbar {\n    width: 6px;\n}\n\n.toolasha-settings-card::-webkit-scrollbar-track {\n    background: transparent;\n}\n\n.toolasha-settings-card::-webkit-scrollbar-thumb {\n    background: var(--toolasha-accent);\n    border-radius: 3px;\n    opacity: 0.5;\n}\n\n.toolasha-settings-card::-webkit-scrollbar-thumb:hover {\n    opacity: 1;\n}\n\n/* Collapsible Settings Groups */\n.toolasha-settings-group {\n    margin-bottom: 8px;\n}\n\n.toolasha-settings-group-header {\n    cursor: pointer;\n    user-select: none;\n    margin: 10px 0 4px 0;\n    color: var(--toolasha-accent);\n    font-weight: 600;\n    font-size: 13px;\n    display: flex;\n    align-items: center;\n    gap: 6px;\n    border-bottom: 1px solid var(--toolasha-border);\n    padding-bottom: 3px;\n    text-transform: uppercase;\n    letter-spacing: 0.5px;\n    transition: color 0.2s ease;\n}\n\n.toolasha-settings-group-header:hover {\n    color: var(--toolasha-accent-hover);\n}\n\n.toolasha-settings-group-header .collapse-icon {\n    font-size: 10px;\n    transition: transform 0.2s ease;\n}\n\n.toolasha-settings-group.collapsed .collapse-icon {\n    transform: rotate(-90deg);\n}\n\n.toolasha-settings-group-content {\n    max-height: 5000px;\n    overflow: hidden;\n    transition: max-height 0.3s ease-out;\n}\n\n.toolasha-settings-group.collapsed .toolasha-settings-group-content {\n    max-height: 0;\n}\n\n/* Section Headers */\n.toolasha-settings-card h3 {\n    margin: 10px 0 4px 0;\n    color: var(--toolasha-accent);\n    font-weight: 600;\n    font-size: 13px;\n    display: flex;\n    align-items: center;\n    gap: 6px;\n    border-bottom: 1px solid var(--toolasha-border);\n    padding-bottom: 3px;\n    text-transform: uppercase;\n    letter-spacing: 0.5px;\n}\n\n.toolasha-settings-card h3:first-child {\n    margin-top: 0;\n}\n\n.toolasha-settings-card h3 .icon {\n    font-size: 14px;\n}\n\n/* Individual Setting Row */\n.toolasha-setting {\n    display: flex;\n    align-items: center;\n    justify-content: space-between;\n    gap: 10px;\n    margin: 0;\n    padding: 6px 8px;\n    background: var(--toolasha-bg);\n    border: 1px solid var(--toolasha-border);\n    border-radius: 4px;\n    min-height: unset;\n    transition: all 0.2s ease;\n}\n\n.toolasha-setting:hover {\n    background: rgba(30, 35, 45, 0.7);\n    border-color: var(--toolasha-accent);\n}\n\n.toolasha-setting.disabled {\n    opacity: 0.3;\n    pointer-events: none;\n}\n\n.toolasha-setting.not-implemented .toolasha-setting-label {\n    color: #ff6b6b;\n}\n\n.toolasha-setting.not-implemented .toolasha-setting-help {\n    color: rgba(255, 107, 107, 0.7);\n}\n\n.toolasha-setting-label {\n    text-align: left;\n    flex: 1;\n    margin-right: 10px;\n    line-height: 1.3;\n    font-size: 12px;\n}\n\n.toolasha-setting-help {\n    display: block;\n    font-size: 10px;\n    color: var(--toolasha-text-dim);\n    margin-top: 2px;\n    font-style: italic;\n}\n\n.toolasha-setting-input {\n    flex-shrink: 0;\n}\n\n/* Modern Toggle Switch */\n.toolasha-switch {\n    position: relative;\n    width: 38px;\n    height: 20px;\n    flex-shrink: 0;\n    display: inline-block;\n}\n\n.toolasha-switch input {\n    opacity: 0;\n    width: 0;\n    height: 0;\n    position: absolute;\n}\n\n.toolasha-slider {\n    position: absolute;\n    top: 0;\n    left: 0;\n    right: 0;\n    bottom: 0;\n    background: var(--toolasha-toggle-off);\n    border-radius: 20px;\n    cursor: pointer;\n    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);\n    border: 2px solid transparent;\n}\n\n.toolasha-slider:before {\n    content: \"\";\n    position: absolute;\n    height: 12px;\n    width: 12px;\n    left: 2px;\n    bottom: 2px;\n    background: white;\n    border-radius: 50%;\n    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);\n    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);\n}\n\n.toolasha-switch input:checked + .toolasha-slider {\n    background: var(--toolasha-toggle-on);\n    border-color: var(--toolasha-accent-hover);\n    box-shadow: 0 0 6px var(--toolasha-accent-dim);\n}\n\n.toolasha-switch input:checked + .toolasha-slider:before {\n    transform: translateX(18px);\n}\n\n.toolasha-switch:hover .toolasha-slider {\n    border-color: var(--toolasha-accent);\n}\n\n/* Text Input */\n.toolasha-text-input {\n    padding: 5px 8px;\n    border: 1px solid var(--toolasha-border);\n    border-radius: 3px;\n    background: rgba(0, 0, 0, 0.3);\n    color: var(--toolasha-text);\n    min-width: 100px;\n    font-size: 12px;\n    transition: all 0.2s ease;\n}\n\n.toolasha-text-input:focus {\n    outline: none;\n    border-color: var(--toolasha-accent);\n    box-shadow: 0 0 0 2px var(--toolasha-accent-dim);\n}\n\n/* Number Input */\n.toolasha-number-input {\n    padding: 5px 8px;\n    border: 1px solid var(--toolasha-border);\n    border-radius: 3px;\n    background: rgba(0, 0, 0, 0.3);\n    color: var(--toolasha-text);\n    min-width: 80px;\n    font-size: 12px;\n    transition: all 0.2s ease;\n}\n\n.toolasha-number-input:focus {\n    outline: none;\n    border-color: var(--toolasha-accent);\n    box-shadow: 0 0 0 2px var(--toolasha-accent-dim);\n}\n\n/* Select Dropdown */\n.toolasha-select-input {\n    padding: 5px 8px;\n    border: 1px solid var(--toolasha-border);\n    border-radius: 3px;\n    background: rgba(0, 0, 0, 0.3);\n    color: var(--toolasha-accent);\n    font-weight: 600;\n    min-width: 150px;\n    cursor: pointer;\n    font-size: 12px;\n    -webkit-appearance: none;\n    -moz-appearance: none;\n    appearance: none;\n    background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207l5%205%205-5z%22%20fill%3D%22%235b8def%22%2F%3E%3C%2Fsvg%3E');\n    background-repeat: no-repeat;\n    background-position: right 6px center;\n    background-size: 14px;\n    padding-right: 28px;\n    transition: all 0.2s ease;\n}\n\n.toolasha-select-input:focus {\n    outline: none;\n    border-color: var(--toolasha-accent);\n    box-shadow: 0 0 0 2px var(--toolasha-accent-dim);\n}\n\n.toolasha-select-input option {\n    background: #1a1a2e;\n    color: var(--toolasha-text);\n    padding: 8px;\n}\n\n/* Utility Buttons Container */\n.toolasha-utility-buttons {\n    display: flex;\n    gap: 8px;\n    margin-top: 12px;\n    padding-top: 10px;\n    border-top: 1px solid var(--toolasha-border);\n    flex-wrap: wrap;\n}\n\n.toolasha-utility-button {\n    background: linear-gradient(135deg, var(--toolasha-secondary), #6A1B9A);\n    border: 1px solid rgba(138, 43, 226, 0.4);\n    color: #ffffff;\n    padding: 6px 12px;\n    border-radius: 4px;\n    font-size: 11px;\n    font-weight: 600;\n    cursor: pointer;\n    transition: all 0.2s ease;\n    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);\n}\n\n.toolasha-utility-button:hover {\n    background: linear-gradient(135deg, #9A4BCF, var(--toolasha-secondary));\n    box-shadow: 0 0 10px rgba(138, 43, 226, 0.3);\n    transform: translateY(-1px);\n}\n\n.toolasha-utility-button:active {\n    transform: translateY(0);\n}\n\n/* Refresh Notice */\n.toolasha-refresh-notice {\n    background: rgba(255, 152, 0, 0.1);\n    border: 1px solid rgba(255, 152, 0, 0.3);\n    border-radius: 4px;\n    padding: 8px 12px;\n    margin-top: 10px;\n    color: #ffa726;\n    font-size: 11px;\n    display: flex;\n    align-items: center;\n    gap: 8px;\n}\n\n.toolasha-refresh-notice::before {\n    content: \"⚠️\";\n    font-size: 14px;\n}\n\n/* Dependency Indicator */\n.toolasha-setting.has-dependency::before {\n    content: \"↳\";\n    position: absolute;\n    left: -4px;\n    color: var(--toolasha-accent);\n    font-size: 14px;\n    opacity: 0.5;\n}\n\n.toolasha-setting.has-dependency {\n    margin-left: 16px;\n    position: relative;\n}\n\n/* Nested setting collapse icons */\n.setting-collapse-icon {\n    flex-shrink: 0;\n    color: var(--toolasha-accent);\n    opacity: 0.7;\n}\n\n.toolasha-setting.dependents-collapsed .setting-collapse-icon {\n    opacity: 1;\n}\n\n.toolasha-setting-label-container:hover .setting-collapse-icon {\n    opacity: 1;\n}\n\n/* Tab Panel Override (for game's settings panel) */\n.TabPanel_tabPanel__tXMJF#toolasha-settings {\n    display: block !important;\n}\n\n.TabPanel_tabPanel__tXMJF#toolasha-settings.TabPanel_hidden__26UM3 {\n    display: none !important;\n}\n";
 
     /**
@@ -22630,7 +22481,7 @@
 
     class SettingsUI {
         constructor() {
-            this.config = config;
+            this.config = config$1;
             this.settingsPanel = null;
             this.settingsObserver = null;
             this.currentSettings = {};
@@ -23156,6 +23007,24 @@
                 `;
                 }
 
+                case 'color': {
+                    const value = currentSetting?.value ?? settingDef.value ?? settingDef.default ?? '#000000';
+                    return `
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <input type="color"
+                            id="${settingId}"
+                            class="toolasha-color-input"
+                            value="${value}">
+                        <input type="text"
+                            id="${settingId}_text"
+                            class="toolasha-color-text-input"
+                            value="${value}"
+                            style="width: 80px; padding: 4px; background: #2a2a2a; color: white; border: 1px solid #555; border-radius: 3px;"
+                            readonly>
+                    </div>
+                `;
+                }
+
                 default:
                     return `<span style="color: red;">Unknown type: ${type}</span>`;
             }
@@ -23281,6 +23150,13 @@
                 value = input.checked;
             } else if (type === 'number') {
                 value = parseFloat(input.value) || 0;
+            } else if (type === 'color') {
+                value = input.value;
+                // Update the text display
+                const textInput = document.getElementById(`${settingId}_text`);
+                if (textInput) {
+                    textInput.value = value;
+                }
             } else {
                 value = input.value;
             }
@@ -23293,6 +23169,11 @@
                 this.config.setSetting(settingId, value);
             } else {
                 this.config.setSettingValue(settingId, value);
+            }
+
+            // Apply color settings immediately if this is a color setting
+            if (type === 'color') {
+                this.config.applyColorSettings();
             }
 
             // Update dependencies
@@ -23437,7 +23318,7 @@
                 await storage.initialize();
 
                 // Initialize config (loads settings from storage)
-                await config.initialize();
+                await config$1.initialize();
 
                 // Initialize Settings UI (injects tab into game settings panel)
                 await settingsUI.initialize().catch(error => {
@@ -23513,16 +23394,16 @@
         const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
         targetWindow.Toolasha = {
-            version: '0.4.842',
+            version: '0.4.843',
 
             // Feature toggle API (for users to manage settings via console)
             features: {
-                list: () => config.getFeaturesByCategory(),
-                enable: (key) => config.setFeatureEnabled(key, true),
-                disable: (key) => config.setFeatureEnabled(key, false),
-                toggle: (key) => config.toggleFeature(key),
-                status: (key) => config.isFeatureEnabled(key),
-                info: (key) => config.getFeatureInfo(key)
+                list: () => config$1.getFeaturesByCategory(),
+                enable: (key) => config$1.setFeatureEnabled(key, true),
+                disable: (key) => config$1.setFeatureEnabled(key, false),
+                toggle: (key) => config$1.toggleFeature(key),
+                status: (key) => config$1.isFeatureEnabled(key),
+                info: (key) => config$1.getFeatureInfo(key)
             }
         };
     }

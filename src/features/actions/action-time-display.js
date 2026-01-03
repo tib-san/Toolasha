@@ -187,7 +187,7 @@ class ActionTimeDisplay {
         this.displayElement.id = 'mwi-action-time-display';
         this.displayElement.style.cssText = `
             font-size: 0.9em;
-            color: var(--text-color-secondary, #888);
+            color: var(--text-color-secondary, ${config.COLOR_TEXT_SECONDARY});
             margin-top: 2px;
             line-height: 1.4;
             text-align: left;
@@ -508,7 +508,7 @@ class ActionTimeDisplay {
         // Create marker span for our additions
         const statsSpan = document.createElement('span');
         statsSpan.className = 'mwi-appended-stats';
-        statsSpan.style.cssText = 'color: var(--text-color-secondary, #888);';
+        statsSpan.style.cssText = `color: var(--text-color-secondary, ${config.COLOR_TEXT_SECONDARY});`;
         statsSpan.textContent = ' ' + statsText;
 
         // Append to action name element
@@ -773,7 +773,7 @@ class ActionTimeDisplay {
                     const timeDiv = document.createElement('div');
                     timeDiv.className = 'mwi-queue-action-time';
                     timeDiv.style.cssText = `
-                        color: var(--text-color-secondary, #888);
+                        color: var(--text-color-secondary, ${config.COLOR_TEXT_SECONDARY});
                         font-size: 0.85em;
                         margin-top: 2px;
                     `;
@@ -841,7 +841,7 @@ class ActionTimeDisplay {
                 const timeDiv = document.createElement('div');
                 timeDiv.className = 'mwi-queue-action-time';
                 timeDiv.style.cssText = `
-                    color: var(--text-color-secondary, #888);
+                    color: var(--text-color-secondary, ${config.COLOR_TEXT_SECONDARY});
                     font-size: 0.85em;
                     margin-top: 2px;
                 `;
@@ -867,11 +867,11 @@ class ActionTimeDisplay {
             const totalDiv = document.createElement('div');
             totalDiv.id = 'mwi-queue-total-time';
             totalDiv.style.cssText = `
-                color: var(--text-color-primary, #fff);
+                color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY});
                 font-weight: bold;
                 margin-top: 12px;
                 padding: 8px;
-                border-top: 1px solid var(--border-color, #444);
+                border-top: 1px solid var(--border-color, ${config.COLOR_BORDER});
                 text-align: center;
             `;
 

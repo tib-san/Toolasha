@@ -432,7 +432,7 @@ class TooltipPrices {
             html += '<div style="font-size: 0.9em; margin-left: 8px;">';
 
             const profitPerDay = profitData.profitPerHour * 24;
-            const profitColor = profitData.profitPerHour >= 0 ? '#047857' : '#f87171'; // darker emerald if positive, red if negative
+            const profitColor = profitData.profitPerHour >= 0 ? config.COLOR_PROFIT : config.COLOR_LOSS;
 
             html += `<div style="color: ${profitColor}; font-weight: bold;">Net: ${numberFormatter(profitData.profitPerHour)}/hr (${formatKMB(profitPerDay)}/day)</div>`;
         } else {
@@ -442,8 +442,8 @@ class TooltipPrices {
             const teaCostPerItem = profitData.totalTeaCostPerHour / profitData.itemsPerHour;
             const productionCost = profitData.totalMaterialCost + teaCostPerItem;
 
-            html += `<div style="font-weight: bold; color: #60a5fa;">Cost: ${numberFormatter(productionCost)}/item</div>`;
-            html += `<div style="color: #999; font-style: italic; margin-top: 4px;">No market data available</div>`;
+            html += `<div style="font-weight: bold; color: ${config.COLOR_INFO};">Cost: ${numberFormatter(productionCost)}/item</div>`;
+            html += `<div style="color: ${config.COLOR_TEXT_SECONDARY}; font-style: italic; margin-top: 4px;">No market data available</div>`;
         }
 
         html += '</div>';
@@ -490,7 +490,7 @@ class TooltipPrices {
         html += '<div style="font-size: 0.9em; margin-left: 8px;">';
 
         // Expected value (simple display)
-        html += `<div style="color: #047857; font-weight: bold;">Expected Return: ${numberFormatter(evData.expectedValue)}</div>`;
+        html += `<div style="color: ${config.COLOR_PROFIT}; font-weight: bold;">Expected Return: ${numberFormatter(evData.expectedValue)}</div>`;
 
         html += '</div>'; // Close summary section
 
@@ -519,7 +519,7 @@ class TooltipPrices {
             for (const drop of dropsToShow) {
                 if (!drop.hasPriceData) {
                     // Show item without price data in gray
-                    html += `<div style="color: #aaa;">• ${drop.itemName} (${(drop.dropRate * 100).toFixed(2)}%): ${drop.avgCount.toFixed(2)} avg → No price data</div>`;
+                    html += `<div style="color: ${config.COLOR_TEXT_SECONDARY};">• ${drop.itemName} (${(drop.dropRate * 100).toFixed(2)}%): ${drop.avgCount.toFixed(2)} avg → No price data</div>`;
                 } else {
                     // Format drop rate percentage
                     const dropRatePercent = (drop.dropRate * 100).toFixed(2);

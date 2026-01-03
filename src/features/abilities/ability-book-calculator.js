@@ -236,7 +236,7 @@ class AbilityBookCalculator {
                     Cost: ${numberFormatter(Math.ceil(books * ask))} / ${numberFormatter(Math.ceil(books * bid))} (ask / bid)
                 `;
             } else {
-                display.innerHTML = '<span style="color: #f87171;">Invalid target level</span>';
+                display.innerHTML = '<span style="color: ${config.COLOR_LOSS};">Invalid target level</span>';
             }
         };
 

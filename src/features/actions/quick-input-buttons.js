@@ -168,7 +168,7 @@ class QuickInputButtons {
             if (hasNormalXP) {
                 const speedContent = document.createElement('div');
             speedContent.style.cssText = `
-                color: var(--text-color-secondary, #888);
+                color: var(--text-color-secondary, ${config.COLOR_TEXT_SECONDARY});
                 font-size: 0.9em;
                 line-height: 1.6;
             `;
@@ -204,7 +204,7 @@ class QuickInputButtons {
 
             // Add Efficiency breakdown
             speedLines.push(''); // Empty line
-            speedLines.push(`<span style="font-weight: 500; color: var(--text-color-primary, #fff);">Efficiency: +${totalEfficiency.toFixed(1)}% → Output: ×${efficiencyMultiplier.toFixed(2)} (${Math.round((3600 / actionTime) * efficiencyMultiplier)}/hr)</span>`);
+            speedLines.push(`<span style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY});">Efficiency: +${totalEfficiency.toFixed(1)}% → Output: ×${efficiencyMultiplier.toFixed(2)} (${Math.round((3600 / actionTime) * efficiencyMultiplier)}/hr)</span>`);
 
             // Detailed efficiency breakdown
             if (efficiencyBreakdown.levelEfficiency > 0 || (efficiencyBreakdown.actionLevelBreakdown && efficiencyBreakdown.actionLevelBreakdown.length > 0)) {
@@ -259,7 +259,7 @@ class QuickInputButtons {
             // Total time (dynamic)
             const totalTimeLine = document.createElement('div');
             totalTimeLine.style.cssText = `
-                color: var(--text-color-main, #6fb8e8);
+                color: var(--text-color-main, ${config.COLOR_INFO});
                 font-weight: 500;
                 margin-top: 4px;
             `;
@@ -385,7 +385,7 @@ class QuickInputButtons {
             // ===== SECTION 3: Quick Queue Setup =====
             const queueContent = document.createElement('div');
             queueContent.style.cssText = `
-                color: var(--text-color-secondary, #888);
+                color: var(--text-color-secondary, ${config.COLOR_TEXT_SECONDARY});
                 font-size: 0.9em;
                 margin-top: 8px;
                 margin-bottom: 8px;
@@ -1010,7 +1010,7 @@ class QuickInputButtons {
             // Create content
             const content = document.createElement('div');
             content.style.cssText = `
-                color: var(--text-color-secondary, #888);
+                color: var(--text-color-secondary, ${config.COLOR_TEXT_SECONDARY});
                 font-size: 0.9em;
                 line-height: 1.6;
             `;
@@ -1071,14 +1071,14 @@ class QuickInputButtons {
                 baseEfficiency, actionTime, modifiedXP, levelExperienceTable
             );
 
-            lines.push(`<span style="font-weight: 500; color: var(--text-color-primary, #fff);">To Level ${nextLevel}:</span>`);
+            lines.push(`<span style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY});">To Level ${nextLevel}:</span>`);
             lines.push(`  Actions: ${formatWithSeparator(singleLevel.actionsNeeded)}`);
             lines.push(`  Time: ${timeReadable(singleLevel.timeNeeded)}`);
 
             lines.push('');
 
             // Multi-level calculator (interactive section)
-            lines.push(`<span style="font-weight: 500; color: var(--text-color-primary, #fff);">Target Level Calculator:</span>`);
+            lines.push(`<span style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY});">Target Level Calculator:</span>`);
             lines.push(`<div style="margin-top: 4px;">
                 <span>To level </span>
                 <input
@@ -1091,8 +1091,8 @@ class QuickInputButtons {
                         width: 50px;
                         padding: 2px 4px;
                         background: var(--background-secondary, #2a2a2a);
-                        color: var(--text-color-primary, #fff);
-                        border: 1px solid var(--border-color, #444);
+                        color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY});
+                        border: 1px solid var(--border-color, ${config.COLOR_BORDER});
                         border-radius: 3px;
                         font-size: 0.9em;
                     "
@@ -1126,7 +1126,7 @@ class QuickInputButtons {
                     targetLevelResult.innerHTML = `
                         ${formatWithSeparator(result.actionsNeeded)} actions | ${timeReadable(result.timeNeeded)}
                     `;
-                    targetLevelResult.style.color = 'var(--text-color-primary, #fff)';
+                    targetLevelResult.style.color = 'var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY})';
 
                     // Auto-fill queue input when target level changes
                     this.setInputValue(numberInput, result.actionsNeeded);

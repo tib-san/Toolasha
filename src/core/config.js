@@ -4,6 +4,7 @@
  */
 
 import storage from './storage.js';
+import settingsStorage from '../features/settings/settings-storage.js';
 
 /**
  * Config class manages all script configuration
@@ -18,9 +19,20 @@ class Config {
         this.THOUSAND_SEPARATOR = new Intl.NumberFormat().format(1111).replaceAll("1", "").at(0) || "";
         this.DECIMAL_SEPARATOR = new Intl.NumberFormat().format(1.1).replaceAll("1", "").at(0);
 
-        // Script colors (can be changed by settings)
-        this.SCRIPT_COLOR_MAIN = "green";
-        this.SCRIPT_COLOR_TOOLTIP = "darkgreen";
+        // Extended color palette (configurable)
+        this.COLOR_PROFIT = "#047857";      // Emerald green for positive values
+        this.COLOR_LOSS = "#f87171";        // Red for negative values
+        this.COLOR_WARNING = "#ffa500";     // Orange for warnings
+        this.COLOR_INFO = "#60a5fa";        // Blue for informational
+        this.COLOR_TEXT_PRIMARY = "#ffffff"; // Primary text color
+        this.COLOR_TEXT_SECONDARY = "#888888"; // Secondary text color
+        this.COLOR_BORDER = "#444444";      // Border color
+        this.COLOR_GOLD = "#ffa500";        // Gold/currency color
+        this.COLOR_ACCENT = "#22c55e";      // Script accent color (green)
+
+        // Legacy color constants (mapped to COLOR_ACCENT)
+        this.SCRIPT_COLOR_MAIN = this.COLOR_ACCENT;
+        this.SCRIPT_COLOR_TOOLTIP = this.COLOR_ACCENT;
         this.SCRIPT_COLOR_ALERT = "red";
 
         // Market API URL
@@ -28,239 +40,8 @@ class Config {
 
         // === SETTINGS MAP ===
 
-        this.settingsMap = {
-            useOrangeAsMainColor: {
-                id: "useOrangeAsMainColor",
-                desc: "Use orange as the main color for the script.",
-                isTrue: true,
-            },
-            totalActionTime: {
-                id: "totalActionTime",
-                desc: "Top left: Estimated total time of the current action, estimated complete time.",
-                isTrue: true,
-            },
-            actionPanel_totalTime: {
-                id: "actionPanel_totalTime",
-                desc: "Action panel: Estimated total time of the action, times needed to reach a target skill level, exp/hour.",
-                isTrue: true,
-            },
-            actionPanel_totalTime_quickInputs: {
-                id: "actionPanel_totalTime_quickInputs",
-                desc: "Action panel: Quick input buttons (hours, count presets, Max). [Depends on the previous selection]",
-                isTrue: true,
-            },
-            actionPanel_foragingTotal: {
-                id: "actionPanel_foragingTotal",
-                desc: "Action panel: Overall profit of the foraging maps with multiple outcomes. [Depends on the previous selection]",
-                isTrue: true,
-            },
-            networth: {
-                id: "networth",
-                desc: "Top right: Current assets (Items with at least 2 enhancement levels are valued by enchancing simulator).",
-                isTrue: true,
-            },
-            invWorth: {
-                id: "invWorth",
-                desc: "Below inventory search bar: Inventory and character summery. [Depends on the previous selection]",
-                isTrue: true,
-            },
-            invSort: {
-                id: "invSort",
-                desc: "Inventory: Sort inventory items. [Depends on the previous selection]",
-                isTrue: true,
-            },
-            invSort_showBadges: {
-                id: "invSort_showBadges",
-                desc: "Inventory: Show stack value badges on items. [Depends on the previous selection]",
-                isTrue: false,
-            },
-            invSort_badgesOnNone: {
-                id: "invSort_badgesOnNone",
-                desc: "Inventory: Badge type to show when 'None' sort is selected.",
-                options: ['None', 'Ask', 'Bid'],
-                default: 'None'
-            },
-            itemTooltip_prices: {
-                id: "itemTooltip_prices",
-                desc: "Item tooltip: 24 hours average market price.",
-                isTrue: true,
-            },
-            itemTooltip_profit: {
-                id: "itemTooltip_profit",
-                desc: "Item tooltip: Production cost and profit. [Depends on the previous selection]",
-                isTrue: true,
-            },
-            itemTooltip_expectedValue: {
-                id: "itemTooltip_expectedValue",
-                desc: "Item tooltip: Expected value for openable containers (crates, chests, Purple's Gift). [Depends on the first selection]",
-                isTrue: true,
-            },
-            expectedValue_showDrops: {
-                id: "expectedValue_showDrops",
-                desc: "Expected value drop display: 'Top 5' = 5 highest value drops, 'Top 10' = 10 highest, 'All' = all drops, 'None' = summary only. [Depends on the previous selection]",
-                value: "All",
-            },
-            expectedValue_respectPricingMode: {
-                id: "expectedValue_respectPricingMode",
-                desc: "Use pricing mode for expected value calculations (same as profit calculator). [Depends on the previous selection]",
-                isTrue: true,
-            },
-            enhanceSim_autoDetect: {
-                id: "enhanceSim_autoDetect",
-                desc: "Enhancement tooltips: Auto-detect your current stats (true) or use market defaults (false). Most players should use market defaults to see realistic professional enhancer costs.",
-                isTrue: false,
-            },
-            enhanceSim_enhancingLevel: {
-                id: "enhanceSim_enhancingLevel",
-                desc: "Enhancement skill level for cost calculations (default: 125 - professional enhancer level).",
-                value: 125,
-            },
-            enhanceSim_houseLevel: {
-                id: "enhanceSim_houseLevel",
-                desc: "Observatory house room level (default: 6 - realistic market level, max: 8).",
-                value: 6,
-            },
-            enhanceSim_toolBonus: {
-                id: "enhanceSim_toolBonus",
-                desc: "Tool success bonus percentage (default: 5.42 = Celestial Enhancer +10).",
-                value: 5.42,
-            },
-            enhanceSim_speedBonus: {
-                id: "enhanceSim_speedBonus",
-                desc: "Speed bonus percentage (default: 0 - not critical for cost calculations).",
-                value: 0,
-            },
-            enhanceSim_blessedTea: {
-                id: "enhanceSim_blessedTea",
-                desc: "Blessed Tea active (default: true - professional enhancers use it to reduce attempts).",
-                isTrue: true,
-            },
-            enhanceSim_ultraEnhancingTea: {
-                id: "enhanceSim_ultraEnhancingTea",
-                desc: "Ultra Enhancing Tea active (default: true - provides +8 base skill levels, scales with drink concentration).",
-                isTrue: true,
-            },
-            enhanceSim_superEnhancingTea: {
-                id: "enhanceSim_superEnhancingTea",
-                desc: "Super Enhancing Tea active (default: false - provides +6 base skill levels, Ultra is better).",
-                isTrue: false,
-            },
-            enhanceSim_enhancingTea: {
-                id: "enhanceSim_enhancingTea",
-                desc: "Enhancing Tea active (default: false - provides +3 base skill levels, Ultra is better).",
-                isTrue: false,
-            },
-            enhanceSim_drinkConcentration: {
-                id: "enhanceSim_drinkConcentration",
-                desc: "Drink Concentration percentage (default: 10.32 = Guzzling Pouch +10).",
-                value: 10.32,
-            },
-            profitCalc_pricingMode: {
-                id: "profitCalc_pricingMode",
-                desc: "Profit calculation pricing mode: 'conservative' = instant trading (Ask/Bid), 'hybrid' = instant buy + sell orders (Ask/Ask), 'optimistic' = patient trading (Bid/Ask).",
-                value: "hybrid",
-            },
-            showConsumTips: {
-                id: "showConsumTips",
-                desc: "Item tooltip: HP/MP consumables restore speed, cost performance, max cost per day.",
-                isTrue: true,
-            },
-            networkAlert: {
-                id: "networkAlert",
-                desc: "Top right: Alert message when market price data can not be fetched.",
-                isTrue: true,
-            },
-            expPercentage: {
-                id: "expPercentage",
-                desc: "Left sidebar: Percentages of exp of the skill levels.",
-                isTrue: true,
-            },
-            itemIconLevel: {
-                id: "itemIconLevel",
-                desc: "Top right corner of equipment icons: Equipment level.",
-                isTrue: true,
-            },
-            showsKeyInfoInIcon: {
-                id: "showsKeyInfoInIcon",
-                desc: "Top right corner of key/fragment icons: Corresponding combat zone index number. [Depends on the previous selection]",
-                isTrue: true,
-            },
-            alchemyItemDimming: {
-                id: "alchemyItemDimming",
-                desc: "Alchemy panel: Dim items that require higher Alchemy level than you have.",
-                isTrue: true,
-            },
-            marketFilter: {
-                id: "marketFilter",
-                desc: "Marketplace: Filter by equipment level, class, slot.",
-                isTrue: true,
-            },
-            taskMapIndex: {
-                id: "taskMapIndex",
-                desc: "Tasks page: Combat zone index number.",
-                isTrue: true,
-            },
-            mapIndex: {
-                id: "mapIndex",
-                desc: "Combat zones page: Combat zone index number.",
-                isTrue: true,
-            },
-            skillbook: {
-                id: "skillbook",
-                desc: "Item dictionary of skill books: Number of books needed to reach target skill level.",
-                isTrue: true,
-            },
-            combatScore: {
-                id: "combatScore",
-                desc: "Profile panel: Gear score based on houses, abilities, and equipment.",
-                isTrue: true,
-            },
-            taskProfitCalculator: {
-                id: "taskProfitCalculator",
-                desc: "Task panel: Show total profit for gathering and production tasks (rewards + action profit).",
-                isTrue: true,
-            },
-            taskRerollTracker: {
-                id: "taskRerollTracker",
-                desc: "Task panel: Track task reroll costs (EXPERIMENTAL - may cause UI freezing).",
-                isTrue: true,
-            },
-            houseUpgradeCosts: {
-                id: "houseUpgradeCosts",
-                desc: "House panel: Show upgrade costs with market prices, inventory comparison, and cumulative costs to target level.",
-                isTrue: true,
-            },
-            actionQueue: {
-                id: "actionQueue",
-                desc: "Queued actions panel at the top: Estimated total time and complete time of each queued action.",
-                isTrue: true,
-            },
-            enhanceSim: {
-                id: "enhanceSim",
-                desc: "Tooltip of equipment with enhancement level: Enhancing simulator calculations.",
-                isTrue: true,
-            },
-            notifiEmptyAction: {
-                id: "notifiEmptyAction",
-                desc: "Browser notification: Action queue is empty. (Works only when the game page is open.)",
-                isTrue: false,
-            },
-            fillMarketOrderPrice: {
-                id: "fillMarketOrderPrice",
-                desc: "Automatically input price with the smallest increasement/decreasement when posting marketplace bid/sell orders.",
-                isTrue: true,
-            },
-            enhancementTracker: {
-                id: "enhancementTracker",
-                desc: "Enhancement: Track enhancement attempts, costs, and statistics across multiple sessions.",
-                isTrue: false,
-            },
-            enhancementTracker_showOnlyOnEnhancingScreen: {
-                id: "enhancementTracker_showOnlyOnEnhancingScreen",
-                desc: "Enhancement Tracker: Show tracker only on Enhancing screen (hides when viewing other screens).",
-                isTrue: false,
-            },
-        };
+        // Settings loaded from settings-config.js via settings-storage.js
+        this.settingsMap = {};
 
         // === FEATURE REGISTRY ===
         // Feature toggles with metadata for future UI
@@ -467,39 +248,15 @@ class Config {
      * @returns {Promise<void>}
      */
     async loadSettings() {
-        const saved = await storage.getJSON('script_settingsMap', 'settings', null);
-
-        if (saved) {
-            // Merge saved settings with defaults
-            for (const option of Object.values(saved)) {
-                if (this.settingsMap.hasOwnProperty(option.id)) {
-                    // Load both isTrue (boolean settings) and value (numeric/string settings)
-                    if (option.hasOwnProperty('isTrue')) {
-                        this.settingsMap[option.id].isTrue = option.isTrue;
-                    }
-                    if (option.hasOwnProperty('value')) {
-                        this.settingsMap[option.id].value = option.value;
-                    }
-                }
-            }
-        }
+        // Load settings from settings-storage (which uses settings-config.js as source of truth)
+        this.settingsMap = await settingsStorage.loadSettings();
     }
 
     /**
      * Save settings to storage (immediately)
      */
     saveSettings() {
-        storage.setJSON('script_settingsMap', this.settingsMap, 'settings', true);
-    }
-
-    /**
-     * Apply color customization based on settings
-     */
-    applyColorSettings() {
-        if (this.settingsMap.useOrangeAsMainColor.isTrue) {
-            this.SCRIPT_COLOR_MAIN = "gold";
-            this.SCRIPT_COLOR_TOOLTIP = "#806B00";
-        }
+        settingsStorage.saveSettings(this.settingsMap);
     }
 
     /**
@@ -557,6 +314,11 @@ class Config {
         if (this.settingsMap[key]) {
             this.settingsMap[key].value = value;
             this.saveSettings();
+
+            // Re-apply color settings if this is a color setting
+            if (key.startsWith('color_')) {
+                this.applyColorSettings();
+            }
         }
     }
 
@@ -590,6 +352,26 @@ class Config {
 
         this.saveSettings();
         this.applyColorSettings();
+    }
+
+    /**
+     * Apply color settings to color constants
+     */
+    applyColorSettings() {
+        // Apply extended color palette from settings
+        this.COLOR_PROFIT = this.getSettingValue('color_profit', "#047857");
+        this.COLOR_LOSS = this.getSettingValue('color_loss', "#f87171");
+        this.COLOR_WARNING = this.getSettingValue('color_warning', "#ffa500");
+        this.COLOR_INFO = this.getSettingValue('color_info', "#60a5fa");
+        this.COLOR_TEXT_PRIMARY = this.getSettingValue('color_text_primary', "#ffffff");
+        this.COLOR_TEXT_SECONDARY = this.getSettingValue('color_text_secondary', "#888888");
+        this.COLOR_BORDER = this.getSettingValue('color_border', "#444444");
+        this.COLOR_GOLD = this.getSettingValue('color_gold', "#ffa500");
+        this.COLOR_ACCENT = this.getSettingValue('color_accent', "#22c55e");
+
+        // Set legacy SCRIPT_COLOR_MAIN to accent color
+        this.SCRIPT_COLOR_MAIN = this.COLOR_ACCENT;
+        this.SCRIPT_COLOR_TOOLTIP = this.COLOR_ACCENT; // Keep tooltip same as main
     }
 
     // === FEATURE TOGGLE METHODS ===
