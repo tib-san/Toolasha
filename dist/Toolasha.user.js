@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.834
+// @version      0.4.835
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -6172,6 +6172,12 @@
             // Get market price (for base item, enhancement level 0)
             const price = marketAPI.getPrice(itemHrid, 0);
 
+            // Only check enhancement level for regular item tooltips (not collection tooltips)
+            let enhancementLevel = 0;
+            if (isItemTooltip && !isCollectionTooltip) {
+                enhancementLevel = this.extractEnhancementLevel(tooltipElement);
+            }
+
             // Inject price display only if we have market data
             if (price && (price.ask > 0 || price.bid > 0)) {
                 // Get item amount from tooltip (for stacks)
@@ -6180,8 +6186,9 @@
             }
 
             // Check if profit calculator is enabled
-            // Run even without market data - profit calc will handle incomplete data
-            if (config.getSetting('itemTooltip_profit')) {
+            // Only run for base items (enhancementLevel = 0), not enhanced items
+            // Enhanced items show their cost in the enhancement path section instead
+            if (config.getSetting('itemTooltip_profit') && enhancementLevel === 0) {
                 // Calculate and inject profit information
                 const profitData = await profitCalculator.calculateProfit(itemHrid);
                 if (profitData) {
@@ -6189,24 +6196,21 @@
                 }
             }
 
-            // Only check enhancement level for regular item tooltips (not collection tooltips)
-            if (isItemTooltip && !isCollectionTooltip) {
-                const enhancementLevel = this.extractEnhancementLevel(tooltipElement);
-                if (enhancementLevel > 0) {
-                    // Get enhancement configuration
-                    const enhancementConfig = getEnhancingParams();
-                    if (enhancementConfig) {
-                        // Calculate optimal enhancement path
-                        const enhancementData = calculateEnhancementPath(
-                            itemHrid,
-                            enhancementLevel,
-                            enhancementConfig
-                        );
+            // Show enhancement path for enhanced items (1-20)
+            if (enhancementLevel > 0) {
+                // Get enhancement configuration
+                const enhancementConfig = getEnhancingParams();
+                if (enhancementConfig) {
+                    // Calculate optimal enhancement path
+                    const enhancementData = calculateEnhancementPath(
+                        itemHrid,
+                        enhancementLevel,
+                        enhancementConfig
+                    );
 
-                        if (enhancementData) {
-                            // Inject enhancement analysis into tooltip
-                            this.injectEnhancementDisplay(tooltipElement, enhancementData);
-                        }
+                    if (enhancementData) {
+                        // Inject enhancement analysis into tooltip
+                        this.injectEnhancementDisplay(tooltipElement, enhancementData);
                     }
                 }
             }
@@ -23406,7 +23410,7 @@
         const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
         targetWindow.Toolasha = {
-            version: '0.4.834',
+            version: '0.4.835',
 
             // Feature toggle API (for users to manage settings via console)
             features: {
