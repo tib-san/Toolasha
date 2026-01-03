@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.838
+// @version      0.4.839
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -9706,15 +9706,12 @@
     /**
      * Action Time Display Module
      *
-     * Displays estimated completion time for queued actions in a dedicated panel.
+     * Displays estimated completion time for queued actions.
      * Uses WebSocket data from data-manager instead of DOM scraping.
      *
      * Features:
-     * - Shows current action with queue count
-     * - Displays time per action (with speed breakdown)
-     * - Shows actions per hour (with efficiency)
-     * - Estimates total time remaining
-     * - Shows estimated completion time (clock format)
+     * - Appends stats to game's action name (queue count, time/action, actions/hr)
+     * - Shows time estimates below (total time → completion time)
      * - Updates automatically on action changes
      * - Queue tooltip enhancement (time for each action + total)
      */
@@ -9808,6 +9805,12 @@
          * Clean up old observers and re-initialize for new character's action panel
          */
         handleCharacterSwitch() {
+            // Clear appended stats from old character's action panel (before it's removed)
+            const oldActionNameElement = document.querySelector('div.Header_actionName__31-L2');
+            if (oldActionNameElement) {
+                this.clearAppendedStats(oldActionNameElement);
+            }
+
             // Disconnect old action name observer (watching removed element)
             if (this.actionNameObserver) {
                 this.actionNameObserver.disconnect();
@@ -9901,12 +9904,15 @@
             const actionNameElement = document.querySelector('div.Header_actionName__31-L2');
             if (!actionNameElement || !actionNameElement.textContent) {
                 this.displayElement.innerHTML = '';
+                // Clear any appended stats from the game's div
+                this.clearAppendedStats(actionNameElement);
                 return;
             }
 
             // Parse action name from DOM
             // Format can be: "Action Name (#123)", "Action Name (123)", "Action Name: Item (123)", etc.
-            const actionNameText = actionNameElement.textContent.trim();
+            // First, strip any stats we previously appended
+            const actionNameText = this.getCleanActionName(actionNameElement);
 
             // Extract inventory count from parentheses (e.g., "Coinify: Item (4312)" -> 4312)
             const inventoryCountMatch = actionNameText.match(/\((\d+)\)$/);
@@ -10082,50 +10088,81 @@
             }
 
             // Build display HTML
-            const lines = [];
-
-            // Action icon (SVG sprite, matches game's icon display)
-            const skillType = actionDetails.type; // e.g., "/action_types/milking"
-            if (skillType) {
-                // Extract skill name from type (e.g., "/action_types/milking" → "milking")
-                const skillName = skillType.replace('/action_types/', '');
-
-                // Get sprite URL from existing game SVG (to get correct hash)
-                const existingSvg = document.querySelector('svg[role="img"] use[href*="skills_sprite"]');
-                if (existingSvg) {
-                    const spriteUrl = existingSvg.getAttribute('href').split('#')[0]; // Get base URL with hash
-                    lines.push(`<svg role="img" aria-label="Icon" class="Icon_icon__2LtL_ Icon_tiny__nLKFY Icon_inline__1Idwv" width="20px" height="20px" style="vertical-align: middle; margin-right: 4px;"><use href="${spriteUrl}#${skillName}"></use></svg>`);
-                }
-            }
-
-            // Action info
-            const actionName = actionDetails.name || 'Unknown Action';
-            lines.push(`<span style="color: var(--text-color-primary, #fff);">${actionName}</span>`);
+            // Line 1: Append stats to game's action name div
+            const statsToAppend = [];
 
             // Queue size (with thousand separators)
             if (queueSizeDisplay !== Infinity) {
-                lines.push(` <span style="color: var(--text-color-secondary, #888);">(${queueSizeDisplay.toLocaleString()} queued)</span>`);
+                statsToAppend.push(`(${queueSizeDisplay.toLocaleString()} queued)`);
             } else {
-                lines.push(` <span style="color: var(--text-color-secondary, #888);">(∞)</span>`);
+                statsToAppend.push(`(∞)`);
             }
 
+            // Time per action and actions/hour
+            statsToAppend.push(`${actionTime.toFixed(2)}s/action`);
+            statsToAppend.push(`${actionsPerHour.toFixed(0)}/hr`);
+
+            // Append to game's div (with marker for cleanup)
+            this.appendStatsToActionName(actionNameElement, statsToAppend.join(' · '));
+
+            // Line 2: Time estimates in our div
             // Show time info if we have a finite number of remaining actions
             // This includes both finite actions (hasMaxCount) and infinite actions with inventory count
             if (remainingActions !== Infinity && !isNaN(remainingActions) && remainingActions > 0) {
-                lines.push('<br>');
-
-                // Time per action and actions/hour on same line (simplified - no percentages)
-                lines.push(`<span style="color: var(--text-color-secondary, #888);">`);
-                lines.push(`${actionTime.toFixed(2)}s/action · ${actionsPerHour.toFixed(0)}/hr`);
-                lines.push('</span><br>');
-
-                // Total time and completion time
-                lines.push(`<span style="color: var(--text-color-primary, #fff);">`);
-                lines.push(`⏱ ${timeStr} → ${clockTime}`);
-                lines.push('</span>');
+                this.displayElement.innerHTML = `⏱ ${timeStr} → ${clockTime}`;
+            } else {
+                this.displayElement.innerHTML = '';
             }
+        }
 
-            this.displayElement.innerHTML = lines.join('');
+        /**
+         * Get clean action name from element, stripping any stats we appended
+         * @param {HTMLElement} actionNameElement - Action name element
+         * @returns {string} Clean action name text
+         */
+        getCleanActionName(actionNameElement) {
+            // Find our marker span (if it exists)
+            const markerSpan = actionNameElement.querySelector('.mwi-appended-stats');
+            if (markerSpan) {
+                // Remove the marker span temporarily to get clean text
+                const cleanText = actionNameElement.textContent
+                    .replace(markerSpan.textContent, '')
+                    .trim();
+                return cleanText;
+            }
+            // No marker found, return as-is
+            return actionNameElement.textContent.trim();
+        }
+
+        /**
+         * Clear any stats we previously appended to action name
+         * @param {HTMLElement} actionNameElement - Action name element
+         */
+        clearAppendedStats(actionNameElement) {
+            if (!actionNameElement) return;
+            const markerSpan = actionNameElement.querySelector('.mwi-appended-stats');
+            if (markerSpan) {
+                markerSpan.remove();
+            }
+        }
+
+        /**
+         * Append stats to game's action name element
+         * @param {HTMLElement} actionNameElement - Action name element
+         * @param {string} statsText - Stats text to append
+         */
+        appendStatsToActionName(actionNameElement, statsText) {
+            // Clear any previous appended stats
+            this.clearAppendedStats(actionNameElement);
+
+            // Create marker span for our additions
+            const statsSpan = document.createElement('span');
+            statsSpan.className = 'mwi-appended-stats';
+            statsSpan.style.cssText = 'color: var(--text-color-secondary, #888);';
+            statsSpan.textContent = ' ' + statsText;
+
+            // Append to action name element
+            actionNameElement.appendChild(statsSpan);
         }
 
         /**
@@ -10539,6 +10576,12 @@
             if (this.updateTimer) {
                 clearInterval(this.updateTimer);
                 this.updateTimer = null;
+            }
+
+            // Clear appended stats from game's action name div
+            const actionNameElement = document.querySelector('div.Header_actionName__31-L2');
+            if (actionNameElement) {
+                this.clearAppendedStats(actionNameElement);
             }
 
             // Remove display element
@@ -23423,7 +23466,7 @@
         const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
         targetWindow.Toolasha = {
-            version: '0.4.838',
+            version: '0.4.839',
 
             // Feature toggle API (for users to manage settings via console)
             features: {
