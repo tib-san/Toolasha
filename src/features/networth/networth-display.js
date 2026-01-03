@@ -196,7 +196,8 @@ class NetworthInventoryDisplay {
             'mwi-houses-breakdown',
             'mwi-abilities-details',
             'mwi-equipped-abilities-breakdown',
-            'mwi-other-abilities-breakdown'
+            'mwi-other-abilities-breakdown',
+            'mwi-ability-books-breakdown'
         ];
 
         // Also preserve inventory category states
@@ -264,7 +265,7 @@ class NetworthInventoryDisplay {
                     <div id="mwi-abilities-details" style="display: none; margin-left: 20px;">
                         <!-- Equipped Abilities -->
                         <div style="cursor: pointer; margin-top: 4px;" id="mwi-equipped-abilities-toggle">
-                            + Equipped (5): ${networthFormatter(Math.round(networthData.fixedAssets.abilities.equippedCost))}
+                            + Equipped (${networthData.fixedAssets.abilities.equippedBreakdown.length}): ${networthFormatter(Math.round(networthData.fixedAssets.abilities.equippedCost))}
                         </div>
                         <div id="mwi-equipped-abilities-breakdown" style="display: none; margin-left: 20px; font-size: 0.8rem; color: #bbb;">
                             ${this.renderAbilitiesBreakdown(networthData.fixedAssets.abilities.equippedBreakdown)}
@@ -280,6 +281,16 @@ class NetworthInventoryDisplay {
                             </div>
                         ` : ''}
                     </div>
+
+                    <!-- Ability Books -->
+                    ${networthData.fixedAssets.abilityBooks.breakdown.length > 0 ? `
+                        <div style="cursor: pointer; margin-top: 4px;" id="mwi-ability-books-toggle">
+                            + Ability Books: ${networthFormatter(Math.round(networthData.fixedAssets.abilityBooks.totalCost))}
+                        </div>
+                        <div id="mwi-ability-books-breakdown" style="display: none; margin-left: 20px; font-size: 0.8rem; color: #bbb;">
+                            ${this.renderAbilityBooksBreakdown(networthData.fixedAssets.abilityBooks.breakdown)}
+                        </div>
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -333,6 +344,22 @@ class NetworthInventoryDisplay {
         return breakdown.map(ability =>
             `<div style="display: block; margin-bottom: 2px;">${ability.name}: ${networthFormatter(Math.round(ability.cost))}</div>`
         ).join('');
+    }
+
+    /**
+     * Render ability books breakdown HTML
+     * @param {Array} breakdown - Array of {name, askValue, bidValue, count}
+     * @returns {string} HTML string
+     */
+    renderAbilityBooksBreakdown(breakdown) {
+        if (breakdown.length === 0) {
+            return '<div>No ability books</div>';
+        }
+
+        return breakdown.map(book => {
+            const value = (book.askValue + book.bidValue) / 2;
+            return `<div style="display: block; margin-bottom: 2px;">${book.name} (${book.count}): ${networthFormatter(Math.round(value))}</div>`;
+        }).join('');
     }
 
     /**
@@ -460,6 +487,15 @@ class NetworthInventoryDisplay {
                 'mwi-other-abilities-toggle',
                 'mwi-other-abilities-breakdown',
                 `Other Abilities: ${networthFormatter(Math.round(networthData.fixedAssets.abilities.totalCost - networthData.fixedAssets.abilities.equippedCost))}`
+            );
+        }
+
+        // Ability books toggle (if exists)
+        if (networthData.fixedAssets.abilityBooks.breakdown.length > 0) {
+            this.setupToggle(
+                'mwi-ability-books-toggle',
+                'mwi-ability-books-breakdown',
+                `Ability Books: ${networthFormatter(Math.round(networthData.fixedAssets.abilityBooks.totalCost))}`
             );
         }
     }

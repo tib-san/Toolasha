@@ -88,12 +88,16 @@ const featureRegistry = [
         initialize: () => actionTimeDisplay.initialize(),
         async: false,
         healthCheck: () => {
-            // Check if time display is working by looking for injected time elements
-            const queueMenu = document.querySelector('div[class*="QueuedActions_queuedActionsEditMenu"]');
-            if (!queueMenu) return null; // Queue not open, can't verify
+            // Check if the display element exists in the action header
+            const displayElement = document.querySelector('#mwi-action-time-display');
+            if (displayElement) return true;
 
-            // Look for our injected time displays
-            const timeDisplays = queueMenu.querySelectorAll('[data-mwi-action-time]');
+            // If queue is open, check for injected time displays
+            const queueMenu = document.querySelector('div[class*="QueuedActions_queuedActionsEditMenu"]');
+            if (!queueMenu) return null; // Queue not open, can't verify via queue
+
+            // Look for our injected time displays (using actual class name)
+            const timeDisplays = queueMenu.querySelectorAll('.mwi-queue-action-time');
             return timeDisplays.length > 0;
         }
     },

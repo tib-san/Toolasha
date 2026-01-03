@@ -13,8 +13,10 @@
  */
 
 import dataManager from '../../core/data-manager.js';
+import config from '../../core/config.js';
+import { calculateActionStats } from '../../utils/action-calculator.js';
 import { parseEquipmentSpeedBonuses, parseEquipmentEfficiencyBonuses, debugEquipmentSpeedBonuses } from '../../utils/equipment-parser.js';
-import { parseTeaEfficiency, parseTeaEfficiencyBreakdown, getDrinkConcentration, parseActionLevelBonus, parseActionLevelBonusBreakdown, parseArtisanBonus } from '../../utils/tea-parser.js';
+import { parseArtisanBonus, getDrinkConcentration, parseActionLevelBonus, parseTeaEfficiencyBreakdown } from '../../utils/tea-parser.js';
 import { calculateHouseEfficiency } from '../../utils/house-efficiency.js';
 import { stackAdditive } from '../../utils/efficiency.js';
 import { timeReadable, formatWithSeparator } from '../../utils/formatters.js';
@@ -473,6 +475,7 @@ class QuickInputButtons {
 
     /**
      * Calculate action time and efficiency for current character state
+     * Uses shared calculator with community buffs and detailed breakdown
      * @param {Object} actionDetails - Action details from game data
      * @param {Object} gameData - Cached game data from dataManager
      * @returns {Object} {actionTime, totalEfficiency, efficiencyBreakdown}
@@ -482,107 +485,38 @@ class QuickInputButtons {
         const skills = dataManager.getSkills();
         const itemDetailMap = gameData?.itemDetailMap || {};
 
-        // Calculate base action time
-        const baseTime = actionDetails.baseTimeCost / 1e9; // nanoseconds to seconds
-
-        // Get equipment speed bonus
-        const speedBonus = parseEquipmentSpeedBonuses(
+        // Use shared calculator with community buffs and breakdown
+        const stats = calculateActionStats(actionDetails, {
+            skills,
             equipment,
-            actionDetails.type,
-            itemDetailMap
-        );
-
-        // Calculate actual action time (with speed)
-        const actionTime = baseTime / (1 + speedBonus);
-
-        // Calculate efficiency
-        const skillLevel = this.getSkillLevel(skills, actionDetails.type);
-        const baseRequirement = actionDetails.levelRequirement?.level || 1;
-
-        // Get drink concentration
-        const drinkConcentration = getDrinkConcentration(equipment, itemDetailMap);
-
-        // Get active drinks for this action type
-        const activeDrinks = dataManager.getActionDrinkSlots(actionDetails.type);
-
-        // Calculate Action Level bonus from teas
-        const actionLevelBonus = parseActionLevelBonus(
-            activeDrinks,
             itemDetailMap,
-            drinkConcentration
-        );
+            includeCommunityBuff: true,
+            includeBreakdown: true,
+            floorActionLevel: true
+        });
 
-        // Get Action Level bonus breakdown (individual teas)
-        const actionLevelBreakdown = parseActionLevelBonusBreakdown(
-            activeDrinks,
-            itemDetailMap,
-            drinkConcentration
-        );
+        if (!stats) {
+            // Fallback values
+            return {
+                actionTime: 1,
+                totalEfficiency: 0,
+                efficiencyBreakdown: {
+                    levelEfficiency: 0,
+                    houseEfficiency: 0,
+                    equipmentEfficiency: 0,
+                    teaEfficiency: 0,
+                    teaBreakdown: [],
+                    communityEfficiency: 0,
+                    skillLevel: 1,
+                    baseRequirement: 1,
+                    actionLevelBonus: 0,
+                    actionLevelBreakdown: [],
+                    effectiveRequirement: 1
+                }
+            };
+        }
 
-        // Calculate efficiency components
-        // Action Level bonuses scale with DC but get floored (can't have fractional level requirements)
-        const effectiveRequirement = baseRequirement + Math.floor(actionLevelBonus);
-        const levelEfficiency = Math.max(0, skillLevel - effectiveRequirement);
-        const houseEfficiency = calculateHouseEfficiency(actionDetails.type);
-        const equipmentEfficiency = parseEquipmentEfficiencyBonuses(
-            equipment,
-            actionDetails.type,
-            itemDetailMap
-        );
-
-        // Get tea efficiency breakdown (individual teas)
-        const teaBreakdown = parseTeaEfficiencyBreakdown(
-            actionDetails.type,
-            activeDrinks,
-            itemDetailMap,
-            drinkConcentration
-        );
-        const teaEfficiency = teaBreakdown.reduce((sum, tea) => sum + tea.efficiency, 0);
-
-        // Get community buff efficiency
-        const communityBuffLevel = dataManager.getCommunityBuffLevel('/community_buff_types/production_efficiency');
-        const communityEfficiency = communityBuffLevel ? (0.14 + ((communityBuffLevel - 1) * 0.003)) * 100 : 0;
-
-        // Total efficiency
-        const totalEfficiency = stackAdditive(
-            levelEfficiency,
-            houseEfficiency,
-            equipmentEfficiency,
-            teaEfficiency,
-            communityEfficiency
-        );
-
-        // Return with breakdown
-        return {
-            actionTime,
-            totalEfficiency,
-            efficiencyBreakdown: {
-                levelEfficiency,
-                houseEfficiency,
-                equipmentEfficiency,
-                teaEfficiency,
-                teaBreakdown, // Individual tea contributions
-                communityEfficiency,
-                skillLevel,
-                baseRequirement,
-                actionLevelBonus,
-                actionLevelBreakdown, // Individual Action Level bonus teas
-                effectiveRequirement
-            }
-        };
-    }
-
-    /**
-     * Get character skill level for a skill type
-     * @param {Array} skills - Character skills array
-     * @param {string} skillType - Skill type HRID (e.g., "/action_types/cheesesmithing")
-     * @returns {number} Skill level
-     */
-    getSkillLevel(skills, skillType) {
-        // Map action type to skill HRID
-        const skillHrid = skillType.replace('/action_types/', '/skills/');
-        const skill = skills.find(s => s.skillHrid === skillHrid);
-        return skill?.level || 1;
+        return stats;
     }
 
     /**
@@ -846,6 +780,19 @@ class QuickInputButtons {
             console.error('[MWI Tools] Error calculating max value:', error);
             return 10000; // Safe fallback on error
         }
+    }
+
+    /**
+     * Get character skill level for a skill type
+     * @param {Array} skills - Character skills array
+     * @param {string} skillType - Skill type HRID (e.g., "/action_types/cheesesmithing")
+     * @returns {number} Skill level
+     */
+    getSkillLevel(skills, skillType) {
+        // Map action type to skill HRID
+        const skillHrid = skillType.replace('/action_types/', '/skills/');
+        const skill = skills.find(s => s.skillHrid === skillHrid);
+        return skill?.level || 1;
     }
 
     /**

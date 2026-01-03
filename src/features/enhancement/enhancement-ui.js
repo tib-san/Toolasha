@@ -68,6 +68,7 @@ class EnhancementUI {
         this.isDragging = false;
         this.screenObserver = null;
         this.isOnEnhancingScreen = false;
+        this.isCollapsed = false; // Track collapsed state
     }
 
     /**
@@ -190,7 +191,7 @@ class EnhancementUI {
         Object.assign(this.floatingUI.style, {
             position: 'fixed',
             top: '50px',
-            left: '50px',
+            right: '50px',
             zIndex: '9998',
             fontSize: '14px',
             padding: '0',
@@ -204,7 +205,8 @@ class EnhancementUI {
             border: `1px solid ${STYLE.colors.primary}`,
             color: STYLE.colors.textPrimary,
             display: 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
+            transition: 'width 0.2s ease'
         });
 
         // Create header
@@ -217,6 +219,9 @@ class EnhancementUI {
         content.style.padding = '15px';
         content.style.flexGrow = '1';
         content.style.overflow = 'auto';
+        content.style.transition = 'max-height 0.2s ease, opacity 0.2s ease';
+        content.style.maxHeight = '600px';
+        content.style.opacity = '1';
         this.floatingUI.appendChild(content);
 
         // Make draggable
@@ -280,11 +285,15 @@ class EnhancementUI {
         // Next session button
         const nextButton = this.createNavButton('▶', () => this.navigateSession(1));
 
+        // Collapse button
+        const collapseButton = this.createCollapseButton();
+
         // Clear sessions button
         const clearButton = this.createClearButton();
 
         navContainer.appendChild(prevButton);
         navContainer.appendChild(nextButton);
+        navContainer.appendChild(collapseButton);
         navContainer.appendChild(clearButton);
 
         header.appendChild(titleContainer);
@@ -361,6 +370,41 @@ class EnhancementUI {
     }
 
     /**
+     * Create collapse button
+     */
+    createCollapseButton() {
+        const button = document.createElement('button');
+        button.id = 'enhancementCollapseButton';
+        button.innerHTML = '▼';
+        button.title = 'Collapse panel';
+        Object.assign(button.style, {
+            background: 'none',
+            border: 'none',
+            color: STYLE.colors.textPrimary,
+            cursor: 'pointer',
+            fontSize: '14px',
+            padding: '2px 8px',
+            borderRadius: '3px',
+            transition: STYLE.transitions.fast
+        });
+
+        button.addEventListener('mouseover', () => {
+            button.style.color = STYLE.colors.accent;
+            button.style.background = 'rgba(255, 0, 212, 0.1)';
+        });
+        button.addEventListener('mouseout', () => {
+            button.style.color = STYLE.colors.textPrimary;
+            button.style.background = 'none';
+        });
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleCollapse();
+        });
+
+        return button;
+    }
+
+    /**
      * Make element draggable
      */
     makeDraggable(header) {
@@ -369,13 +413,21 @@ class EnhancementUI {
 
         header.addEventListener('mousedown', (e) => {
             this.isDragging = true;
-            offsetX = e.clientX - this.floatingUI.offsetLeft;
-            offsetY = e.clientY - this.floatingUI.offsetTop;
+
+            // Calculate offset from panel's current screen position
+            const rect = this.floatingUI.getBoundingClientRect();
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
 
             const onMouseMove = (e) => {
                 if (this.isDragging) {
-                    this.floatingUI.style.left = `${e.clientX - offsetX}px`;
-                    this.floatingUI.style.top = `${e.clientY - offsetY}px`;
+                    const newLeft = e.clientX - offsetX;
+                    const newTop = e.clientY - offsetY;
+
+                    // Use absolute positioning during drag
+                    this.floatingUI.style.left = `${newLeft}px`;
+                    this.floatingUI.style.right = 'auto';
+                    this.floatingUI.style.top = `${newTop}px`;
                 }
             };
 
@@ -388,6 +440,89 @@ class EnhancementUI {
             document.addEventListener('mousemove', onMouseMove);
             document.addEventListener('mouseup', onMouseUp);
         });
+    }
+
+    /**
+     * Toggle panel collapse state
+     */
+    toggleCollapse() {
+        this.isCollapsed = !this.isCollapsed;
+        const content = document.getElementById('enhancementPanelContent');
+        const button = document.getElementById('enhancementCollapseButton');
+
+        if (this.isCollapsed) {
+            // Collapsed state
+            content.style.maxHeight = '0px';
+            content.style.opacity = '0';
+            content.style.padding = '0 15px';
+            button.innerHTML = '▶';
+            button.title = 'Expand panel';
+            this.floatingUI.style.width = '250px';
+
+            // Show compact summary after content fades
+            setTimeout(() => {
+                this.showCollapsedSummary();
+            }, 200);
+        } else {
+            // Expanded state
+            this.hideCollapsedSummary();
+            content.style.maxHeight = '600px';
+            content.style.opacity = '1';
+            content.style.padding = '15px';
+            button.innerHTML = '▼';
+            button.title = 'Collapse panel';
+            this.floatingUI.style.width = '350px';
+        }
+    }
+
+    /**
+     * Show compact summary in collapsed state
+     */
+    showCollapsedSummary() {
+        if (!this.isCollapsed) return;
+
+        const session = this.getCurrentSession();
+        const sessions = Object.values(enhancementTracker.getAllSessions());
+
+        // Remove any existing summary
+        this.hideCollapsedSummary();
+
+        if (sessions.length === 0 || !session) return;
+
+        const gameData = dataManager.getInitClientData();
+        const itemDetails = gameData?.itemDetailMap?.[session.itemHrid];
+        const itemName = itemDetails?.name || 'Unknown Item';
+
+        const totalAttempts = session.totalAttempts;
+        const totalSuccess = session.totalSuccesses;
+        const successRate = totalAttempts > 0 ? Math.floor((totalSuccess / totalAttempts) * 100) : 0;
+        const statusIcon = session.state === SessionState.COMPLETED ? '✅' : '🟢';
+
+        const summary = document.createElement('div');
+        summary.id = 'enhancementCollapsedSummary';
+        Object.assign(summary.style, {
+            padding: '10px 15px',
+            fontSize: '12px',
+            borderTop: `1px solid ${STYLE.colors.border}`,
+            color: STYLE.colors.textPrimary
+        });
+
+        summary.innerHTML = `
+            <div style="font-weight: bold; margin-bottom: 4px;">${itemName} → +${session.targetLevel}</div>
+            <div style="opacity: 0.8;">${statusIcon} ${totalAttempts} attempts | ${successRate}% rate</div>
+        `;
+
+        this.floatingUI.appendChild(summary);
+    }
+
+    /**
+     * Hide collapsed summary
+     */
+    hideCollapsedSummary() {
+        const summary = document.getElementById('enhancementCollapsedSummary');
+        if (summary) {
+            summary.remove();
+        }
     }
 
     /**
@@ -407,6 +542,11 @@ class EnhancementUI {
         }
 
         this.updateUI();
+
+        // Update collapsed summary if in collapsed state
+        if (this.isCollapsed) {
+            this.showCollapsedSummary();
+        }
     }
 
     /**
@@ -424,6 +564,10 @@ class EnhancementUI {
         this.currentViewingIndex = 0;
         this.updateUI();
 
+        // Hide collapsed summary if shown
+        if (this.isCollapsed) {
+            this.hideCollapsedSummary();
+        }
     }
 
     /**
@@ -483,6 +627,11 @@ class EnhancementUI {
             if (newDetailsElement) {
                 newDetailsElement.style.display = 'block';
             }
+        }
+
+        // Update collapsed summary if in collapsed state
+        if (this.isCollapsed) {
+            this.showCollapsedSummary();
         }
     }
 

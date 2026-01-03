@@ -311,7 +311,7 @@ class DataManager {
             myMarketListings: this.characterData?.myMarketListings || [],
             characterHouseRoomMap: Object.fromEntries(this.characterHouseRooms),
             characterAbilities: this.characterData?.characterAbilities || [],
-            equippedAbilities: this.characterData?.equippedAbilities || []
+            abilityCombatTriggersMap: this.characterData?.abilityCombatTriggersMap || {}
         };
     }
 

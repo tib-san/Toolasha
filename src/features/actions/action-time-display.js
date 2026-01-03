@@ -13,11 +13,8 @@
 
 import dataManager from '../../core/data-manager.js';
 import config from '../../core/config.js';
-import { parseEquipmentSpeedBonuses, parseEquipmentEfficiencyBonuses } from '../../utils/equipment-parser.js';
-import { parseTeaEfficiency, getDrinkConcentration, parseActionLevelBonus } from '../../utils/tea-parser.js';
-import { calculateHouseEfficiency } from '../../utils/house-efficiency.js';
+import { calculateActionStats } from '../../utils/action-calculator.js';
 import { timeReadable } from '../../utils/formatters.js';
-import { stackAdditive } from '../../utils/efficiency.js';
 import domObserver from '../../core/dom-observer.js';
 
 /**
@@ -109,7 +106,7 @@ class ActionTimeDisplay {
      */
     handleCharacterSwitch() {
         // Clear appended stats from old character's action panel (before it's removed)
-        const oldActionNameElement = document.querySelector('div.Header_actionName__31-L2');
+        const oldActionNameElement = document.querySelector('div[class*="Header_actionName"]');
         if (oldActionNameElement) {
             this.clearAppendedStats(oldActionNameElement);
         }
@@ -176,11 +173,27 @@ class ActionTimeDisplay {
         }
 
         // Override game's CSS to prevent text truncation
-        actionNameContainer.style.cssText = `
-            overflow: visible !important;
-            text-overflow: clip !important;
-            white-space: normal !important;
-        `;
+        // Use setProperty with 'important' to ensure we override game's styles
+        actionNameContainer.style.setProperty('overflow', 'visible', 'important');
+        actionNameContainer.style.setProperty('text-overflow', 'clip', 'important');
+        actionNameContainer.style.setProperty('white-space', 'nowrap', 'important');
+        actionNameContainer.style.setProperty('max-width', 'none', 'important');
+        actionNameContainer.style.setProperty('width', 'auto', 'important');
+        actionNameContainer.style.setProperty('min-width', 'max-content', 'important');
+
+        // Apply to parent chain to ensure no truncation at any level
+        let parent = actionNameContainer.parentElement;
+        let levels = 0;
+        while (parent && levels < 5) {
+            parent.style.setProperty('overflow', 'visible', 'important');
+            parent.style.setProperty('text-overflow', 'clip', 'important');
+            parent.style.setProperty('white-space', 'nowrap', 'important');
+            parent.style.setProperty('max-width', 'none', 'important');
+            parent.style.setProperty('width', 'auto', 'important');
+            parent.style.setProperty('min-width', 'max-content', 'important');
+            parent = parent.parentElement;
+            levels++;
+        }
 
         // Create display element
         this.displayElement = document.createElement('div');
@@ -198,7 +211,6 @@ class ActionTimeDisplay {
             this.displayElement,
             actionNameContainer.nextSibling
         );
-
     }
 
     /**
@@ -211,7 +223,8 @@ class ActionTimeDisplay {
 
         // Get current action - read from game UI which is always correct
         // The game updates the DOM immediately when actions change
-        const actionNameElement = document.querySelector('div.Header_actionName__31-L2');
+        // Use wildcard selector to handle hash-suffixed class names
+        const actionNameElement = document.querySelector('div[class*="Header_actionName"]');
 
         // CRITICAL: Disconnect observer before making changes to prevent infinite loop
         if (this.actionNameObserver) {
@@ -225,6 +238,30 @@ class ActionTimeDisplay {
             // Reconnect observer
             this.reconnectActionNameObserver(actionNameElement);
             return;
+        }
+
+        // Re-apply CSS override on every update to prevent game's CSS from truncating text
+        // Use setProperty with 'important' to ensure we override game's styles
+        // Apply to the element itself and all parent elements up the chain
+        actionNameElement.style.setProperty('overflow', 'visible', 'important');
+        actionNameElement.style.setProperty('text-overflow', 'clip', 'important');
+        actionNameElement.style.setProperty('white-space', 'nowrap', 'important');
+        actionNameElement.style.setProperty('max-width', 'none', 'important');
+        actionNameElement.style.setProperty('width', 'auto', 'important');
+        actionNameElement.style.setProperty('min-width', 'max-content', 'important');
+
+        // Apply to entire parent chain (up to 5 levels)
+        let parent = actionNameElement.parentElement;
+        let levels = 0;
+        while (parent && levels < 5) {
+            parent.style.setProperty('overflow', 'visible', 'important');
+            parent.style.setProperty('text-overflow', 'clip', 'important');
+            parent.style.setProperty('white-space', 'nowrap', 'important');
+            parent.style.setProperty('max-width', 'none', 'important');
+            parent.style.setProperty('width', 'auto', 'important');
+            parent.style.setProperty('min-width', 'max-content', 'important');
+            parent = parent.parentElement;
+            levels++;
         }
 
         // Parse action name from DOM
@@ -250,7 +287,8 @@ class ActionTimeDisplay {
         let action;
 
         // Parse the action name, handling special formats like "Coinify: Item Name (count)"
-        const actionNameMatch = actionNameText.match(/^(.+?)(?:\s*\(#?\d+\))?$/);
+        // Also handles combat zones like "Farmland (276K)" or "Zone (1.2M)"
+        const actionNameMatch = actionNameText.match(/^(.+?)(?:\s*\([^)]+\))?$/);
         const fullNameFromDom = actionNameMatch ? actionNameMatch[1].trim() : actionNameText;
 
         // Check if this is a format like "Coinify: Item Name"
@@ -302,60 +340,24 @@ class ActionTimeDisplay {
         const skills = dataManager.getSkills();
         const itemDetailMap = dataManager.getInitClientData()?.itemDetailMap || {};
 
-        // Calculate action time
-        const baseTime = actionDetails.baseTimeCost / 1e9; // nanoseconds to seconds
-
-        // Get equipment speed bonus
-        const speedBonus = parseEquipmentSpeedBonuses(
+        // Use shared calculator
+        const stats = calculateActionStats(actionDetails, {
+            skills,
             equipment,
-            actionDetails.type,
-            itemDetailMap
-        );
+            itemDetailMap,
+            includeCommunityBuff: false,
+            includeBreakdown: false,
+            floorActionLevel: false
+        });
 
-        // Calculate actual action time (speed only)
-        const actionTime = baseTime / (1 + speedBonus);
+        if (!stats) {
+            // Reconnect observer
+            this.reconnectActionNameObserver(actionNameElement);
+            return;
+        }
+
+        const { actionTime, totalEfficiency } = stats;
         const actionsPerHour = 3600 / actionTime;
-
-        // Calculate efficiency
-        const skillLevel = this.getSkillLevel(skills, actionDetails.type);
-        const baseRequirement = actionDetails.levelRequirement?.level || 1;
-
-        // Get drink concentration
-        const drinkConcentration = getDrinkConcentration(equipment, itemDetailMap);
-
-        // Get active drinks for this action type
-        const activeDrinks = dataManager.getActionDrinkSlots(actionDetails.type);
-
-        // Calculate Action Level bonus from teas
-        const actionLevelBonus = parseActionLevelBonus(
-            activeDrinks,
-            itemDetailMap,
-            drinkConcentration
-        );
-
-        // Calculate efficiency components
-        const effectiveRequirement = baseRequirement + actionLevelBonus;
-        const levelEfficiency = Math.max(0, skillLevel - effectiveRequirement);
-        const houseEfficiency = calculateHouseEfficiency(actionDetails.type);
-        const equipmentEfficiency = parseEquipmentEfficiencyBonuses(
-            equipment,
-            actionDetails.type,
-            itemDetailMap
-        );
-        const teaEfficiency = parseTeaEfficiency(
-            actionDetails.type,
-            activeDrinks,
-            itemDetailMap,
-            drinkConcentration
-        );
-
-        // Total efficiency
-        const totalEfficiency = stackAdditive(
-            levelEfficiency,
-            houseEfficiency,
-            equipmentEfficiency,
-            teaEfficiency
-        );
 
         // Get queue size for display (total queued, doesn't change)
         // For infinite actions with inventory count, use that; otherwise use maxCount or Infinity
@@ -516,88 +518,24 @@ class ActionTimeDisplay {
     }
 
     /**
-     * Get character skill level for a skill type
-     * @param {Array} skills - Character skills array
-     * @param {string} skillType - Skill type HRID (e.g., "/action_types/cheesesmithing")
-     * @returns {number} Skill level
-     */
-    getSkillLevel(skills, skillType) {
-        // Map action type to skill HRID
-        const skillHrid = skillType.replace('/action_types/', '/skills/');
-        const skill = skills.find(s => s.skillHrid === skillHrid);
-        return skill?.level || 1;
-    }
-
-    /**
      * Calculate action time for a given action
      * @param {Object} actionDetails - Action details from data manager
      * @returns {Object} {actionTime, totalEfficiency} or null if calculation fails
      */
     calculateActionTime(actionDetails) {
-        try {
-            const equipment = dataManager.getEquipment();
-            const skills = dataManager.getSkills();
-            const itemDetailMap = dataManager.getInitClientData()?.itemDetailMap || {};
+        const skills = dataManager.getSkills();
+        const equipment = dataManager.getEquipment();
+        const itemDetailMap = dataManager.getInitClientData()?.itemDetailMap || {};
 
-            // Calculate base action time
-            const baseTime = actionDetails.baseTimeCost / 1e9; // nanoseconds to seconds
-
-            // Get equipment speed bonus
-            const speedBonus = parseEquipmentSpeedBonuses(
-                equipment,
-                actionDetails.type,
-                itemDetailMap
-            );
-
-            // Calculate actual action time (speed only)
-            const actionTime = baseTime / (1 + speedBonus);
-
-            // Calculate efficiency for output calculations
-            const skillLevel = this.getSkillLevel(skills, actionDetails.type);
-            const baseRequirement = actionDetails.levelRequirement?.level || 1;
-
-            // Get drink concentration
-            const drinkConcentration = getDrinkConcentration(equipment, itemDetailMap);
-
-            // Get active drinks for this action type
-            const activeDrinks = dataManager.getActionDrinkSlots(actionDetails.type);
-
-            // Calculate Action Level bonus from teas
-            const actionLevelBonus = parseActionLevelBonus(
-                activeDrinks,
-                itemDetailMap,
-                drinkConcentration
-            );
-
-            // Calculate efficiency components
-            const effectiveRequirement = baseRequirement + actionLevelBonus;
-            const levelEfficiency = Math.max(0, skillLevel - effectiveRequirement);
-            const houseEfficiency = calculateHouseEfficiency(actionDetails.type);
-            const equipmentEfficiency = parseEquipmentEfficiencyBonuses(
-                equipment,
-                actionDetails.type,
-                itemDetailMap
-            );
-            const teaEfficiency = parseTeaEfficiency(
-                actionDetails.type,
-                activeDrinks,
-                itemDetailMap,
-                drinkConcentration
-            );
-
-            // Total efficiency
-            const totalEfficiency = stackAdditive(
-                levelEfficiency,
-                houseEfficiency,
-                equipmentEfficiency,
-                teaEfficiency
-            );
-
-            return { actionTime, totalEfficiency };
-        } catch (error) {
-            console.error('[MWI Tools] Error calculating action time:', error);
-            return null;
-        }
+        // Use shared calculator (no community buff, no breakdown, no floor for compatibility)
+        return calculateActionStats(actionDetails, {
+            skills,
+            equipment,
+            itemDetailMap,
+            includeCommunityBuff: false,
+            includeBreakdown: false,
+            floorActionLevel: false
+        });
     }
 
     /**
@@ -706,12 +644,14 @@ class ActionTimeDisplay {
 
             // First, calculate time for current action to include in total
             // Read from DOM to get the actual current action (not from cache)
-            const actionNameElement = document.querySelector('div.Header_actionName__31-L2');
+            const actionNameElement = document.querySelector('div[class*="Header_actionName"]');
             if (actionNameElement && actionNameElement.textContent) {
-                const actionNameText = actionNameElement.textContent.trim();
+                // Use getCleanActionName to strip any stats we previously appended
+                const actionNameText = this.getCleanActionName(actionNameElement);
 
                 // Parse action name (same logic as main display)
-                const actionNameMatch = actionNameText.match(/^(.+?)(?:\s*\(#?\d+\))?$/);
+                // Also handles formatted numbers like "Farmland (276K)" or "Zone (1.2M)"
+                const actionNameMatch = actionNameText.match(/^(.+?)(?:\s*\([^)]+\))?$/);
                 const fullNameFromDom = actionNameMatch ? actionNameMatch[1].trim() : actionNameText;
 
                 let actionNameFromDom, itemNameFromDom;
@@ -929,7 +869,7 @@ class ActionTimeDisplay {
         }
 
         // Clear appended stats from game's action name div
-        const actionNameElement = document.querySelector('div.Header_actionName__31-L2');
+        const actionNameElement = document.querySelector('div[class*="Header_actionName"]');
         if (actionNameElement) {
             this.clearAppendedStats(actionNameElement);
         }

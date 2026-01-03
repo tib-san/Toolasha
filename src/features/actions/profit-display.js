@@ -6,6 +6,7 @@
  * - Production actions (Brewing, Cooking, Crafting, Tailoring, Cheesesmithing)
  */
 
+import config from '../../core/config.js';
 import { calculateGatheringProfit } from './gathering-profit.js';
 import { calculateProductionProfit } from './production-profit.js';
 import { formatWithSeparator } from '../../utils/formatters.js';

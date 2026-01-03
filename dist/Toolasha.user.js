@@ -1444,7 +1444,7 @@
     }
 
     // Create and export singleton instance
-    const config$1 = new Config();
+    const config = new Config();
 
     /**
      * WebSocket Hook Module
@@ -2220,7 +2220,7 @@
                 myMarketListings: this.characterData?.myMarketListings || [],
                 characterHouseRoomMap: Object.fromEntries(this.characterHouseRooms),
                 characterAbilities: this.characterData?.characterAbilities || [],
-                equippedAbilities: this.characterData?.equippedAbilities || []
+                abilityCombatTriggersMap: this.characterData?.abilityCombatTriggersMap || {}
             };
         }
 
@@ -2393,7 +2393,7 @@
          * Initialize network alert display
          */
         initialize() {
-            if (!config$1.getSetting('networkAlert')) {
+            if (!config.getSetting('networkAlert')) {
                 return;
             }
 
@@ -2455,7 +2455,7 @@
          * @param {string} message - Alert message to display
          */
         show(message = '⚠️ Market data unavailable') {
-            if (!config$1.getSetting('networkAlert')) {
+            if (!config.getSetting('networkAlert')) {
                 return;
             }
 
@@ -4060,8 +4060,8 @@
                 const bagPrice = marketAPI.getPrice(this.COWBELL_BAG_HRID, 0);
                 if (bagPrice) {
                     // Respect pricing mode for Cowbell Bag price
-                    const pricingMode = config$1.getSettingValue('profitCalc_pricingMode', 'conservative');
-                    const respectPricingMode = config$1.getSettingValue('expectedValue_respectPricingMode', true);
+                    const pricingMode = config.getSettingValue('profitCalc_pricingMode', 'conservative');
+                    const respectPricingMode = config.getSettingValue('expectedValue_respectPricingMode', true);
 
                     let bagValue = 0;
                     if (respectPricingMode) {
@@ -4086,8 +4086,8 @@
             }
 
             // Regular market item - get price based on pricing mode
-            const pricingMode = config$1.getSettingValue('profitCalc_pricingMode', 'conservative');
-            const respectPricingMode = config$1.getSettingValue('expectedValue_respectPricingMode', true);
+            const pricingMode = config.getSettingValue('profitCalc_pricingMode', 'conservative');
+            const respectPricingMode = config.getSettingValue('expectedValue_respectPricingMode', true);
 
             // Get market price
             const price = marketAPI.getPrice(itemHrid, 0);
@@ -4581,7 +4581,7 @@
             const itemPrice = marketAPI.getPrice(itemHrid, 0) || { ask: 0, bid: 0 };
 
             // Check pricing mode setting
-            const pricingMode = config$1.getSettingValue('profitCalc_pricingMode', 'conservative');
+            const pricingMode = config.getSettingValue('profitCalc_pricingMode', 'conservative');
 
             // Get output price based on pricing mode
             // conservative: Bid price (instant sell)
@@ -4708,7 +4708,7 @@
             const costs = [];
 
             // Check pricing mode setting
-            const pricingMode = config$1.getSettingValue('profitCalc_pricingMode', 'conservative');
+            const pricingMode = config.getSettingValue('profitCalc_pricingMode', 'conservative');
 
             // Check for upgrade item (e.g., Crimson Bulwark → Rainbow Bulwark)
             if (actionDetails.upgradeItemHrid) {
@@ -4904,7 +4904,7 @@
             }
 
             // Check pricing mode for tea costs
-            const pricingMode = config$1.getSettingValue('profitCalc_pricingMode', 'conservative');
+            const pricingMode = config.getSettingValue('profitCalc_pricingMode', 'conservative');
 
             const costs = [];
 
@@ -5243,7 +5243,7 @@
      * @returns {Object} Enhancement parameters for simulator
      */
     function getEnhancingParams() {
-        const autoDetect = config$1.getSettingValue('enhanceSim_autoDetect', false);
+        const autoDetect = config.getSettingValue('enhanceSim_autoDetect', false);
 
         if (autoDetect) {
             return getAutoDetectedParams();
@@ -5411,7 +5411,7 @@
     function getManualParams() {
         // Get values directly from config
         const getValue = (key, defaultValue) => {
-            return config$1.getSettingValue(key, defaultValue);
+            return config.getSettingValue(key, defaultValue);
         };
 
         const houseLevel = getValue('enhanceSim_houseLevel', 6);
@@ -6265,16 +6265,16 @@
 
         switch (colorType) {
             case 'main':
-                color = config$1.SCRIPT_COLOR_MAIN;
+                color = config.SCRIPT_COLOR_MAIN;
                 break;
             case 'tooltip':
-                color = config$1.SCRIPT_COLOR_TOOLTIP;
+                color = config.SCRIPT_COLOR_TOOLTIP;
                 break;
             case 'alert':
-                color = config$1.SCRIPT_COLOR_ALERT;
+                color = config.SCRIPT_COLOR_ALERT;
                 break;
             default:
-                color = config$1.SCRIPT_COLOR_MAIN;
+                color = config.SCRIPT_COLOR_MAIN;
         }
 
         return createStyledSpan({ color }, text);
@@ -6468,7 +6468,7 @@
          */
         async initialize() {
             // Check if feature is enabled
-            if (!config$1.getSetting('itemTooltip_prices')) {
+            if (!config.getSetting('itemTooltip_prices')) {
                 return;
             }
 
@@ -6593,7 +6593,7 @@
             }
 
             // Check if this is an openable container first (they have no market price)
-            if (itemDetails.isOpenable && config$1.getSetting('itemTooltip_expectedValue')) {
+            if (itemDetails.isOpenable && config.getSetting('itemTooltip_expectedValue')) {
                 const evData = expectedValueCalculator.calculateExpectedValue(itemHrid);
                 if (evData) {
                     this.injectExpectedValueDisplay(tooltipElement, evData, isCollectionTooltip);
@@ -6620,7 +6620,7 @@
             // Check if profit calculator is enabled
             // Only run for base items (enhancementLevel = 0), not enhanced items
             // Enhanced items show their cost in the enhancement path section instead
-            if (config$1.getSetting('itemTooltip_profit') && enhancementLevel === 0) {
+            if (config.getSetting('itemTooltip_profit') && enhancementLevel === 0) {
                 // Calculate and inject profit information
                 const profitData = await profitCalculator.calculateProfit(itemHrid);
                 if (profitData) {
@@ -6693,7 +6693,7 @@
 
             // Create enhancement display container
             const enhancementDiv = dom.createStyledDiv(
-                { color: config$1.SCRIPT_COLOR_TOOLTIP },
+                { color: config.SCRIPT_COLOR_TOOLTIP },
                 '',
                 'market-enhancement-injected'
             );
@@ -6798,7 +6798,7 @@
 
             // Create price display
             const priceDiv = dom.createStyledDiv(
-                { color: config$1.SCRIPT_COLOR_TOOLTIP },
+                { color: config.SCRIPT_COLOR_TOOLTIP },
                 '',
                 'market-price-injected'
             );
@@ -6852,7 +6852,7 @@
 
             // Create profit display container
             const profitDiv = dom.createStyledDiv(
-                { color: config$1.SCRIPT_COLOR_TOOLTIP, marginTop: '8px' },
+                { color: config.SCRIPT_COLOR_TOOLTIP, marginTop: '8px' },
                 '',
                 'market-profit-injected'
             );
@@ -6866,7 +6866,7 @@
                 html += '<div style="font-size: 0.9em; margin-left: 8px;">';
 
                 const profitPerDay = profitData.profitPerHour * 24;
-                const profitColor = profitData.profitPerHour >= 0 ? config$1.COLOR_PROFIT : config$1.COLOR_LOSS;
+                const profitColor = profitData.profitPerHour >= 0 ? config.COLOR_PROFIT : config.COLOR_LOSS;
 
                 html += `<div style="color: ${profitColor}; font-weight: bold;">Net: ${numberFormatter(profitData.profitPerHour)}/hr (${formatKMB(profitPerDay)}/day)</div>`;
             } else {
@@ -6876,8 +6876,8 @@
                 const teaCostPerItem = profitData.totalTeaCostPerHour / profitData.itemsPerHour;
                 const productionCost = profitData.totalMaterialCost + teaCostPerItem;
 
-                html += `<div style="font-weight: bold; color: ${config$1.COLOR_INFO};">Cost: ${numberFormatter(productionCost)}/item</div>`;
-                html += `<div style="color: ${config$1.COLOR_TEXT_SECONDARY}; font-style: italic; margin-top: 4px;">No market data available</div>`;
+                html += `<div style="font-weight: bold; color: ${config.COLOR_INFO};">Cost: ${numberFormatter(productionCost)}/item</div>`;
+                html += `<div style="color: ${config.COLOR_TEXT_SECONDARY}; font-style: italic; margin-top: 4px;">No market data available</div>`;
             }
 
             html += '</div>';
@@ -6911,7 +6911,7 @@
 
             // Create EV display container
             const evDiv = dom.createStyledDiv(
-                { color: config$1.SCRIPT_COLOR_TOOLTIP, marginTop: '8px' },
+                { color: config.SCRIPT_COLOR_TOOLTIP, marginTop: '8px' },
                 '',
                 'market-ev-injected'
             );
@@ -6924,12 +6924,12 @@
             html += '<div style="font-size: 0.9em; margin-left: 8px;">';
 
             // Expected value (simple display)
-            html += `<div style="color: ${config$1.COLOR_PROFIT}; font-weight: bold;">Expected Return: ${numberFormatter(evData.expectedValue)}</div>`;
+            html += `<div style="color: ${config.COLOR_PROFIT}; font-weight: bold;">Expected Return: ${numberFormatter(evData.expectedValue)}</div>`;
 
             html += '</div>'; // Close summary section
 
             // Drop breakdown (if configured to show)
-            const showDropsSetting = config$1.getSettingValue('expectedValue_showDrops', 'All');
+            const showDropsSetting = config.getSettingValue('expectedValue_showDrops', 'All');
 
             if (showDropsSetting !== 'None' && evData.drops.length > 0) {
                 html += '<div style="border-top: 1px solid rgba(255,255,255,0.2); margin: 8px 0;"></div>';
@@ -6953,7 +6953,7 @@
                 for (const drop of dropsToShow) {
                     if (!drop.hasPriceData) {
                         // Show item without price data in gray
-                        html += `<div style="color: ${config$1.COLOR_TEXT_SECONDARY};">• ${drop.itemName} (${(drop.dropRate * 100).toFixed(2)}%): ${drop.avgCount.toFixed(2)} avg → No price data</div>`;
+                        html += `<div style="color: ${config.COLOR_TEXT_SECONDARY};">• ${drop.itemName} (${(drop.dropRate * 100).toFixed(2)}%): ${drop.avgCount.toFixed(2)} avg → No price data</div>`;
                     } else {
                         // Format drop rate percentage
                         const dropRatePercent = (drop.dropRate * 100).toFixed(2);
@@ -7014,7 +7014,7 @@
          */
         async initialize() {
             // Check if feature is enabled
-            if (!config$1.getSetting('showConsumTips')) {
+            if (!config.getSetting('showConsumTips')) {
                 return;
             }
 
@@ -7247,7 +7247,7 @@
 
             // Create consumable display container
             const consumableDiv = dom.createStyledDiv(
-                { color: config$1.SCRIPT_COLOR_TOOLTIP, marginTop: '8px' },
+                { color: config.SCRIPT_COLOR_TOOLTIP, marginTop: '8px' },
                 '',
                 'consumable-stats-injected'
             );
@@ -7338,7 +7338,7 @@
          * Initialize market filter
          */
         initialize() {
-            if (!config$1.getSetting('marketFilter')) {
+            if (!config.getSetting('marketFilter')) {
                 return;
             }
 
@@ -7701,7 +7701,7 @@
          * Initialize auto-fill price feature
          */
         initialize() {
-            if (!config$1.getSetting('fillMarketOrderPrice')) {
+            if (!config.getSetting('fillMarketOrderPrice')) {
                 return;
             }
 
@@ -8323,7 +8323,7 @@
     async function displayEnhancementStats(panel, itemHrid) {
         try {
             // Check if feature is enabled
-            if (!config$1.getSetting('enhanceSim')) {
+            if (!config.getSetting('enhanceSim')) {
                 // Remove existing calculator if present
                 const existing = panel.querySelector('#mwi-enhancement-stats');
                 if (existing) {
@@ -10136,6 +10136,172 @@
     }
 
     /**
+     * Action Calculator
+     * Shared calculation logic for action time and efficiency
+     * Used by action-time-display.js and quick-input-buttons.js
+     */
+
+
+    /**
+     * Calculate complete action statistics (time + efficiency)
+     * @param {Object} actionDetails - Action detail object from game data
+     * @param {Object} options - Configuration options
+     * @param {Array} options.skills - Character skills array
+     * @param {Array} options.equipment - Character equipment array
+     * @param {Object} options.itemDetailMap - Item detail map from game data
+     * @param {boolean} options.includeCommunityBuff - Include community buff in efficiency (default: false)
+     * @param {boolean} options.includeBreakdown - Include detailed breakdown data (default: false)
+     * @param {boolean} options.floorActionLevel - Floor Action Level bonus for requirement calculation (default: true)
+     * @returns {Object} { actionTime, totalEfficiency, breakdown? }
+     */
+    function calculateActionStats(actionDetails, options = {}) {
+        const {
+            skills,
+            equipment,
+            itemDetailMap,
+            includeCommunityBuff = false,
+            includeBreakdown = false,
+            floorActionLevel = true
+        } = options;
+
+        try {
+            // Calculate base action time
+            const baseTime = actionDetails.baseTimeCost / 1e9; // nanoseconds to seconds
+
+            // Get equipment speed bonus
+            const speedBonus = parseEquipmentSpeedBonuses(
+                equipment,
+                actionDetails.type,
+                itemDetailMap
+            );
+
+            // Calculate actual action time with speed
+            const actionTime = baseTime / (1 + speedBonus);
+
+            // Calculate efficiency
+            const skillLevel = getSkillLevel$1(skills, actionDetails.type);
+            const baseRequirement = actionDetails.levelRequirement?.level || 1;
+
+            // Get drink concentration
+            const drinkConcentration = getDrinkConcentration(equipment, itemDetailMap);
+
+            // Get active drinks for this action type
+            const activeDrinks = dataManager.getActionDrinkSlots(actionDetails.type);
+
+            // Calculate Action Level bonus from teas
+            const actionLevelBonus = parseActionLevelBonus(
+                activeDrinks,
+                itemDetailMap,
+                drinkConcentration
+            );
+
+            // Get Action Level bonus breakdown (if requested)
+            let actionLevelBreakdown = null;
+            if (includeBreakdown) {
+                actionLevelBreakdown = parseActionLevelBonusBreakdown(
+                    activeDrinks,
+                    itemDetailMap,
+                    drinkConcentration
+                );
+            }
+
+            // Calculate effective requirement
+            // Note: floorActionLevel flag for compatibility
+            // - quick-input-buttons uses Math.floor (can't have fractional level requirements)
+            // - action-time-display historically didn't floor (preserving for compatibility)
+            const effectiveRequirement = baseRequirement + (floorActionLevel ? Math.floor(actionLevelBonus) : actionLevelBonus);
+
+            // Calculate efficiency components
+            const levelEfficiency = Math.max(0, skillLevel - effectiveRequirement);
+            const houseEfficiency = calculateHouseEfficiency(actionDetails.type);
+            const equipmentEfficiency = parseEquipmentEfficiencyBonuses(
+                equipment,
+                actionDetails.type,
+                itemDetailMap
+            );
+
+            // Calculate tea efficiency
+            let teaEfficiency;
+            let teaBreakdown = null;
+            if (includeBreakdown) {
+                // Get detailed breakdown
+                teaBreakdown = parseTeaEfficiencyBreakdown(
+                    actionDetails.type,
+                    activeDrinks,
+                    itemDetailMap,
+                    drinkConcentration
+                );
+                teaEfficiency = teaBreakdown.reduce((sum, tea) => sum + tea.efficiency, 0);
+            } else {
+                // Simple total
+                teaEfficiency = parseTeaEfficiency(
+                    actionDetails.type,
+                    activeDrinks,
+                    itemDetailMap,
+                    drinkConcentration
+                );
+            }
+
+            // Get community buff efficiency (if requested)
+            let communityEfficiency = 0;
+            if (includeCommunityBuff) {
+                const communityBuffLevel = dataManager.getCommunityBuffLevel('/community_buff_types/production_efficiency');
+                communityEfficiency = communityBuffLevel ? (0.14 + ((communityBuffLevel - 1) * 0.003)) * 100 : 0;
+            }
+
+            // Total efficiency (stack all components additively)
+            const totalEfficiency = stackAdditive(
+                levelEfficiency,
+                houseEfficiency,
+                equipmentEfficiency,
+                teaEfficiency,
+                communityEfficiency
+            );
+
+            // Build result object
+            const result = {
+                actionTime,
+                totalEfficiency
+            };
+
+            // Add breakdown if requested
+            if (includeBreakdown) {
+                result.efficiencyBreakdown = {
+                    levelEfficiency,
+                    houseEfficiency,
+                    equipmentEfficiency,
+                    teaEfficiency,
+                    teaBreakdown,
+                    communityEfficiency,
+                    skillLevel,
+                    baseRequirement,
+                    actionLevelBonus,
+                    actionLevelBreakdown,
+                    effectiveRequirement
+                };
+            }
+
+            return result;
+        } catch (error) {
+            console.error('[Action Calculator] Error calculating action stats:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Get character skill level for a skill type
+     * @param {Array} skills - Character skills array
+     * @param {string} skillType - Skill type HRID (e.g., "/action_types/cheesesmithing")
+     * @returns {number} Skill level
+     */
+    function getSkillLevel$1(skills, skillType) {
+        // Map action type to skill HRID
+        const skillHrid = skillType.replace('/action_types/', '/skills/');
+        const skill = skills.find(s => s.skillHrid === skillHrid);
+        return skill?.level || 1;
+    }
+
+    /**
      * Action Time Display Module
      *
      * Displays estimated completion time for queued actions.
@@ -10172,7 +10338,7 @@
             }
 
             // Check if feature is enabled
-            const enabled = config$1.getSettingValue('totalActionTime', true);
+            const enabled = config.getSettingValue('totalActionTime', true);
             if (!enabled) {
                 return;
             }
@@ -10238,7 +10404,7 @@
          */
         handleCharacterSwitch() {
             // Clear appended stats from old character's action panel (before it's removed)
-            const oldActionNameElement = document.querySelector('div.Header_actionName__31-L2');
+            const oldActionNameElement = document.querySelector('div[class*="Header_actionName"]');
             if (oldActionNameElement) {
                 this.clearAppendedStats(oldActionNameElement);
             }
@@ -10305,18 +10471,34 @@
             }
 
             // Override game's CSS to prevent text truncation
-            actionNameContainer.style.cssText = `
-            overflow: visible !important;
-            text-overflow: clip !important;
-            white-space: normal !important;
-        `;
+            // Use setProperty with 'important' to ensure we override game's styles
+            actionNameContainer.style.setProperty('overflow', 'visible', 'important');
+            actionNameContainer.style.setProperty('text-overflow', 'clip', 'important');
+            actionNameContainer.style.setProperty('white-space', 'nowrap', 'important');
+            actionNameContainer.style.setProperty('max-width', 'none', 'important');
+            actionNameContainer.style.setProperty('width', 'auto', 'important');
+            actionNameContainer.style.setProperty('min-width', 'max-content', 'important');
+
+            // Apply to parent chain to ensure no truncation at any level
+            let parent = actionNameContainer.parentElement;
+            let levels = 0;
+            while (parent && levels < 5) {
+                parent.style.setProperty('overflow', 'visible', 'important');
+                parent.style.setProperty('text-overflow', 'clip', 'important');
+                parent.style.setProperty('white-space', 'nowrap', 'important');
+                parent.style.setProperty('max-width', 'none', 'important');
+                parent.style.setProperty('width', 'auto', 'important');
+                parent.style.setProperty('min-width', 'max-content', 'important');
+                parent = parent.parentElement;
+                levels++;
+            }
 
             // Create display element
             this.displayElement = document.createElement('div');
             this.displayElement.id = 'mwi-action-time-display';
             this.displayElement.style.cssText = `
             font-size: 0.9em;
-            color: var(--text-color-secondary, ${config$1.COLOR_TEXT_SECONDARY});
+            color: var(--text-color-secondary, ${config.COLOR_TEXT_SECONDARY});
             margin-top: 2px;
             line-height: 1.4;
             text-align: left;
@@ -10327,7 +10509,6 @@
                 this.displayElement,
                 actionNameContainer.nextSibling
             );
-
         }
 
         /**
@@ -10340,7 +10521,8 @@
 
             // Get current action - read from game UI which is always correct
             // The game updates the DOM immediately when actions change
-            const actionNameElement = document.querySelector('div.Header_actionName__31-L2');
+            // Use wildcard selector to handle hash-suffixed class names
+            const actionNameElement = document.querySelector('div[class*="Header_actionName"]');
 
             // CRITICAL: Disconnect observer before making changes to prevent infinite loop
             if (this.actionNameObserver) {
@@ -10354,6 +10536,30 @@
                 // Reconnect observer
                 this.reconnectActionNameObserver(actionNameElement);
                 return;
+            }
+
+            // Re-apply CSS override on every update to prevent game's CSS from truncating text
+            // Use setProperty with 'important' to ensure we override game's styles
+            // Apply to the element itself and all parent elements up the chain
+            actionNameElement.style.setProperty('overflow', 'visible', 'important');
+            actionNameElement.style.setProperty('text-overflow', 'clip', 'important');
+            actionNameElement.style.setProperty('white-space', 'nowrap', 'important');
+            actionNameElement.style.setProperty('max-width', 'none', 'important');
+            actionNameElement.style.setProperty('width', 'auto', 'important');
+            actionNameElement.style.setProperty('min-width', 'max-content', 'important');
+
+            // Apply to entire parent chain (up to 5 levels)
+            let parent = actionNameElement.parentElement;
+            let levels = 0;
+            while (parent && levels < 5) {
+                parent.style.setProperty('overflow', 'visible', 'important');
+                parent.style.setProperty('text-overflow', 'clip', 'important');
+                parent.style.setProperty('white-space', 'nowrap', 'important');
+                parent.style.setProperty('max-width', 'none', 'important');
+                parent.style.setProperty('width', 'auto', 'important');
+                parent.style.setProperty('min-width', 'max-content', 'important');
+                parent = parent.parentElement;
+                levels++;
             }
 
             // Parse action name from DOM
@@ -10379,7 +10585,8 @@
             let action;
 
             // Parse the action name, handling special formats like "Coinify: Item Name (count)"
-            const actionNameMatch = actionNameText.match(/^(.+?)(?:\s*\(#?\d+\))?$/);
+            // Also handles combat zones like "Farmland (276K)" or "Zone (1.2M)"
+            const actionNameMatch = actionNameText.match(/^(.+?)(?:\s*\([^)]+\))?$/);
             const fullNameFromDom = actionNameMatch ? actionNameMatch[1].trim() : actionNameText;
 
             // Check if this is a format like "Coinify: Item Name"
@@ -10431,60 +10638,24 @@
             const skills = dataManager.getSkills();
             const itemDetailMap = dataManager.getInitClientData()?.itemDetailMap || {};
 
-            // Calculate action time
-            const baseTime = actionDetails.baseTimeCost / 1e9; // nanoseconds to seconds
-
-            // Get equipment speed bonus
-            const speedBonus = parseEquipmentSpeedBonuses(
+            // Use shared calculator
+            const stats = calculateActionStats(actionDetails, {
+                skills,
                 equipment,
-                actionDetails.type,
-                itemDetailMap
-            );
+                itemDetailMap,
+                includeCommunityBuff: false,
+                includeBreakdown: false,
+                floorActionLevel: false
+            });
 
-            // Calculate actual action time (speed only)
-            const actionTime = baseTime / (1 + speedBonus);
+            if (!stats) {
+                // Reconnect observer
+                this.reconnectActionNameObserver(actionNameElement);
+                return;
+            }
+
+            const { actionTime, totalEfficiency } = stats;
             const actionsPerHour = 3600 / actionTime;
-
-            // Calculate efficiency
-            const skillLevel = this.getSkillLevel(skills, actionDetails.type);
-            const baseRequirement = actionDetails.levelRequirement?.level || 1;
-
-            // Get drink concentration
-            const drinkConcentration = getDrinkConcentration(equipment, itemDetailMap);
-
-            // Get active drinks for this action type
-            const activeDrinks = dataManager.getActionDrinkSlots(actionDetails.type);
-
-            // Calculate Action Level bonus from teas
-            const actionLevelBonus = parseActionLevelBonus(
-                activeDrinks,
-                itemDetailMap,
-                drinkConcentration
-            );
-
-            // Calculate efficiency components
-            const effectiveRequirement = baseRequirement + actionLevelBonus;
-            const levelEfficiency = Math.max(0, skillLevel - effectiveRequirement);
-            const houseEfficiency = calculateHouseEfficiency(actionDetails.type);
-            const equipmentEfficiency = parseEquipmentEfficiencyBonuses(
-                equipment,
-                actionDetails.type,
-                itemDetailMap
-            );
-            const teaEfficiency = parseTeaEfficiency(
-                actionDetails.type,
-                activeDrinks,
-                itemDetailMap,
-                drinkConcentration
-            );
-
-            // Total efficiency
-            stackAdditive(
-                levelEfficiency,
-                houseEfficiency,
-                equipmentEfficiency,
-                teaEfficiency
-            );
 
             // Get queue size for display (total queued, doesn't change)
             // For infinite actions with inventory count, use that; otherwise use maxCount or Infinity
@@ -10637,24 +10808,11 @@
             // Create marker span for our additions
             const statsSpan = document.createElement('span');
             statsSpan.className = 'mwi-appended-stats';
-            statsSpan.style.cssText = `color: var(--text-color-secondary, ${config$1.COLOR_TEXT_SECONDARY});`;
+            statsSpan.style.cssText = `color: var(--text-color-secondary, ${config.COLOR_TEXT_SECONDARY});`;
             statsSpan.textContent = ' ' + statsText;
 
             // Append to action name element
             actionNameElement.appendChild(statsSpan);
-        }
-
-        /**
-         * Get character skill level for a skill type
-         * @param {Array} skills - Character skills array
-         * @param {string} skillType - Skill type HRID (e.g., "/action_types/cheesesmithing")
-         * @returns {number} Skill level
-         */
-        getSkillLevel(skills, skillType) {
-            // Map action type to skill HRID
-            const skillHrid = skillType.replace('/action_types/', '/skills/');
-            const skill = skills.find(s => s.skillHrid === skillHrid);
-            return skill?.level || 1;
         }
 
         /**
@@ -10663,70 +10821,19 @@
          * @returns {Object} {actionTime, totalEfficiency} or null if calculation fails
          */
         calculateActionTime(actionDetails) {
-            try {
-                const equipment = dataManager.getEquipment();
-                const skills = dataManager.getSkills();
-                const itemDetailMap = dataManager.getInitClientData()?.itemDetailMap || {};
+            const skills = dataManager.getSkills();
+            const equipment = dataManager.getEquipment();
+            const itemDetailMap = dataManager.getInitClientData()?.itemDetailMap || {};
 
-                // Calculate base action time
-                const baseTime = actionDetails.baseTimeCost / 1e9; // nanoseconds to seconds
-
-                // Get equipment speed bonus
-                const speedBonus = parseEquipmentSpeedBonuses(
-                    equipment,
-                    actionDetails.type,
-                    itemDetailMap
-                );
-
-                // Calculate actual action time (speed only)
-                const actionTime = baseTime / (1 + speedBonus);
-
-                // Calculate efficiency for output calculations
-                const skillLevel = this.getSkillLevel(skills, actionDetails.type);
-                const baseRequirement = actionDetails.levelRequirement?.level || 1;
-
-                // Get drink concentration
-                const drinkConcentration = getDrinkConcentration(equipment, itemDetailMap);
-
-                // Get active drinks for this action type
-                const activeDrinks = dataManager.getActionDrinkSlots(actionDetails.type);
-
-                // Calculate Action Level bonus from teas
-                const actionLevelBonus = parseActionLevelBonus(
-                    activeDrinks,
-                    itemDetailMap,
-                    drinkConcentration
-                );
-
-                // Calculate efficiency components
-                const effectiveRequirement = baseRequirement + actionLevelBonus;
-                const levelEfficiency = Math.max(0, skillLevel - effectiveRequirement);
-                const houseEfficiency = calculateHouseEfficiency(actionDetails.type);
-                const equipmentEfficiency = parseEquipmentEfficiencyBonuses(
-                    equipment,
-                    actionDetails.type,
-                    itemDetailMap
-                );
-                const teaEfficiency = parseTeaEfficiency(
-                    actionDetails.type,
-                    activeDrinks,
-                    itemDetailMap,
-                    drinkConcentration
-                );
-
-                // Total efficiency
-                const totalEfficiency = stackAdditive(
-                    levelEfficiency,
-                    houseEfficiency,
-                    equipmentEfficiency,
-                    teaEfficiency
-                );
-
-                return { actionTime, totalEfficiency };
-            } catch (error) {
-                console.error('[MWI Tools] Error calculating action time:', error);
-                return null;
-            }
+            // Use shared calculator (no community buff, no breakdown, no floor for compatibility)
+            return calculateActionStats(actionDetails, {
+                skills,
+                equipment,
+                itemDetailMap,
+                includeCommunityBuff: false,
+                includeBreakdown: false,
+                floorActionLevel: false
+            });
         }
 
         /**
@@ -10835,12 +10942,14 @@
 
                 // First, calculate time for current action to include in total
                 // Read from DOM to get the actual current action (not from cache)
-                const actionNameElement = document.querySelector('div.Header_actionName__31-L2');
+                const actionNameElement = document.querySelector('div[class*="Header_actionName"]');
                 if (actionNameElement && actionNameElement.textContent) {
-                    const actionNameText = actionNameElement.textContent.trim();
+                    // Use getCleanActionName to strip any stats we previously appended
+                    const actionNameText = this.getCleanActionName(actionNameElement);
 
                     // Parse action name (same logic as main display)
-                    const actionNameMatch = actionNameText.match(/^(.+?)(?:\s*\(#?\d+\))?$/);
+                    // Also handles formatted numbers like "Farmland (276K)" or "Zone (1.2M)"
+                    const actionNameMatch = actionNameText.match(/^(.+?)(?:\s*\([^)]+\))?$/);
                     const fullNameFromDom = actionNameMatch ? actionNameMatch[1].trim() : actionNameText;
 
                     let actionNameFromDom, itemNameFromDom;
@@ -10902,7 +11011,7 @@
                         const timeDiv = document.createElement('div');
                         timeDiv.className = 'mwi-queue-action-time';
                         timeDiv.style.cssText = `
-                        color: var(--text-color-secondary, ${config$1.COLOR_TEXT_SECONDARY});
+                        color: var(--text-color-secondary, ${config.COLOR_TEXT_SECONDARY});
                         font-size: 0.85em;
                         margin-top: 2px;
                     `;
@@ -10970,7 +11079,7 @@
                     const timeDiv = document.createElement('div');
                     timeDiv.className = 'mwi-queue-action-time';
                     timeDiv.style.cssText = `
-                    color: var(--text-color-secondary, ${config$1.COLOR_TEXT_SECONDARY});
+                    color: var(--text-color-secondary, ${config.COLOR_TEXT_SECONDARY});
                     font-size: 0.85em;
                     margin-top: 2px;
                 `;
@@ -10996,11 +11105,11 @@
                 const totalDiv = document.createElement('div');
                 totalDiv.id = 'mwi-queue-total-time';
                 totalDiv.style.cssText = `
-                color: var(--text-color-primary, ${config$1.COLOR_TEXT_PRIMARY});
+                color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY});
                 font-weight: bold;
                 margin-top: 12px;
                 padding: 8px;
-                border-top: 1px solid var(--border-color, ${config$1.COLOR_BORDER});
+                border-top: 1px solid var(--border-color, ${config.COLOR_BORDER});
                 text-align: center;
             `;
 
@@ -11058,7 +11167,7 @@
             }
 
             // Clear appended stats from game's action name div
-            const actionNameElement = document.querySelector('div.Header_actionName__31-L2');
+            const actionNameElement = document.querySelector('div[class*="Header_actionName"]');
             if (actionNameElement) {
                 this.clearAppendedStats(actionNameElement);
             }
@@ -11812,6 +11921,7 @@
 
         /**
          * Calculate action time and efficiency for current character state
+         * Uses shared calculator with community buffs and detailed breakdown
          * @param {Object} actionDetails - Action details from game data
          * @param {Object} gameData - Cached game data from dataManager
          * @returns {Object} {actionTime, totalEfficiency, efficiencyBreakdown}
@@ -11821,107 +11931,38 @@
             const skills = dataManager.getSkills();
             const itemDetailMap = gameData?.itemDetailMap || {};
 
-            // Calculate base action time
-            const baseTime = actionDetails.baseTimeCost / 1e9; // nanoseconds to seconds
-
-            // Get equipment speed bonus
-            const speedBonus = parseEquipmentSpeedBonuses(
+            // Use shared calculator with community buffs and breakdown
+            const stats = calculateActionStats(actionDetails, {
+                skills,
                 equipment,
-                actionDetails.type,
-                itemDetailMap
-            );
-
-            // Calculate actual action time (with speed)
-            const actionTime = baseTime / (1 + speedBonus);
-
-            // Calculate efficiency
-            const skillLevel = this.getSkillLevel(skills, actionDetails.type);
-            const baseRequirement = actionDetails.levelRequirement?.level || 1;
-
-            // Get drink concentration
-            const drinkConcentration = getDrinkConcentration(equipment, itemDetailMap);
-
-            // Get active drinks for this action type
-            const activeDrinks = dataManager.getActionDrinkSlots(actionDetails.type);
-
-            // Calculate Action Level bonus from teas
-            const actionLevelBonus = parseActionLevelBonus(
-                activeDrinks,
                 itemDetailMap,
-                drinkConcentration
-            );
+                includeCommunityBuff: true,
+                includeBreakdown: true,
+                floorActionLevel: true
+            });
 
-            // Get Action Level bonus breakdown (individual teas)
-            const actionLevelBreakdown = parseActionLevelBonusBreakdown(
-                activeDrinks,
-                itemDetailMap,
-                drinkConcentration
-            );
+            if (!stats) {
+                // Fallback values
+                return {
+                    actionTime: 1,
+                    totalEfficiency: 0,
+                    efficiencyBreakdown: {
+                        levelEfficiency: 0,
+                        houseEfficiency: 0,
+                        equipmentEfficiency: 0,
+                        teaEfficiency: 0,
+                        teaBreakdown: [],
+                        communityEfficiency: 0,
+                        skillLevel: 1,
+                        baseRequirement: 1,
+                        actionLevelBonus: 0,
+                        actionLevelBreakdown: [],
+                        effectiveRequirement: 1
+                    }
+                };
+            }
 
-            // Calculate efficiency components
-            // Action Level bonuses scale with DC but get floored (can't have fractional level requirements)
-            const effectiveRequirement = baseRequirement + Math.floor(actionLevelBonus);
-            const levelEfficiency = Math.max(0, skillLevel - effectiveRequirement);
-            const houseEfficiency = calculateHouseEfficiency(actionDetails.type);
-            const equipmentEfficiency = parseEquipmentEfficiencyBonuses(
-                equipment,
-                actionDetails.type,
-                itemDetailMap
-            );
-
-            // Get tea efficiency breakdown (individual teas)
-            const teaBreakdown = parseTeaEfficiencyBreakdown(
-                actionDetails.type,
-                activeDrinks,
-                itemDetailMap,
-                drinkConcentration
-            );
-            const teaEfficiency = teaBreakdown.reduce((sum, tea) => sum + tea.efficiency, 0);
-
-            // Get community buff efficiency
-            const communityBuffLevel = dataManager.getCommunityBuffLevel('/community_buff_types/production_efficiency');
-            const communityEfficiency = communityBuffLevel ? (0.14 + ((communityBuffLevel - 1) * 0.003)) * 100 : 0;
-
-            // Total efficiency
-            const totalEfficiency = stackAdditive(
-                levelEfficiency,
-                houseEfficiency,
-                equipmentEfficiency,
-                teaEfficiency,
-                communityEfficiency
-            );
-
-            // Return with breakdown
-            return {
-                actionTime,
-                totalEfficiency,
-                efficiencyBreakdown: {
-                    levelEfficiency,
-                    houseEfficiency,
-                    equipmentEfficiency,
-                    teaEfficiency,
-                    teaBreakdown, // Individual tea contributions
-                    communityEfficiency,
-                    skillLevel,
-                    baseRequirement,
-                    actionLevelBonus,
-                    actionLevelBreakdown, // Individual Action Level bonus teas
-                    effectiveRequirement
-                }
-            };
-        }
-
-        /**
-         * Get character skill level for a skill type
-         * @param {Array} skills - Character skills array
-         * @param {string} skillType - Skill type HRID (e.g., "/action_types/cheesesmithing")
-         * @returns {number} Skill level
-         */
-        getSkillLevel(skills, skillType) {
-            // Map action type to skill HRID
-            const skillHrid = skillType.replace('/action_types/', '/skills/');
-            const skill = skills.find(s => s.skillHrid === skillHrid);
-            return skill?.level || 1;
+            return stats;
         }
 
         /**
@@ -12185,6 +12226,19 @@
                 console.error('[MWI Tools] Error calculating max value:', error);
                 return 10000; // Safe fallback on error
             }
+        }
+
+        /**
+         * Get character skill level for a skill type
+         * @param {Array} skills - Character skills array
+         * @param {string} skillType - Skill type HRID (e.g., "/action_types/cheesesmithing")
+         * @returns {number} Skill level
+         */
+        getSkillLevel(skills, skillType) {
+            // Map action type to skill HRID
+            const skillHrid = skillType.replace('/action_types/', '/skills/');
+            const skill = skills.find(s => s.skillHrid === skillHrid);
+            return skill?.level || 1;
         }
 
         /**
@@ -12538,7 +12592,7 @@
          */
         initialize() {
             // Check if feature is enabled
-            if (!config$1.getSetting('skillbook')) {
+            if (!config.getSetting('skillbook')) {
                 return;
             }
 
@@ -12698,7 +12752,7 @@
             // Create calculator HTML
             const calculatorDiv = dom.createStyledDiv(
                 {
-                    color: config$1.SCRIPT_COLOR_MAIN,
+                    color: config.SCRIPT_COLOR_MAIN,
                     textAlign: 'left',
                     marginTop: '16px',
                     padding: '12px',
@@ -12822,8 +12876,8 @@
          */
         initialize() {
             // Check if either feature is enabled
-            this.taskMapIndexEnabled = config$1.getSetting('taskMapIndex');
-            this.mapIndexEnabled = config$1.getSetting('mapIndex');
+            this.taskMapIndexEnabled = config.getSetting('taskMapIndex');
+            this.mapIndexEnabled = config.getSetting('mapIndex');
 
             if (!this.taskMapIndexEnabled && !this.mapIndexEnabled) {
                 return;
@@ -12944,7 +12998,7 @@
                     // Add index to the name element
                     nameElement.insertAdjacentHTML(
                         'beforeend',
-                        `<span class="script_taskMapIndex" style="margin-left: 4px; color: ${config$1.SCRIPT_COLOR_MAIN};">Z${zoneIndex}</span>`
+                        `<span class="script_taskMapIndex" style="margin-left: 4px; color: ${config.SCRIPT_COLOR_MAIN};">Z${zoneIndex}</span>`
                     );
                 }
             }
@@ -12975,7 +13029,7 @@
                 // Add index at the beginning
                 button.insertAdjacentHTML(
                     'afterbegin',
-                    `<span class="script_mapIndex" style="color: ${config$1.SCRIPT_COLOR_MAIN};">${index}. </span>`
+                    `<span class="script_mapIndex" style="color: ${config.SCRIPT_COLOR_MAIN};">${index}. </span>`
                 );
 
                 index++;
@@ -14432,7 +14486,7 @@
          */
         initialize() {
             // Check if feature is enabled
-            if (!config$1.getSetting('combatScore')) {
+            if (!config.getSetting('combatScore')) {
                 return;
             }
 
@@ -14532,23 +14586,23 @@
 
             // Build house breakdown HTML
             const houseBreakdownHTML = scoreData.breakdown.houses.map(item =>
-                `<div style="margin-left: 10px; font-size: 0.8rem; color: ${config$1.COLOR_TEXT_SECONDARY};">${item.name}: ${numberFormatter(item.value)}</div>`
+                `<div style="margin-left: 10px; font-size: 0.8rem; color: ${config.COLOR_TEXT_SECONDARY};">${item.name}: ${numberFormatter(item.value)}</div>`
             ).join('');
 
             // Build ability breakdown HTML
             const abilityBreakdownHTML = scoreData.breakdown.abilities.map(item =>
-                `<div style="margin-left: 10px; font-size: 0.8rem; color: ${config$1.COLOR_TEXT_SECONDARY};">${item.name}: ${numberFormatter(item.value)}</div>`
+                `<div style="margin-left: 10px; font-size: 0.8rem; color: ${config.COLOR_TEXT_SECONDARY};">${item.name}: ${numberFormatter(item.value)}</div>`
             ).join('');
 
             // Build equipment breakdown HTML
             const equipmentBreakdownHTML = scoreData.breakdown.equipment.map(item =>
-                `<div style="margin-left: 10px; font-size: 0.8rem; color: ${config$1.COLOR_TEXT_SECONDARY};">${item.name}: ${numberFormatter(item.value)}</div>`
+                `<div style="margin-left: 10px; font-size: 0.8rem; color: ${config.COLOR_TEXT_SECONDARY};">${item.name}: ${numberFormatter(item.value)}</div>`
             ).join('');
 
             // Create panel HTML
             panel.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                <div style="font-weight: bold; color: ${config$1.SCRIPT_COLOR_MAIN}; font-size: 0.9rem;">${playerName}</div>
+                <div style="font-weight: bold; color: ${config.SCRIPT_COLOR_MAIN}; font-size: 0.9rem;">${playerName}</div>
                 <span id="mwi-score-close-btn" style="
                     cursor: pointer;
                     font-size: 18px;
@@ -14557,10 +14611,10 @@
                     line-height: 1;
                 " title="Close">×</span>
             </div>
-            <div style="cursor: pointer; font-weight: bold; margin-bottom: 8px; color: ${config$1.COLOR_PROFIT};" id="mwi-score-toggle">
+            <div style="cursor: pointer; font-weight: bold; margin-bottom: 8px; color: ${config.COLOR_PROFIT};" id="mwi-score-toggle">
                 + Combat Score: ${numberFormatter(scoreData.total.toFixed(1))}${equipmentHiddenText}
             </div>
-            <div id="mwi-score-details" style="display: none; margin-left: 10px; color: ${config$1.COLOR_TEXT_PRIMARY};">
+            <div id="mwi-score-details" style="display: none; margin-left: 10px; color: ${config.COLOR_TEXT_PRIMARY};">
                 <div style="cursor: pointer; margin-bottom: 4px;" id="mwi-house-toggle">
                     + House: ${numberFormatter(scoreData.house.toFixed(1))}
                 </div>
@@ -14585,7 +14639,7 @@
             <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px;">
                 <button id="mwi-combat-sim-export-btn" style="
                     padding: 8px 12px;
-                    background: ${config$1.SCRIPT_COLOR_MAIN};
+                    background: ${config.SCRIPT_COLOR_MAIN};
                     color: black;
                     border: none;
                     border-radius: 4px;
@@ -14596,7 +14650,7 @@
                 ">Combat Sim Export</button>
                 <button id="mwi-milkonomy-export-btn" style="
                     padding: 8px 12px;
-                    background: ${config$1.SCRIPT_COLOR_MAIN};
+                    background: ${config.SCRIPT_COLOR_MAIN};
                     color: black;
                     border: none;
                     border-radius: 4px;
@@ -14892,7 +14946,7 @@
          */
         initialize() {
             // Check if feature is enabled
-            if (!config$1.getSetting('itemIconLevel')) {
+            if (!config.getSetting('itemIconLevel')) {
                 return;
             }
 
@@ -14978,7 +15032,7 @@
                     if (abilityLevelReq && abilityLevelReq.length > 0 && abilityLevelReq[0].level > 0) {
                         displayText = abilityLevelReq[0].level.toString();
                     }
-                } else if (config$1.getSetting('showsKeyInfoInIcon') && this.isKeyOrFragment(itemHrid)) {
+                } else if (config.getSetting('showsKeyInfoInIcon') && this.isKeyOrFragment(itemHrid)) {
                     // Keys and fragments: Show zone/dungeon info
                     displayText = this.getKeyDisplayText(itemHrid);
                 }
@@ -14992,7 +15046,7 @@
 
                     div.insertAdjacentHTML(
                         'beforeend',
-                        `<div class="script_itemLevel" style="z-index: 1; position: absolute; ${position} color: ${config$1.SCRIPT_COLOR_MAIN};">${displayText}</div>`
+                        `<div class="script_itemLevel" style="z-index: 1; position: absolute; ${position} color: ${config.SCRIPT_COLOR_MAIN};">${displayText}</div>`
                     );
                     // Mark as processed
                     this.processedDivs.add(div);
@@ -15094,7 +15148,7 @@
          */
         initialize() {
             // Check if feature is enabled
-            if (!config$1.getSetting('alchemyItemDimming')) {
+            if (!config.getSetting('alchemyItemDimming')) {
                 return;
             }
 
@@ -15251,7 +15305,7 @@
          * Initialize the display system
          */
         initialize() {
-            if (!config$1.isFeatureEnabled('skillExperiencePercentage')) {
+            if (!config.isFeatureEnabled('skillExperiencePercentage')) {
                 return;
             }
 
@@ -15328,7 +15382,7 @@
                 percentageSpan.className = 'mwi-exp-percentage';
                 percentageSpan.textContent = formattedPercentage;
                 percentageSpan.style.fontSize = '0.875rem';
-                percentageSpan.style.color = config$1.SCRIPT_COLOR_MAIN;
+                percentageSpan.style.color = config.SCRIPT_COLOR_MAIN;
 
                 // Insert percentage before children[1] (same as original)
                 levelContainer.insertBefore(percentageSpan, levelContainer.children[1]);
@@ -15846,7 +15900,7 @@
          * Initialize task profit display
          */
         initialize() {
-            if (!config$1.getSetting('taskProfitCalculator')) {
+            if (!config.getSetting('taskProfitCalculator')) {
                 return;
             }
 
@@ -15934,7 +15988,7 @@
          * Update all task profit displays
          */
         updateTaskProfits() {
-            if (!config$1.getSetting('taskProfitCalculator')) {
+            if (!config.getSetting('taskProfitCalculator')) {
                 return;
             }
 
@@ -16186,7 +16240,7 @@
             // Check for error state
             if (profitData.error) {
                 profitContainer.innerHTML = `
-                <div style="color: ${config$1.SCRIPT_COLOR_ALERT};">
+                <div style="color: ${config.SCRIPT_COLOR_ALERT};">
                     Unable to calculate profit
                 </div>
             `;
@@ -16212,7 +16266,7 @@
             // Create main profit display (Option B format: compact with time)
             const profitLine = document.createElement('div');
             profitLine.style.cssText = `
-            color: ${config$1.SCRIPT_COLOR_MAIN};
+            color: ${config.SCRIPT_COLOR_MAIN};
             cursor: pointer;
             user-select: none;
         `;
@@ -16290,7 +16344,7 @@
 
             // Show warning if market data unavailable
             if (profitData.rewards.error) {
-                lines.push(`<div style="color: ${config$1.SCRIPT_COLOR_ALERT}; margin-bottom: 6px; font-style: italic;">⚠ ${profitData.rewards.error} - Token values unavailable</div>`);
+                lines.push(`<div style="color: ${config.SCRIPT_COLOR_ALERT}; margin-bottom: 6px; font-style: italic;">⚠ ${profitData.rewards.error} - Token values unavailable</div>`);
             }
 
             // Task Rewards section
@@ -16470,7 +16524,7 @@
 
             // Total
             lines.push('<div style="border-top: 1px solid #555; margin-top: 6px; padding-top: 4px;"></div>');
-            lines.push(`<div style="font-weight: bold; color: ${config$1.SCRIPT_COLOR_MAIN};">Total Profit: ${numberFormatter(profitData.totalProfit)}</div>`);
+            lines.push(`<div style="font-weight: bold; color: ${config.SCRIPT_COLOR_MAIN};">Total Profit: ${numberFormatter(profitData.totalProfit)}</div>`);
 
             return lines.join('');
         }
@@ -16490,7 +16544,7 @@
             errorContainer.style.cssText = `
             margin-top: 4px;
             font-size: 0.75rem;
-            color: ${config$1.SCRIPT_COLOR_ALERT};
+            color: ${config.SCRIPT_COLOR_ALERT};
             font-style: italic;
         `;
             errorContainer.textContent = `⚠ ${message}`;
@@ -16790,7 +16844,7 @@
                 displayElement = document.createElement('div');
                 displayElement.className = 'mwi-reroll-cost-display';
                 displayElement.style.cssText = `
-                color: ${config$1.SCRIPT_COLOR_SECONDARY};
+                color: ${config.SCRIPT_COLOR_SECONDARY};
                 font-size: 0.75rem;
                 margin-top: 4px;
                 padding: 2px 4px;
@@ -16988,7 +17042,7 @@
             }
 
             // Use pricing mode from config
-            const pricingMode = config$1.getSetting('marketPricingMode') || 'hybrid';
+            const pricingMode = config.getSetting('marketPricingMode') || 'hybrid';
 
             let ask = priceData.ask || 0;
             let bid = priceData.bid || 0;
@@ -17068,7 +17122,7 @@
          * Initialize the display system
          */
         initialize() {
-            if (!config$1.getSetting('houseUpgradeCosts')) {
+            if (!config.getSetting('houseUpgradeCosts')) {
                 return;
             }
 
@@ -17236,14 +17290,14 @@
             align-items: center;
             gap: 8px;
             font-size: 0.75rem;
-            color: ${config$1.SCRIPT_COLOR_MAIN};
+            color: ${config.SCRIPT_COLOR_MAIN};
             padding-left: 8px;
             white-space: nowrap;
         `;
 
             pricingCell.innerHTML = `
-            <span style="color: ${config$1.SCRIPT_COLOR_SECONDARY};">@ ${coinFormatter(materialData.marketPrice)}</span>
-            <span style="color: ${config$1.SCRIPT_COLOR_MAIN}; font-weight: bold;">= ${coinFormatter(materialData.totalValue)}</span>
+            <span style="color: ${config.SCRIPT_COLOR_SECONDARY};">@ ${coinFormatter(materialData.marketPrice)}</span>
+            <span style="color: ${config.SCRIPT_COLOR_MAIN}; font-weight: bold;">= ${coinFormatter(materialData.totalValue)}</span>
             <span style="color: ${hasEnough ? '#4ade80' : '#f87171'}; margin-left: auto; text-align: right;">${coinFormatter(amountNeeded)}</span>
         `;
 
@@ -17262,10 +17316,10 @@
             totalDiv.style.cssText = `
             margin-top: 12px;
             padding-top: 12px;
-            border-top: 2px solid ${config$1.SCRIPT_COLOR_MAIN};
+            border-top: 2px solid ${config.SCRIPT_COLOR_MAIN};
             font-weight: bold;
             font-size: 1rem;
-            color: ${config$1.SCRIPT_COLOR_MAIN};
+            color: ${config.SCRIPT_COLOR_MAIN};
             text-align: center;
         `;
             totalDiv.textContent = `Total Market Value: ${coinFormatter(costData.totalValue)}`;
@@ -17286,7 +17340,7 @@
             padding: 8px;
             background: rgba(0, 0, 0, 0.3);
             border-radius: 8px;
-            border: 1px solid ${config$1.SCRIPT_COLOR_SECONDARY};
+            border: 1px solid ${config.SCRIPT_COLOR_SECONDARY};
         `;
 
             // Compact header with inline dropdown
@@ -17301,7 +17355,7 @@
 
             const label = document.createElement('span');
             label.style.cssText = `
-            color: ${config$1.SCRIPT_COLOR_MAIN};
+            color: ${config.SCRIPT_COLOR_MAIN};
             font-weight: bold;
             font-size: 0.875rem;
         `;
@@ -17311,8 +17365,8 @@
             dropdown.style.cssText = `
             padding: 4px 8px;
             background: rgba(0, 0, 0, 0.3);
-            border: 1px solid ${config$1.SCRIPT_COLOR_SECONDARY};
-            color: ${config$1.SCRIPT_COLOR_MAIN};
+            border: 1px solid ${config.SCRIPT_COLOR_SECONDARY};
+            color: ${config.SCRIPT_COLOR_MAIN};
             border-radius: 4px;
             cursor: pointer;
             font-size: 0.875rem;
@@ -17398,10 +17452,10 @@
             totalDiv.style.cssText = `
             margin-top: 12px;
             padding-top: 12px;
-            border-top: 2px solid ${config$1.SCRIPT_COLOR_MAIN};
+            border-top: 2px solid ${config.SCRIPT_COLOR_MAIN};
             font-weight: bold;
             font-size: 1rem;
-            color: ${config$1.SCRIPT_COLOR_MAIN};
+            color: ${config.SCRIPT_COLOR_MAIN};
             text-align: center;
         `;
             totalDiv.textContent = `Total Market Value: ${coinFormatter(costData.totalValue)}`;
@@ -17442,7 +17496,7 @@
             const priceSpan = document.createElement('span');
             if (!isCoin) {
                 priceSpan.style.cssText = `
-                color: ${config$1.SCRIPT_COLOR_SECONDARY};
+                color: ${config.SCRIPT_COLOR_SECONDARY};
                 font-size: 0.75rem;
                 text-align: left;
             `;
@@ -17454,7 +17508,7 @@
             const totalSpan = document.createElement('span');
             if (isCoin) {
                 totalSpan.style.cssText = `
-                color: ${config$1.SCRIPT_COLOR_MAIN};
+                color: ${config.SCRIPT_COLOR_MAIN};
                 font-weight: bold;
                 font-size: 0.75rem;
                 text-align: left;
@@ -17462,7 +17516,7 @@
                 totalSpan.textContent = `= ${coinFormatter(material.totalValue)}`;
             } else {
                 totalSpan.style.cssText = `
-                color: ${config$1.SCRIPT_COLOR_MAIN};
+                color: ${config.SCRIPT_COLOR_MAIN};
                 font-weight: bold;
                 font-size: 0.75rem;
                 text-align: left;
@@ -18114,10 +18168,10 @@
     /**
      * Calculate total value of all abilities
      * @param {Array} characterAbilities - Array of character abilities
-     * @param {Array} equippedAbilities - Array of equipped abilities (for subtotal)
+     * @param {Object} abilityCombatTriggersMap - Map of equipped abilities
      * @returns {Object} {totalCost, equippedCost, breakdown, equippedBreakdown, otherBreakdown}
      */
-    function calculateAllAbilitiesCost(characterAbilities, equippedAbilities) {
+    function calculateAllAbilitiesCost(characterAbilities, abilityCombatTriggersMap) {
         if (!characterAbilities || characterAbilities.length === 0) {
             return {
                 totalCost: 0,
@@ -18134,9 +18188,9 @@
         const equippedBreakdown = [];
         const otherBreakdown = [];
 
-        // Create set of equipped ability HRIDs for quick lookup
+        // Create set of equipped ability HRIDs from abilityCombatTriggersMap keys
         const equippedHrids = new Set(
-            equippedAbilities.map(a => a.abilityHrid).filter(Boolean)
+            Object.keys(abilityCombatTriggersMap || {})
         );
 
         for (const ability of characterAbilities) {
@@ -18206,7 +18260,7 @@
         const marketListings = gameData.myMarketListings || [];
         const characterHouseRooms = gameData.characterHouseRoomMap || {};
         const characterAbilities = gameData.characterAbilities || [];
-        const equippedAbilities = gameData.equippedAbilities || [];
+        const abilityCombatTriggersMap = gameData.abilityCombatTriggersMap || {};
 
         // Calculate equipped items value
         let equippedAsk = 0;
@@ -18242,14 +18296,16 @@
         const inventoryBreakdown = [];
         const inventoryByCategory = {};
 
+        // Separate ability books for Fixed Assets section
+        let abilityBooksAsk = 0;
+        let abilityBooksBid = 0;
+        const abilityBooksBreakdown = [];
+
         for (const item of characterItems) {
             if (item.itemLocationHrid !== '/item_locations/inventory') continue;
 
             const askValue = await calculateItemValue(item, true);
             const bidValue = await calculateItemValue(item, false);
-
-            inventoryAsk += askValue;
-            inventoryBid += bidValue;
 
             // Add to breakdown
             const itemDetails = gameData.itemDetailMap[item.itemHrid];
@@ -18265,29 +18321,45 @@
                 count: item.count
             };
 
-            inventoryBreakdown.push(itemData);
-
-            // Categorize item
+            // Check if this is an ability book
             const categoryHrid = itemDetails?.categoryHrid || '/item_categories/other';
-            const categoryName = gameData.itemCategoryDetailMap?.[categoryHrid]?.name || 'Other';
+            const isAbilityBook = categoryHrid === '/item_categories/ability_book';
 
-            if (!inventoryByCategory[categoryName]) {
-                inventoryByCategory[categoryName] = {
-                    items: [],
-                    totalAsk: 0,
-                    totalBid: 0
-                };
+            if (isAbilityBook) {
+                // Add to ability books (Fixed Assets)
+                abilityBooksAsk += askValue;
+                abilityBooksBid += bidValue;
+                abilityBooksBreakdown.push(itemData);
+            } else {
+                // Add to regular inventory (Current Assets)
+                inventoryAsk += askValue;
+                inventoryBid += bidValue;
+                inventoryBreakdown.push(itemData);
+
+                // Categorize item
+                const categoryName = gameData.itemCategoryDetailMap?.[categoryHrid]?.name || 'Other';
+
+                if (!inventoryByCategory[categoryName]) {
+                    inventoryByCategory[categoryName] = {
+                        items: [],
+                        totalAsk: 0,
+                        totalBid: 0
+                    };
+                }
+
+                inventoryByCategory[categoryName].items.push(itemData);
+                inventoryByCategory[categoryName].totalAsk += askValue;
+                inventoryByCategory[categoryName].totalBid += bidValue;
             }
-
-            inventoryByCategory[categoryName].items.push(itemData);
-            inventoryByCategory[categoryName].totalAsk += askValue;
-            inventoryByCategory[categoryName].totalBid += bidValue;
         }
 
         // Sort items within each category by value descending
         for (const category of Object.values(inventoryByCategory)) {
             category.items.sort((a, b) => b.askValue - a.askValue);
         }
+
+        // Sort ability books by value descending
+        abilityBooksBreakdown.sort((a, b) => b.askValue - a.askValue);
 
         // Calculate market listings value
         let listingsAsk = 0;
@@ -18334,11 +18406,14 @@
         const housesData = calculateAllHousesCost(characterHouseRooms);
 
         // Calculate abilities value
-        const abilitiesData = calculateAllAbilitiesCost(characterAbilities, equippedAbilities);
+        const abilitiesData = calculateAllAbilitiesCost(characterAbilities, abilityCombatTriggersMap);
 
-        // Calculate totals
-        const totalAsk = equippedAsk + inventoryAsk + listingsAsk + housesData.totalCost + abilitiesData.totalCost;
-        const totalBid = equippedBid + inventoryBid + listingsBid + housesData.totalCost + abilitiesData.totalCost;
+        // Calculate ability books value (weighted average)
+        const abilityBooksCost = (abilityBooksAsk + abilityBooksBid) / 2;
+
+        // Calculate totals (ability books are Fixed Assets)
+        const totalAsk = equippedAsk + inventoryAsk + listingsAsk + housesData.totalCost + abilitiesData.totalCost + abilityBooksAsk;
+        const totalBid = equippedBid + inventoryBid + listingsBid + housesData.totalCost + abilitiesData.totalCost + abilityBooksBid;
         const totalNetworth = (totalAsk + totalBid) / 2;
 
         // Sort breakdowns by value descending
@@ -18362,9 +18437,15 @@
                 listings: { ask: listingsAsk, bid: listingsBid, breakdown: listingsBreakdown }
             },
             fixedAssets: {
-                total: housesData.totalCost + abilitiesData.totalCost,
+                total: housesData.totalCost + abilitiesData.totalCost + abilityBooksCost,
                 houses: housesData,
-                abilities: abilitiesData
+                abilities: abilitiesData,
+                abilityBooks: {
+                    totalCost: abilityBooksCost,
+                    ask: abilityBooksAsk,
+                    bid: abilityBooksBid,
+                    breakdown: abilityBooksBreakdown
+                }
             }
         };
     }
@@ -18459,7 +18540,7 @@
             this.container.style.cssText = `
             font-size: 0.875rem;
             font-weight: 500;
-            color: ${config$1.SCRIPT_COLOR_MAIN};
+            color: ${config.SCRIPT_COLOR_MAIN};
             text-wrap: nowrap;
         `;
 
@@ -18552,7 +18633,7 @@
             this.container.className = 'mwi-networth-panel';
             this.container.style.cssText = `
             text-align: left;
-            color: ${config$1.SCRIPT_COLOR_MAIN};
+            color: ${config.SCRIPT_COLOR_MAIN};
             font-size: 0.875rem;
             margin-bottom: 12px;
         `;
@@ -18594,7 +18675,8 @@
                 'mwi-houses-breakdown',
                 'mwi-abilities-details',
                 'mwi-equipped-abilities-breakdown',
-                'mwi-other-abilities-breakdown'
+                'mwi-other-abilities-breakdown',
+                'mwi-ability-books-breakdown'
             ];
 
             // Also preserve inventory category states
@@ -18662,7 +18744,7 @@
                     <div id="mwi-abilities-details" style="display: none; margin-left: 20px;">
                         <!-- Equipped Abilities -->
                         <div style="cursor: pointer; margin-top: 4px;" id="mwi-equipped-abilities-toggle">
-                            + Equipped (5): ${networthFormatter(Math.round(networthData.fixedAssets.abilities.equippedCost))}
+                            + Equipped (${networthData.fixedAssets.abilities.equippedBreakdown.length}): ${networthFormatter(Math.round(networthData.fixedAssets.abilities.equippedCost))}
                         </div>
                         <div id="mwi-equipped-abilities-breakdown" style="display: none; margin-left: 20px; font-size: 0.8rem; color: #bbb;">
                             ${this.renderAbilitiesBreakdown(networthData.fixedAssets.abilities.equippedBreakdown)}
@@ -18678,6 +18760,16 @@
                             </div>
                         ` : ''}
                     </div>
+
+                    <!-- Ability Books -->
+                    ${networthData.fixedAssets.abilityBooks.breakdown.length > 0 ? `
+                        <div style="cursor: pointer; margin-top: 4px;" id="mwi-ability-books-toggle">
+                            + Ability Books: ${networthFormatter(Math.round(networthData.fixedAssets.abilityBooks.totalCost))}
+                        </div>
+                        <div id="mwi-ability-books-breakdown" style="display: none; margin-left: 20px; font-size: 0.8rem; color: #bbb;">
+                            ${this.renderAbilityBooksBreakdown(networthData.fixedAssets.abilityBooks.breakdown)}
+                        </div>
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -18731,6 +18823,22 @@
             return breakdown.map(ability =>
                 `<div style="display: block; margin-bottom: 2px;">${ability.name}: ${networthFormatter(Math.round(ability.cost))}</div>`
             ).join('');
+        }
+
+        /**
+         * Render ability books breakdown HTML
+         * @param {Array} breakdown - Array of {name, askValue, bidValue, count}
+         * @returns {string} HTML string
+         */
+        renderAbilityBooksBreakdown(breakdown) {
+            if (breakdown.length === 0) {
+                return '<div>No ability books</div>';
+            }
+
+            return breakdown.map(book => {
+                const value = (book.askValue + book.bidValue) / 2;
+                return `<div style="display: block; margin-bottom: 2px;">${book.name} (${book.count}): ${networthFormatter(Math.round(value))}</div>`;
+            }).join('');
         }
 
         /**
@@ -18860,6 +18968,15 @@
                     `Other Abilities: ${networthFormatter(Math.round(networthData.fixedAssets.abilities.totalCost - networthData.fixedAssets.abilities.equippedCost))}`
                 );
             }
+
+            // Ability books toggle (if exists)
+            if (networthData.fixedAssets.abilityBooks.breakdown.length > 0) {
+                this.setupToggle(
+                    'mwi-ability-books-toggle',
+                    'mwi-ability-books-breakdown',
+                    `Ability Books: ${networthFormatter(Math.round(networthData.fixedAssets.abilityBooks.totalCost))}`
+                );
+            }
         }
 
         /**
@@ -18920,12 +19037,12 @@
             if (this.isActive) return;
 
             // Initialize header display (always enabled with networth feature)
-            if (config$1.isFeatureEnabled('networth')) {
+            if (config.isFeatureEnabled('networth')) {
                 networthHeaderDisplay.initialize();
             }
 
             // Initialize inventory panel display (separate toggle)
-            if (config$1.isFeatureEnabled('inventorySummary')) {
+            if (config.isFeatureEnabled('inventorySummary')) {
                 networthInventoryDisplay.initialize();
             }
 
@@ -18948,11 +19065,11 @@
                 this.currentData = networthData;
 
                 // Update displays
-                if (config$1.isFeatureEnabled('networth')) {
+                if (config.isFeatureEnabled('networth')) {
                     networthHeaderDisplay.update(networthData);
                 }
 
-                if (config$1.isFeatureEnabled('inventorySummary')) {
+                if (config.isFeatureEnabled('inventorySummary')) {
                     networthInventoryDisplay.update(networthData);
                 }
             } catch (error) {
@@ -19002,7 +19119,7 @@
          * Initialize inventory sort feature
          */
         initialize() {
-            if (!config$1.getSetting('invSort')) {
+            if (!config.getSetting('invSort')) {
                 return;
             }
 
@@ -19126,7 +19243,7 @@
             this.controlsContainer = document.createElement('div');
             this.controlsContainer.className = 'mwi-inventory-sort-controls';
             this.controlsContainer.style.cssText = `
-            color: ${config$1.SCRIPT_COLOR_MAIN};
+            color: ${config.SCRIPT_COLOR_MAIN};
             font-size: 0.875rem;
             text-align: left;
             margin-bottom: 8px;
@@ -19193,7 +19310,7 @@
                 const isActive = button.dataset.mode === this.currentMode;
 
                 if (isActive) {
-                    button.style.backgroundColor = config$1.SCRIPT_COLOR_MAIN;
+                    button.style.backgroundColor = config.SCRIPT_COLOR_MAIN;
                     button.style.color = 'black';
                     button.style.fontWeight = 'bold';
                 } else {
@@ -19383,14 +19500,14 @@
 
             if (this.currentMode === 'none') {
                 // When sort mode is 'none', check invSort_badgesOnNone setting
-                const badgesOnNone = config$1.getSettingValue('invSort_badgesOnNone', 'None');
+                const badgesOnNone = config.getSettingValue('invSort_badgesOnNone', 'None');
                 if (badgesOnNone !== 'None') {
                     showBadges = true;
                     badgeValueKey = badgesOnNone.toLowerCase() + 'Value'; // 'askValue' or 'bidValue'
                 }
             } else {
                 // When sort mode is 'ask' or 'bid', check invSort_showBadges setting
-                const showBadgesSetting = config$1.getSetting('invSort_showBadges');
+                const showBadgesSetting = config.getSetting('invSort_showBadges');
                 if (showBadgesSetting) {
                     showBadges = true;
                     badgeValueKey = this.currentMode + 'Value'; // 'askValue' or 'bidValue'
@@ -19432,7 +19549,7 @@
             top: 2px;
             left: 2px;
             z-index: 1;
-            color: ${config$1.SCRIPT_COLOR_MAIN};
+            color: ${config.SCRIPT_COLOR_MAIN};
             font-size: 0.7rem;
             font-weight: bold;
             text-align: left;
@@ -20215,7 +20332,7 @@
                 return;
             }
 
-            if (!config$1.getSetting('enhancementTracker')) {
+            if (!config.getSetting('enhancementTracker')) {
                 return;
             }
 
@@ -20577,6 +20694,7 @@
             this.isDragging = false;
             this.screenObserver = null;
             this.isOnEnhancingScreen = false;
+            this.isCollapsed = false; // Track collapsed state
         }
 
         /**
@@ -20603,7 +20721,7 @@
          */
         setupScreenObserver() {
             // Check if setting is enabled
-            if (!config$1.getSetting('enhancementTracker_showOnlyOnEnhancingScreen')) {
+            if (!config.getSetting('enhancementTracker_showOnlyOnEnhancingScreen')) {
                 // Setting is disabled, always show tracker
                 this.isOnEnhancingScreen = true;
                 this.show();
@@ -20653,7 +20771,7 @@
          * Update visibility based on screen state and settings
          */
         updateVisibility() {
-            const showOnlyOnEnhancingScreen = config$1.getSetting('enhancementTracker_showOnlyOnEnhancingScreen');
+            const showOnlyOnEnhancingScreen = config.getSetting('enhancementTracker_showOnlyOnEnhancingScreen');
 
             if (!showOnlyOnEnhancingScreen) {
                 // Setting is disabled, always show
@@ -20699,7 +20817,7 @@
             Object.assign(this.floatingUI.style, {
                 position: 'fixed',
                 top: '50px',
-                left: '50px',
+                right: '50px',
                 zIndex: '9998',
                 fontSize: '14px',
                 padding: '0',
@@ -20713,7 +20831,8 @@
                 border: `1px solid ${STYLE.colors.primary}`,
                 color: STYLE.colors.textPrimary,
                 display: 'flex',
-                flexDirection: 'column'
+                flexDirection: 'column',
+                transition: 'width 0.2s ease'
             });
 
             // Create header
@@ -20726,6 +20845,9 @@
             content.style.padding = '15px';
             content.style.flexGrow = '1';
             content.style.overflow = 'auto';
+            content.style.transition = 'max-height 0.2s ease, opacity 0.2s ease';
+            content.style.maxHeight = '600px';
+            content.style.opacity = '1';
             this.floatingUI.appendChild(content);
 
             // Make draggable
@@ -20789,11 +20911,15 @@
             // Next session button
             const nextButton = this.createNavButton('▶', () => this.navigateSession(1));
 
+            // Collapse button
+            const collapseButton = this.createCollapseButton();
+
             // Clear sessions button
             const clearButton = this.createClearButton();
 
             navContainer.appendChild(prevButton);
             navContainer.appendChild(nextButton);
+            navContainer.appendChild(collapseButton);
             navContainer.appendChild(clearButton);
 
             header.appendChild(titleContainer);
@@ -20870,6 +20996,41 @@
         }
 
         /**
+         * Create collapse button
+         */
+        createCollapseButton() {
+            const button = document.createElement('button');
+            button.id = 'enhancementCollapseButton';
+            button.innerHTML = '▼';
+            button.title = 'Collapse panel';
+            Object.assign(button.style, {
+                background: 'none',
+                border: 'none',
+                color: STYLE.colors.textPrimary,
+                cursor: 'pointer',
+                fontSize: '14px',
+                padding: '2px 8px',
+                borderRadius: '3px',
+                transition: STYLE.transitions.fast
+            });
+
+            button.addEventListener('mouseover', () => {
+                button.style.color = STYLE.colors.accent;
+                button.style.background = 'rgba(255, 0, 212, 0.1)';
+            });
+            button.addEventListener('mouseout', () => {
+                button.style.color = STYLE.colors.textPrimary;
+                button.style.background = 'none';
+            });
+            button.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleCollapse();
+            });
+
+            return button;
+        }
+
+        /**
          * Make element draggable
          */
         makeDraggable(header) {
@@ -20878,13 +21039,21 @@
 
             header.addEventListener('mousedown', (e) => {
                 this.isDragging = true;
-                offsetX = e.clientX - this.floatingUI.offsetLeft;
-                offsetY = e.clientY - this.floatingUI.offsetTop;
+
+                // Calculate offset from panel's current screen position
+                const rect = this.floatingUI.getBoundingClientRect();
+                offsetX = e.clientX - rect.left;
+                offsetY = e.clientY - rect.top;
 
                 const onMouseMove = (e) => {
                     if (this.isDragging) {
-                        this.floatingUI.style.left = `${e.clientX - offsetX}px`;
-                        this.floatingUI.style.top = `${e.clientY - offsetY}px`;
+                        const newLeft = e.clientX - offsetX;
+                        const newTop = e.clientY - offsetY;
+
+                        // Use absolute positioning during drag
+                        this.floatingUI.style.left = `${newLeft}px`;
+                        this.floatingUI.style.right = 'auto';
+                        this.floatingUI.style.top = `${newTop}px`;
                     }
                 };
 
@@ -20897,6 +21066,89 @@
                 document.addEventListener('mousemove', onMouseMove);
                 document.addEventListener('mouseup', onMouseUp);
             });
+        }
+
+        /**
+         * Toggle panel collapse state
+         */
+        toggleCollapse() {
+            this.isCollapsed = !this.isCollapsed;
+            const content = document.getElementById('enhancementPanelContent');
+            const button = document.getElementById('enhancementCollapseButton');
+
+            if (this.isCollapsed) {
+                // Collapsed state
+                content.style.maxHeight = '0px';
+                content.style.opacity = '0';
+                content.style.padding = '0 15px';
+                button.innerHTML = '▶';
+                button.title = 'Expand panel';
+                this.floatingUI.style.width = '250px';
+
+                // Show compact summary after content fades
+                setTimeout(() => {
+                    this.showCollapsedSummary();
+                }, 200);
+            } else {
+                // Expanded state
+                this.hideCollapsedSummary();
+                content.style.maxHeight = '600px';
+                content.style.opacity = '1';
+                content.style.padding = '15px';
+                button.innerHTML = '▼';
+                button.title = 'Collapse panel';
+                this.floatingUI.style.width = '350px';
+            }
+        }
+
+        /**
+         * Show compact summary in collapsed state
+         */
+        showCollapsedSummary() {
+            if (!this.isCollapsed) return;
+
+            const session = this.getCurrentSession();
+            const sessions = Object.values(enhancementTracker.getAllSessions());
+
+            // Remove any existing summary
+            this.hideCollapsedSummary();
+
+            if (sessions.length === 0 || !session) return;
+
+            const gameData = dataManager.getInitClientData();
+            const itemDetails = gameData?.itemDetailMap?.[session.itemHrid];
+            const itemName = itemDetails?.name || 'Unknown Item';
+
+            const totalAttempts = session.totalAttempts;
+            const totalSuccess = session.totalSuccesses;
+            const successRate = totalAttempts > 0 ? Math.floor((totalSuccess / totalAttempts) * 100) : 0;
+            const statusIcon = session.state === SessionState.COMPLETED ? '✅' : '🟢';
+
+            const summary = document.createElement('div');
+            summary.id = 'enhancementCollapsedSummary';
+            Object.assign(summary.style, {
+                padding: '10px 15px',
+                fontSize: '12px',
+                borderTop: `1px solid ${STYLE.colors.border}`,
+                color: STYLE.colors.textPrimary
+            });
+
+            summary.innerHTML = `
+            <div style="font-weight: bold; margin-bottom: 4px;">${itemName} → +${session.targetLevel}</div>
+            <div style="opacity: 0.8;">${statusIcon} ${totalAttempts} attempts | ${successRate}% rate</div>
+        `;
+
+            this.floatingUI.appendChild(summary);
+        }
+
+        /**
+         * Hide collapsed summary
+         */
+        hideCollapsedSummary() {
+            const summary = document.getElementById('enhancementCollapsedSummary');
+            if (summary) {
+                summary.remove();
+            }
         }
 
         /**
@@ -20916,6 +21168,11 @@
             }
 
             this.updateUI();
+
+            // Update collapsed summary if in collapsed state
+            if (this.isCollapsed) {
+                this.showCollapsedSummary();
+            }
         }
 
         /**
@@ -20933,6 +21190,10 @@
             this.currentViewingIndex = 0;
             this.updateUI();
 
+            // Hide collapsed summary if shown
+            if (this.isCollapsed) {
+                this.hideCollapsedSummary();
+            }
         }
 
         /**
@@ -20992,6 +21253,11 @@
                 if (newDetailsElement) {
                     newDetailsElement.style.display = 'block';
                 }
+            }
+
+            // Update collapsed summary if in collapsed state
+            if (this.isCollapsed) {
+                this.showCollapsedSummary();
             }
         }
 
@@ -21356,7 +21622,7 @@
      * @param {Object} data - WebSocket message data
      */
     async function handleActionCompleted(data) {
-        if (!config$1.getSetting('enhancementTracker')) return;
+        if (!config.getSetting('enhancementTracker')) return;
         if (!enhancementTracker.isInitialized) return;
 
         const action = data.endCharacterAction;
@@ -21683,7 +21949,7 @@
          * Initialize empty queue notification
          */
         async initialize() {
-            if (!config$1.getSetting('notifiEmptyAction')) {
+            if (!config.getSetting('notifiEmptyAction')) {
                 return;
             }
 
@@ -21738,7 +22004,7 @@
          * @param {Object} data - WebSocket data
          */
         checkActionQueue(data) {
-            if (!config$1.getSetting('notifiEmptyAction')) {
+            if (!config.getSetting('notifiEmptyAction')) {
                 return;
             }
 
@@ -21876,12 +22142,16 @@
             initialize: () => actionTimeDisplay.initialize(),
             async: false,
             healthCheck: () => {
-                // Check if time display is working by looking for injected time elements
-                const queueMenu = document.querySelector('div[class*="QueuedActions_queuedActionsEditMenu"]');
-                if (!queueMenu) return null; // Queue not open, can't verify
+                // Check if the display element exists in the action header
+                const displayElement = document.querySelector('#mwi-action-time-display');
+                if (displayElement) return true;
 
-                // Look for our injected time displays
-                const timeDisplays = queueMenu.querySelectorAll('[data-mwi-action-time]');
+                // If queue is open, check for injected time displays
+                const queueMenu = document.querySelector('div[class*="QueuedActions_queuedActionsEditMenu"]');
+                if (!queueMenu) return null; // Queue not open, can't verify via queue
+
+                // Look for our injected time displays (using actual class name)
+                const timeDisplays = queueMenu.querySelectorAll('.mwi-queue-action-time');
                 return timeDisplays.length > 0;
             }
         },
@@ -21993,7 +22263,7 @@
             initialize: () => networthFeature.initialize(),
             async: true,
             // Also initialize if inventorySummary is enabled
-            customCheck: () => config$1.isFeatureEnabled('networth') || config$1.isFeatureEnabled('inventorySummary')
+            customCheck: () => config.isFeatureEnabled('networth') || config.isFeatureEnabled('inventorySummary')
         },
         {
             key: 'inventorySort',
@@ -22038,7 +22308,7 @@
                 // Check if feature is enabled
                 const isEnabled = feature.customCheck
                     ? feature.customCheck()
-                    : config$1.isFeatureEnabled(feature.key);
+                    : config.isFeatureEnabled(feature.key);
 
                 if (!isEnabled) {
                     continue;
@@ -22106,7 +22376,7 @@
             // Skip if feature is not enabled
             const isEnabled = feature.customCheck
                 ? feature.customCheck()
-                : config$1.isFeatureEnabled(feature.key);
+                : config.isFeatureEnabled(feature.key);
 
             if (!isEnabled) continue;
 
@@ -22236,7 +22506,7 @@
         button.id = 'toolasha-import-button';
         // Include hidden text for JIGS compatibility (JIGS searches for "Import solo/group")
         button.innerHTML = 'Import from Toolasha<span style="display:none;">Import solo/group</span>';
-        button.style.backgroundColor = config$1.SCRIPT_COLOR_MAIN;
+        button.style.backgroundColor = config.SCRIPT_COLOR_MAIN;
         button.style.color = 'white';
         button.style.padding = '10px 20px';
         button.style.border = 'none';
@@ -22282,7 +22552,7 @@
                 button.style.backgroundColor = '#dc3545'; // Red
                 setTimeout(() => {
                     button.innerHTML = 'Import from Toolasha<span style="display:none;">Import solo/group</span>';
-                    button.style.backgroundColor = config$1.SCRIPT_COLOR_MAIN;
+                    button.style.backgroundColor = config.SCRIPT_COLOR_MAIN;
                 }, 3000);
                 console.error('[Toolasha Combat Sim] No export data available');
                 alert('No character data found. Please:\n1. Refresh the game page\n2. Wait for it to fully load\n3. Try again');
@@ -22402,7 +22672,7 @@
                 button.style.backgroundColor = '#28a745'; // Green
                 setTimeout(() => {
                     button.innerHTML = 'Import from Toolasha<span style="display:none;">Import solo/group</span>';
-                    button.style.backgroundColor = config$1.SCRIPT_COLOR_MAIN;
+                    button.style.backgroundColor = config.SCRIPT_COLOR_MAIN;
                 }, 3000);
 
                 console.log('[Toolasha Combat Sim] Import complete');
@@ -22414,7 +22684,7 @@
             button.style.backgroundColor = '#dc3545'; // Red
             setTimeout(() => {
                 button.innerHTML = 'Import from Toolasha<span style="display:none;">Import solo/group</span>';
-                button.style.backgroundColor = config$1.SCRIPT_COLOR_MAIN;
+                button.style.backgroundColor = config.SCRIPT_COLOR_MAIN;
             }, 3000);
         }
     }
@@ -22481,7 +22751,7 @@
 
     class SettingsUI {
         constructor() {
-            this.config = config$1;
+            this.config = config;
             this.settingsPanel = null;
             this.settingsObserver = null;
             this.currentSettings = {};
@@ -23318,7 +23588,7 @@
                 await storage.initialize();
 
                 // Initialize config (loads settings from storage)
-                await config$1.initialize();
+                await config.initialize();
 
                 // Initialize Settings UI (injects tab into game settings panel)
                 await settingsUI.initialize().catch(error => {
@@ -23398,12 +23668,12 @@
 
             // Feature toggle API (for users to manage settings via console)
             features: {
-                list: () => config$1.getFeaturesByCategory(),
-                enable: (key) => config$1.setFeatureEnabled(key, true),
-                disable: (key) => config$1.setFeatureEnabled(key, false),
-                toggle: (key) => config$1.toggleFeature(key),
-                status: (key) => config$1.isFeatureEnabled(key),
-                info: (key) => config$1.getFeatureInfo(key)
+                list: () => config.getFeaturesByCategory(),
+                enable: (key) => config.setFeatureEnabled(key, true),
+                disable: (key) => config.setFeatureEnabled(key, false),
+                toggle: (key) => config.toggleFeature(key),
+                status: (key) => config.isFeatureEnabled(key),
+                info: (key) => config.getFeatureInfo(key)
             }
         };
     }

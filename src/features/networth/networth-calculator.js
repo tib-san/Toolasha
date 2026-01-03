@@ -326,10 +326,10 @@ export function calculateAllHousesCost(characterHouseRooms) {
 /**
  * Calculate total value of all abilities
  * @param {Array} characterAbilities - Array of character abilities
- * @param {Array} equippedAbilities - Array of equipped abilities (for subtotal)
+ * @param {Object} abilityCombatTriggersMap - Map of equipped abilities
  * @returns {Object} {totalCost, equippedCost, breakdown, equippedBreakdown, otherBreakdown}
  */
-export function calculateAllAbilitiesCost(characterAbilities, equippedAbilities) {
+export function calculateAllAbilitiesCost(characterAbilities, abilityCombatTriggersMap) {
     if (!characterAbilities || characterAbilities.length === 0) {
         return {
             totalCost: 0,
@@ -346,9 +346,9 @@ export function calculateAllAbilitiesCost(characterAbilities, equippedAbilities)
     const equippedBreakdown = [];
     const otherBreakdown = [];
 
-    // Create set of equipped ability HRIDs for quick lookup
+    // Create set of equipped ability HRIDs from abilityCombatTriggersMap keys
     const equippedHrids = new Set(
-        equippedAbilities.map(a => a.abilityHrid).filter(Boolean)
+        Object.keys(abilityCombatTriggersMap || {})
     );
 
     for (const ability of characterAbilities) {
@@ -418,7 +418,7 @@ export async function calculateNetworth() {
     const marketListings = gameData.myMarketListings || [];
     const characterHouseRooms = gameData.characterHouseRoomMap || {};
     const characterAbilities = gameData.characterAbilities || [];
-    const equippedAbilities = gameData.equippedAbilities || [];
+    const abilityCombatTriggersMap = gameData.abilityCombatTriggersMap || {};
 
     // Calculate equipped items value
     let equippedAsk = 0;
@@ -454,14 +454,16 @@ export async function calculateNetworth() {
     const inventoryBreakdown = [];
     const inventoryByCategory = {};
 
+    // Separate ability books for Fixed Assets section
+    let abilityBooksAsk = 0;
+    let abilityBooksBid = 0;
+    const abilityBooksBreakdown = [];
+
     for (const item of characterItems) {
         if (item.itemLocationHrid !== '/item_locations/inventory') continue;
 
         const askValue = await calculateItemValue(item, true);
         const bidValue = await calculateItemValue(item, false);
-
-        inventoryAsk += askValue;
-        inventoryBid += bidValue;
 
         // Add to breakdown
         const itemDetails = gameData.itemDetailMap[item.itemHrid];
@@ -477,29 +479,45 @@ export async function calculateNetworth() {
             count: item.count
         };
 
-        inventoryBreakdown.push(itemData);
-
-        // Categorize item
+        // Check if this is an ability book
         const categoryHrid = itemDetails?.categoryHrid || '/item_categories/other';
-        const categoryName = gameData.itemCategoryDetailMap?.[categoryHrid]?.name || 'Other';
+        const isAbilityBook = categoryHrid === '/item_categories/ability_book';
 
-        if (!inventoryByCategory[categoryName]) {
-            inventoryByCategory[categoryName] = {
-                items: [],
-                totalAsk: 0,
-                totalBid: 0
-            };
+        if (isAbilityBook) {
+            // Add to ability books (Fixed Assets)
+            abilityBooksAsk += askValue;
+            abilityBooksBid += bidValue;
+            abilityBooksBreakdown.push(itemData);
+        } else {
+            // Add to regular inventory (Current Assets)
+            inventoryAsk += askValue;
+            inventoryBid += bidValue;
+            inventoryBreakdown.push(itemData);
+
+            // Categorize item
+            const categoryName = gameData.itemCategoryDetailMap?.[categoryHrid]?.name || 'Other';
+
+            if (!inventoryByCategory[categoryName]) {
+                inventoryByCategory[categoryName] = {
+                    items: [],
+                    totalAsk: 0,
+                    totalBid: 0
+                };
+            }
+
+            inventoryByCategory[categoryName].items.push(itemData);
+            inventoryByCategory[categoryName].totalAsk += askValue;
+            inventoryByCategory[categoryName].totalBid += bidValue;
         }
-
-        inventoryByCategory[categoryName].items.push(itemData);
-        inventoryByCategory[categoryName].totalAsk += askValue;
-        inventoryByCategory[categoryName].totalBid += bidValue;
     }
 
     // Sort items within each category by value descending
     for (const category of Object.values(inventoryByCategory)) {
         category.items.sort((a, b) => b.askValue - a.askValue);
     }
+
+    // Sort ability books by value descending
+    abilityBooksBreakdown.sort((a, b) => b.askValue - a.askValue);
 
     // Calculate market listings value
     let listingsAsk = 0;
@@ -546,11 +564,14 @@ export async function calculateNetworth() {
     const housesData = calculateAllHousesCost(characterHouseRooms);
 
     // Calculate abilities value
-    const abilitiesData = calculateAllAbilitiesCost(characterAbilities, equippedAbilities);
+    const abilitiesData = calculateAllAbilitiesCost(characterAbilities, abilityCombatTriggersMap);
 
-    // Calculate totals
-    const totalAsk = equippedAsk + inventoryAsk + listingsAsk + housesData.totalCost + abilitiesData.totalCost;
-    const totalBid = equippedBid + inventoryBid + listingsBid + housesData.totalCost + abilitiesData.totalCost;
+    // Calculate ability books value (weighted average)
+    const abilityBooksCost = (abilityBooksAsk + abilityBooksBid) / 2;
+
+    // Calculate totals (ability books are Fixed Assets)
+    const totalAsk = equippedAsk + inventoryAsk + listingsAsk + housesData.totalCost + abilitiesData.totalCost + abilityBooksAsk;
+    const totalBid = equippedBid + inventoryBid + listingsBid + housesData.totalCost + abilitiesData.totalCost + abilityBooksBid;
     const totalNetworth = (totalAsk + totalBid) / 2;
 
     // Sort breakdowns by value descending
@@ -574,9 +595,15 @@ export async function calculateNetworth() {
             listings: { ask: listingsAsk, bid: listingsBid, breakdown: listingsBreakdown }
         },
         fixedAssets: {
-            total: housesData.totalCost + abilitiesData.totalCost,
+            total: housesData.totalCost + abilitiesData.totalCost + abilityBooksCost,
             houses: housesData,
-            abilities: abilitiesData
+            abilities: abilitiesData,
+            abilityBooks: {
+                totalCost: abilityBooksCost,
+                ask: abilityBooksAsk,
+                bid: abilityBooksBid,
+                breakdown: abilityBooksBreakdown
+            }
         }
     };
 }
