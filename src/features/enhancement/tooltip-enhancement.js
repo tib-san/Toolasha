@@ -86,13 +86,20 @@ export function calculateEnhancementPath(itemHrid, currentEnhancementLevel, conf
     if (strategies.length === 0) return null;
 
     strategies.sort((a, b) => a.totalCost - b.totalCost);
-    const optimal = strategies[0];
+
+    // Apply Philosopher's Mirror optimization
+    const mirrorOptimized = applyPhilosopherMirrorOptimization(
+        strategies,
+        itemHrid,
+        currentEnhancementLevel,
+        config
+    );
 
     return {
         targetLevel: currentEnhancementLevel,
         itemLevel,
-        optimalStrategy: optimal,
-        allStrategies: strategies
+        optimalStrategy: mirrorOptimized.optimal,
+        allStrategies: mirrorOptimized.strategies
     };
 }
 
@@ -372,6 +379,161 @@ function getCheapestProtectionPrice(itemHrid) {
 }
 
 /**
+ * Build array of costs to reach each enhancement level
+ * Uses multiple calculator runs to get accurate per-level costs
+ *
+ * @param {Object} strategy - Enhancement strategy with protectFrom
+ * @param {string} itemHrid - Item HRID
+ * @param {number} targetLevel - Target enhancement level
+ * @param {Object} config - Enhancement config parameters
+ * @returns {Array} Cost to reach each level [0, 1, 2, ..., targetLevel]
+ */
+function buildLevelCostsArray(strategy, itemHrid, targetLevel, config) {
+    const costs = new Array(targetLevel + 1);
+    const gameData = dataManager.getInitClientData();
+    const itemDetails = gameData.itemDetailMap[itemHrid];
+    const itemLevel = itemDetails.itemLevel || 1;
+
+    // Level 0: base item cost
+    costs[0] = getRealisticBaseItemPrice(itemHrid);
+
+    // Calculate per-action material cost (same for all levels)
+    let perActionMaterialCost = 0;
+    if (itemDetails.enhancementCosts) {
+        for (const material of itemDetails.enhancementCosts) {
+            const materialDetail = gameData.itemDetailMap[material.itemHrid];
+            let price;
+
+            // Special case: Trainee charms have fixed 250k price
+            if (material.itemHrid.startsWith('/items/trainee_')) {
+                price = 250000;
+            } else if (material.itemHrid === '/items/coin') {
+                price = 1;
+            } else {
+                const marketPrice = marketAPI.getPrice(material.itemHrid, 0);
+                if (marketPrice) {
+                    let ask = marketPrice.ask;
+                    let bid = marketPrice.bid;
+                    if (ask > 0 && bid < 0) bid = ask;
+                    if (bid > 0 && ask < 0) ask = bid;
+                    price = ask;
+                } else {
+                    price = materialDetail?.sellPrice || 0;
+                }
+            }
+            perActionMaterialCost += price * material.count;
+        }
+    }
+
+    // Get protection price once (reused for all levels)
+    const protectionInfo = getCheapestProtectionPrice(itemHrid);
+    const protectionPrice = protectionInfo.price;
+
+    // Levels 1 through targetLevel: run calculator for each
+    for (let level = 1; level <= targetLevel; level++) {
+        const result = calculateEnhancement({
+            enhancingLevel: config.enhancingLevel,
+            houseLevel: config.houseLevel,
+            toolBonus: config.toolBonus || 0,
+            speedBonus: config.speedBonus || 0,
+            itemLevel,
+            targetLevel: level,
+            protectFrom: Math.min(strategy.protectFrom, level),
+            blessedTea: config.teas.blessed,
+            guzzlingBonus: config.guzzlingBonus
+        });
+
+        // Calculate cost to reach this level
+        const materialCost = perActionMaterialCost * result.attempts;
+
+        let protectionCost = 0;
+        if (strategy.protectFrom > 0 && result.protectionCount > 0) {
+            protectionCost = protectionPrice * result.protectionCount;
+        }
+
+        costs[level] = costs[0] + materialCost + protectionCost;
+    }
+
+    return costs;
+}
+
+/**
+ * Apply Philosopher's Mirror optimization to enhancement strategies
+ *
+ * Algorithm (matches Enhancelator):
+ * 1. Build cost array for each level (0 through target)
+ * 2. Find FIRST level where mirror becomes cheaper than traditional
+ * 3. Apply mirror cost formula to that level and all subsequent levels
+ *
+ * Mirror Cost Formula: Cost(N) = Cost(N-2) + Cost(N-1) + Mirror_Price
+ *
+ * @param {Array} strategies - Traditional enhancement strategies
+ * @param {string} itemHrid - Item HRID
+ * @param {number} targetLevel - Target enhancement level
+ * @param {Object} config - Enhancement config parameters
+ * @returns {Object} { optimal, strategies } with mirror optimization applied
+ */
+function applyPhilosopherMirrorOptimization(strategies, itemHrid, targetLevel, config) {
+    // Get Philosopher's Mirror price
+    const mirrorPrice = getRealisticBaseItemPrice('/items/philosophers_mirror');
+    if (mirrorPrice <= 0) {
+        // Mirror not available - return original strategies
+        return {
+            optimal: strategies[0],
+            strategies: strategies
+        };
+    }
+
+    // Optimize each strategy
+    const optimizedStrategies = strategies.map(strategy => {
+        // Build cost array: cost to reach each level using this strategy
+        const levelCosts = buildLevelCostsArray(strategy, itemHrid, targetLevel, config);
+
+        // Find first level where mirror becomes beneficial (starts at +3)
+        let mirrorStartLevel = null;
+        for (let level = 3; level <= targetLevel; level++) {
+            const traditionalCost = levelCosts[level];
+            const mirrorCost = levelCosts[level - 2] + levelCosts[level - 1] + mirrorPrice;
+
+            if (mirrorCost < traditionalCost) {
+                mirrorStartLevel = level;
+                break; // Found threshold - all subsequent levels will use mirrors
+            }
+        }
+
+        // If mirror is beneficial, apply it from threshold level onward
+        if (mirrorStartLevel !== null) {
+            for (let level = mirrorStartLevel; level <= targetLevel; level++) {
+                levelCosts[level] = levelCosts[level - 2] + levelCosts[level - 1] + mirrorPrice;
+            }
+
+            return {
+                ...strategy,
+                totalCost: levelCosts[targetLevel],
+                mirrorStartLevel: mirrorStartLevel,
+                usedMirror: true,
+                traditionalCost: strategy.totalCost
+            };
+        }
+
+        // Mirror not beneficial for this strategy
+        return {
+            ...strategy,
+            mirrorStartLevel: null,
+            usedMirror: false
+        };
+    });
+
+    // Re-sort by optimized cost
+    optimizedStrategies.sort((a, b) => a.totalCost - b.totalCost);
+
+    return {
+        optimal: optimizedStrategies[0],
+        strategies: optimizedStrategies
+    };
+}
+
+/**
  * Build HTML for enhancement tooltip section
  * @param {Object} enhancementData - Enhancement analysis from calculateEnhancementPath()
  * @returns {string} HTML string
@@ -398,6 +560,12 @@ export function buildEnhancementTooltipHTML(enhancementData) {
 
     // Optimal strategy
     html += '<div>Strategy: ' + optimalStrategy.label + '</div>';
+
+    // Show Philosopher's Mirror usage if applicable
+    if (optimalStrategy.usedMirror && optimalStrategy.mirrorStartLevel) {
+        html += '<div style="color: #ffd700;">Uses Philosopher\'s Mirror from +' + optimalStrategy.mirrorStartLevel + '</div>';
+    }
+
     html += '<div>Expected Attempts: ' + numberFormatter(optimalStrategy.expectedAttempts.toFixed(1)) + '</div>';
 
     // Costs
