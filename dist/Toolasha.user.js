@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.862
+// @version      0.4.863
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -6506,7 +6506,7 @@
         html += '<div>Expected Attempts: ' + numberFormatter(optimalStrategy.expectedAttempts.toFixed(1)) + '</div>';
 
         // Costs
-        html += '<div style="margin-top: 4px;">';
+        html += '<div>';
 
         // Check if using mirror optimization
         if (optimalStrategy.usedMirror && optimalStrategy.consumedItems && optimalStrategy.consumedItems.length > 0) {
@@ -6536,7 +6536,7 @@
             }
 
             // Consumed items section
-            html += '<br><br>Consumed Items (Philosopher\'s Mirror):';
+            html += '<br>Consumed Items (Philosopher\'s Mirror):';
 
             // Calculate consumed items subtotal
             let consumedSubtotal = 0;
@@ -6574,7 +6574,7 @@
                 }
             }
 
-            html += '<br><br><span style="font-weight: bold;">Total: ' + numberFormatter(optimalStrategy.totalCost) + '</span>';
+            html += '<br><span style="font-weight: bold;">Total: ' + numberFormatter(optimalStrategy.totalCost) + '</span>';
         } else {
             // Traditional (non-mirror) breakdown
             html += 'Base Item: ' + numberFormatter(optimalStrategy.baseCost);
@@ -6611,19 +6611,19 @@
 
         if (totalSeconds < 60) {
             // Less than 1 minute: show seconds
-            html += '<div style="margin-top: 4px;">Time: ~' + Math.round(totalSeconds) + ' seconds</div>';
+            html += '<div>Time: ~' + Math.round(totalSeconds) + ' seconds</div>';
         } else if (totalSeconds < 3600) {
             // Less than 1 hour: show minutes
             const minutes = Math.round(totalSeconds / 60);
-            html += '<div style="margin-top: 4px;">Time: ~' + minutes + ' minutes</div>';
+            html += '<div>Time: ~' + minutes + ' minutes</div>';
         } else if (totalSeconds < 86400) {
             // Less than 1 day: show hours
             const hours = (totalSeconds / 3600).toFixed(1);
-            html += '<div style="margin-top: 4px;">Time: ~' + hours + ' hours</div>';
+            html += '<div>Time: ~' + hours + ' hours</div>';
         } else {
             // 1 day or more: show days
             const days = (totalSeconds / 86400).toFixed(1);
-            html += '<div style="margin-top: 4px;">Time: ~' + days + ' days</div>';
+            html += '<div>Time: ~' + days + ' days</div>';
         }
 
         html += '</div>'; // Close margin-left div
