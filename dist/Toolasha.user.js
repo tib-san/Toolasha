@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.863
+// @version      0.4.864
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -6408,14 +6408,14 @@
                     // - Base cost: same as main item (only 1 base for main)
                     // - Materials: same as traditional phase (main item only)
                     // - Protection: same as traditional phase (main item only)
-                    // - Consumed items: total cost of the (N-1) item
-                    // - Philosopher's Mirror: accumulate mirrors used
+                    // - Consumed items: total cost of (N-1) item WITHOUT its mirrors (to avoid double-counting)
+                    // - Philosopher's Mirror: accumulate ALL mirrors (including those in consumed items)
 
                     levelBreakdowns[level] = {
                         baseCost: levelBreakdowns[0].baseCost, // Just main item's base
                         materialCost: levelBreakdowns[mirrorStartLevel - 1].materialCost, // Traditional phase only
                         protectionCost: levelBreakdowns[mirrorStartLevel - 1].protectionCost, // Traditional phase only
-                        consumedItemsCost: breakdown_N_minus_1.totalCost, // Cost of (N-1) consumed item
+                        consumedItemsCost: breakdown_N_minus_1.totalCost - breakdown_N_minus_1.philosopherMirrorCost, // Exclude mirrors to avoid double-count
                         philosopherMirrorCost: breakdown_N_minus_2.philosopherMirrorCost + breakdown_N_minus_1.philosopherMirrorCost + mirrorPrice,
                         totalCost: levelCosts[level]
                     };
