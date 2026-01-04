@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.864
+// @version      0.4.865
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -6437,13 +6437,17 @@
                 // Get final breakdown for target level
                 const finalBreakdown = levelBreakdowns[targetLevel];
 
+                // Calculate consumed items cost as: Total - Base - Materials - Protection - Mirrors
+                const mirrorsCost = mirrorCount * mirrorPrice;
+                const consumedCost = finalBreakdown.totalCost - finalBreakdown.baseCost - finalBreakdown.materialCost - finalBreakdown.protectionCost - mirrorsCost;
+
                 return {
                     ...strategy,
                     baseCost: finalBreakdown.baseCost,
                     materialCost: finalBreakdown.materialCost,
                     protectionCost: finalBreakdown.protectionCost,
-                    consumedItemsCost: finalBreakdown.consumedItemsCost,
-                    philosopherMirrorCost: finalBreakdown.philosopherMirrorCost,
+                    consumedItemsCost: consumedCost, // Everything else after accounting for base, materials, protection, and mirrors
+                    philosopherMirrorCost: mirrorsCost, // Simple: mirror count × mirror price
                     totalCost: finalBreakdown.totalCost,
                     mirrorStartLevel: mirrorStartLevel,
                     usedMirror: true,

@@ -639,13 +639,17 @@ function applyPhilosopherMirrorOptimization(strategies, itemHrid, targetLevel, c
             // Get final breakdown for target level
             const finalBreakdown = levelBreakdowns[targetLevel];
 
+            // Calculate consumed items cost as: Total - Base - Materials - Protection - Mirrors
+            const mirrorsCost = mirrorCount * mirrorPrice;
+            const consumedCost = finalBreakdown.totalCost - finalBreakdown.baseCost - finalBreakdown.materialCost - finalBreakdown.protectionCost - mirrorsCost;
+
             return {
                 ...strategy,
                 baseCost: finalBreakdown.baseCost,
                 materialCost: finalBreakdown.materialCost,
                 protectionCost: finalBreakdown.protectionCost,
-                consumedItemsCost: finalBreakdown.consumedItemsCost,
-                philosopherMirrorCost: finalBreakdown.philosopherMirrorCost,
+                consumedItemsCost: consumedCost, // Everything else after accounting for base, materials, protection, and mirrors
+                philosopherMirrorCost: mirrorsCost, // Simple: mirror count × mirror price
                 totalCost: finalBreakdown.totalCost,
                 mirrorStartLevel: mirrorStartLevel,
                 usedMirror: true,
