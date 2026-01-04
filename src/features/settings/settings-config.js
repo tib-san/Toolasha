@@ -479,6 +479,41 @@ export const settingsGroups = {
                 default: '#60a5fa',
                 help: 'Color used for informational text and highlights'
             },
+            color_essence: {
+                id: 'color_essence',
+                label: 'Essences',
+                type: 'color',
+                default: '#c084fc',
+                help: 'Color used for essence drops and essence-related text'
+            },
+            color_tooltip_profit: {
+                id: 'color_tooltip_profit',
+                label: 'Tooltip Profit/Positive',
+                type: 'color',
+                default: '#047857',
+                help: 'Color for profit/positive values in tooltips (light backgrounds)'
+            },
+            color_tooltip_loss: {
+                id: 'color_tooltip_loss',
+                label: 'Tooltip Loss/Negative',
+                type: 'color',
+                default: '#dc2626',
+                help: 'Color for loss/negative values in tooltips (light backgrounds)'
+            },
+            color_tooltip_info: {
+                id: 'color_tooltip_info',
+                label: 'Tooltip Informational',
+                type: 'color',
+                default: '#2563eb',
+                help: 'Color for informational text in tooltips (light backgrounds)'
+            },
+            color_tooltip_warning: {
+                id: 'color_tooltip_warning',
+                label: 'Tooltip Warnings',
+                type: 'color',
+                default: '#ea580c',
+                help: 'Color for warnings in tooltips (light backgrounds)'
+            },
             color_text_primary: {
                 id: 'color_text_primary',
                 label: 'Primary Text',

@@ -435,7 +435,7 @@ class TooltipPrices {
             html += '<div style="font-size: 0.9em; margin-left: 8px;">';
 
             const profitPerDay = profitData.profitPerHour * 24;
-            const profitColor = profitData.profitPerHour >= 0 ? config.COLOR_PROFIT : config.COLOR_LOSS;
+            const profitColor = profitData.profitPerHour >= 0 ? config.COLOR_TOOLTIP_PROFIT : config.COLOR_TOOLTIP_LOSS;
 
             html += `<div style="color: ${profitColor}; font-weight: bold;">Net: ${numberFormatter(profitData.profitPerHour)}/hr (${formatKMB(profitPerDay)}/day)</div>`;
 
@@ -450,7 +450,7 @@ class TooltipPrices {
             const teaCostPerItem = profitData.totalTeaCostPerHour / profitData.itemsPerHour;
             const productionCost = profitData.totalMaterialCost + teaCostPerItem;
 
-            html += `<div style="font-weight: bold; color: ${config.COLOR_INFO};">Cost: ${numberFormatter(productionCost)}/item</div>`;
+            html += `<div style="font-weight: bold; color: ${config.COLOR_TOOLTIP_INFO};">Cost: ${numberFormatter(productionCost)}/item</div>`;
             html += `<div style="color: ${config.COLOR_TEXT_SECONDARY}; font-style: italic; margin-top: 4px;">No market data available</div>`;
         }
 
@@ -472,7 +472,7 @@ class TooltipPrices {
         // Materials table
         if (profitData.materialCosts && profitData.materialCosts.length > 0) {
             html += '<div style="margin-top: 8px;">';
-            html += `<table style="width: 100%; border-collapse: collapse; font-size: 0.85em; color: ${config.COLOR_INFO};">`;
+            html += `<table style="width: 100%; border-collapse: collapse; font-size: 0.85em; color: ${config.COLOR_TOOLTIP_INFO};">`;
 
             // Table header
             html += `<tr style="border-bottom: 1px solid ${config.COLOR_BORDER};">`;
@@ -525,7 +525,7 @@ class TooltipPrices {
         html += '<div style="margin-top: 8px; font-size: 0.85em;">';
         const profitPerAction = profitData.profitPerHour / profitData.actionsPerHour;
         const profitPerDay = profitData.profitPerHour * 24;
-        const profitColor = profitData.profitPerHour >= 0 ? config.COLOR_PROFIT : config.COLOR_LOSS;
+        const profitColor = profitData.profitPerHour >= 0 ? config.COLOR_TOOLTIP_PROFIT : config.COLOR_TOOLTIP_LOSS;
 
         html += `<div style="color: ${profitColor};">Profit: ${numberFormatter(profitPerAction)}/action, ${numberFormatter(profitData.profitPerHour)}/hour, ${formatKMB(profitPerDay)}/day</div>`;
         html += '</div>';
@@ -570,7 +570,7 @@ class TooltipPrices {
         html += '<div style="font-size: 0.9em; margin-left: 8px;">';
 
         // Expected value (simple display)
-        html += `<div style="color: ${config.COLOR_PROFIT}; font-weight: bold;">Expected Return: ${numberFormatter(evData.expectedValue)}</div>`;
+        html += `<div style="color: ${config.COLOR_TOOLTIP_PROFIT}; font-weight: bold;">Expected Return: ${numberFormatter(evData.expectedValue)}</div>`;
 
         html += '</div>'; // Close summary section
 

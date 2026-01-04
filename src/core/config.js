@@ -20,10 +20,20 @@ class Config {
         this.DECIMAL_SEPARATOR = new Intl.NumberFormat().format(1.1).replaceAll("1", "").at(0);
 
         // Extended color palette (configurable)
+        // Dark background colors (for UI elements on dark backgrounds)
         this.COLOR_PROFIT = "#047857";      // Emerald green for positive values
         this.COLOR_LOSS = "#f87171";        // Red for negative values
         this.COLOR_WARNING = "#ffa500";     // Orange for warnings
         this.COLOR_INFO = "#60a5fa";        // Blue for informational
+        this.COLOR_ESSENCE = "#c084fc";     // Purple for essences
+
+        // Tooltip colors (for text on light/tooltip backgrounds)
+        this.COLOR_TOOLTIP_PROFIT = "#047857";  // Green for tooltips
+        this.COLOR_TOOLTIP_LOSS = "#dc2626";    // Darker red for tooltips
+        this.COLOR_TOOLTIP_INFO = "#2563eb";    // Darker blue for tooltips
+        this.COLOR_TOOLTIP_WARNING = "#ea580c"; // Darker orange for tooltips
+
+        // General colors
         this.COLOR_TEXT_PRIMARY = "#ffffff"; // Primary text color
         this.COLOR_TEXT_SECONDARY = "#888888"; // Secondary text color
         this.COLOR_BORDER = "#444444";      // Border color
@@ -381,6 +391,11 @@ class Config {
         this.COLOR_LOSS = this.getSettingValue('color_loss', "#f87171");
         this.COLOR_WARNING = this.getSettingValue('color_warning', "#ffa500");
         this.COLOR_INFO = this.getSettingValue('color_info', "#60a5fa");
+        this.COLOR_ESSENCE = this.getSettingValue('color_essence', "#c084fc");
+        this.COLOR_TOOLTIP_PROFIT = this.getSettingValue('color_tooltip_profit', "#047857");
+        this.COLOR_TOOLTIP_LOSS = this.getSettingValue('color_tooltip_loss', "#dc2626");
+        this.COLOR_TOOLTIP_INFO = this.getSettingValue('color_tooltip_info', "#2563eb");
+        this.COLOR_TOOLTIP_WARNING = this.getSettingValue('color_tooltip_warning', "#ea580c");
         this.COLOR_TEXT_PRIMARY = this.getSettingValue('color_text_primary', "#ffffff");
         this.COLOR_TEXT_SECONDARY = this.getSettingValue('color_text_secondary', "#888888");
         this.COLOR_BORDER = this.getSettingValue('color_border', "#444444");

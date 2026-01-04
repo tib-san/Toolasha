@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.856
+// @version      0.4.857
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -790,6 +790,41 @@
                     default: '#60a5fa',
                     help: 'Color used for informational text and highlights'
                 },
+                color_essence: {
+                    id: 'color_essence',
+                    label: 'Essences',
+                    type: 'color',
+                    default: '#c084fc',
+                    help: 'Color used for essence drops and essence-related text'
+                },
+                color_tooltip_profit: {
+                    id: 'color_tooltip_profit',
+                    label: 'Tooltip Profit/Positive',
+                    type: 'color',
+                    default: '#047857',
+                    help: 'Color for profit/positive values in tooltips (light backgrounds)'
+                },
+                color_tooltip_loss: {
+                    id: 'color_tooltip_loss',
+                    label: 'Tooltip Loss/Negative',
+                    type: 'color',
+                    default: '#dc2626',
+                    help: 'Color for loss/negative values in tooltips (light backgrounds)'
+                },
+                color_tooltip_info: {
+                    id: 'color_tooltip_info',
+                    label: 'Tooltip Informational',
+                    type: 'color',
+                    default: '#2563eb',
+                    help: 'Color for informational text in tooltips (light backgrounds)'
+                },
+                color_tooltip_warning: {
+                    id: 'color_tooltip_warning',
+                    label: 'Tooltip Warnings',
+                    type: 'color',
+                    default: '#ea580c',
+                    help: 'Color for warnings in tooltips (light backgrounds)'
+                },
                 color_text_primary: {
                     id: 'color_text_primary',
                     label: 'Primary Text',
@@ -1015,10 +1050,20 @@
             this.DECIMAL_SEPARATOR = new Intl.NumberFormat().format(1.1).replaceAll("1", "").at(0);
 
             // Extended color palette (configurable)
+            // Dark background colors (for UI elements on dark backgrounds)
             this.COLOR_PROFIT = "#047857";      // Emerald green for positive values
             this.COLOR_LOSS = "#f87171";        // Red for negative values
             this.COLOR_WARNING = "#ffa500";     // Orange for warnings
             this.COLOR_INFO = "#60a5fa";        // Blue for informational
+            this.COLOR_ESSENCE = "#c084fc";     // Purple for essences
+
+            // Tooltip colors (for text on light/tooltip backgrounds)
+            this.COLOR_TOOLTIP_PROFIT = "#047857";  // Green for tooltips
+            this.COLOR_TOOLTIP_LOSS = "#dc2626";    // Darker red for tooltips
+            this.COLOR_TOOLTIP_INFO = "#2563eb";    // Darker blue for tooltips
+            this.COLOR_TOOLTIP_WARNING = "#ea580c"; // Darker orange for tooltips
+
+            // General colors
             this.COLOR_TEXT_PRIMARY = "#ffffff"; // Primary text color
             this.COLOR_TEXT_SECONDARY = "#888888"; // Secondary text color
             this.COLOR_BORDER = "#444444";      // Border color
@@ -1376,6 +1421,11 @@
             this.COLOR_LOSS = this.getSettingValue('color_loss', "#f87171");
             this.COLOR_WARNING = this.getSettingValue('color_warning', "#ffa500");
             this.COLOR_INFO = this.getSettingValue('color_info', "#60a5fa");
+            this.COLOR_ESSENCE = this.getSettingValue('color_essence', "#c084fc");
+            this.COLOR_TOOLTIP_PROFIT = this.getSettingValue('color_tooltip_profit', "#047857");
+            this.COLOR_TOOLTIP_LOSS = this.getSettingValue('color_tooltip_loss', "#dc2626");
+            this.COLOR_TOOLTIP_INFO = this.getSettingValue('color_tooltip_info', "#2563eb");
+            this.COLOR_TOOLTIP_WARNING = this.getSettingValue('color_tooltip_warning', "#ea580c");
             this.COLOR_TEXT_PRIMARY = this.getSettingValue('color_text_primary', "#ffffff");
             this.COLOR_TEXT_SECONDARY = this.getSettingValue('color_text_secondary', "#888888");
             this.COLOR_BORDER = this.getSettingValue('color_border', "#444444");
@@ -7090,7 +7140,7 @@
                 html += '<div style="font-size: 0.9em; margin-left: 8px;">';
 
                 const profitPerDay = profitData.profitPerHour * 24;
-                const profitColor = profitData.profitPerHour >= 0 ? config.COLOR_PROFIT : config.COLOR_LOSS;
+                const profitColor = profitData.profitPerHour >= 0 ? config.COLOR_TOOLTIP_PROFIT : config.COLOR_TOOLTIP_LOSS;
 
                 html += `<div style="color: ${profitColor}; font-weight: bold;">Net: ${numberFormatter(profitData.profitPerHour)}/hr (${formatKMB(profitPerDay)}/day)</div>`;
 
@@ -7105,7 +7155,7 @@
                 const teaCostPerItem = profitData.totalTeaCostPerHour / profitData.itemsPerHour;
                 const productionCost = profitData.totalMaterialCost + teaCostPerItem;
 
-                html += `<div style="font-weight: bold; color: ${config.COLOR_INFO};">Cost: ${numberFormatter(productionCost)}/item</div>`;
+                html += `<div style="font-weight: bold; color: ${config.COLOR_TOOLTIP_INFO};">Cost: ${numberFormatter(productionCost)}/item</div>`;
                 html += `<div style="color: ${config.COLOR_TEXT_SECONDARY}; font-style: italic; margin-top: 4px;">No market data available</div>`;
             }
 
@@ -7127,7 +7177,7 @@
             // Materials table
             if (profitData.materialCosts && profitData.materialCosts.length > 0) {
                 html += '<div style="margin-top: 8px;">';
-                html += `<table style="width: 100%; border-collapse: collapse; font-size: 0.85em; color: ${config.COLOR_INFO};">`;
+                html += `<table style="width: 100%; border-collapse: collapse; font-size: 0.85em; color: ${config.COLOR_TOOLTIP_INFO};">`;
 
                 // Table header
                 html += `<tr style="border-bottom: 1px solid ${config.COLOR_BORDER};">`;
@@ -7180,7 +7230,7 @@
             html += '<div style="margin-top: 8px; font-size: 0.85em;">';
             const profitPerAction = profitData.profitPerHour / profitData.actionsPerHour;
             const profitPerDay = profitData.profitPerHour * 24;
-            const profitColor = profitData.profitPerHour >= 0 ? config.COLOR_PROFIT : config.COLOR_LOSS;
+            const profitColor = profitData.profitPerHour >= 0 ? config.COLOR_TOOLTIP_PROFIT : config.COLOR_TOOLTIP_LOSS;
 
             html += `<div style="color: ${profitColor};">Profit: ${numberFormatter(profitPerAction)}/action, ${numberFormatter(profitData.profitPerHour)}/hour, ${formatKMB(profitPerDay)}/day</div>`;
             html += '</div>';
@@ -7225,7 +7275,7 @@
             html += '<div style="font-size: 0.9em; margin-left: 8px;">';
 
             // Expected value (simple display)
-            html += `<div style="color: ${config.COLOR_PROFIT}; font-weight: bold;">Expected Return: ${numberFormatter(evData.expectedValue)}</div>`;
+            html += `<div style="color: ${config.COLOR_TOOLTIP_PROFIT}; font-weight: bold;">Expected Return: ${numberFormatter(evData.expectedValue)}</div>`;
 
             html += '</div>'; // Close summary section
 
@@ -13273,63 +13323,44 @@
                 return;
             }
 
-            // Find main drop container - just like MWIT-E
+            // Find main drop container
             let dropTable = detailPanel.querySelector('[class*="SkillActionDetail_dropTable"]');
             if (!dropTable) return;
 
             const outputItems = detailPanel.querySelector('[class*="SkillActionDetail_outputItems"]');
             if (outputItems) dropTable = outputItems;
 
-            // Process main outputs
-            this.processDropContainer(dropTable, amount);
-
             // Track processed containers to avoid duplicates
             const processedContainers = new Set();
 
-            // Process Essences - search ENTIRE panel (essences might be in sibling dropTable)
-            const essenceItems = detailPanel.querySelectorAll('[class*="drop"], [class*="Item"]');
-            console.log('[Output Totals] Essence search: found', essenceItems.length, 'items in entire panel');
-            let foundEssence = false;
-            essenceItems.forEach(item => {
-                if (item.innerText.toLowerCase().includes('essence')) {
-                    const parent = item.closest('[class*="SkillActionDetail"]');
-                    const container = parent?.parentElement;
+            // Process main outputs
+            this.processDropContainer(dropTable, amount);
+            processedContainers.add(dropTable);
 
-                    if (container && !processedContainers.has(container) && !parent.querySelector('.mwi-output-total')) {
-                        foundEssence = true;
-                        console.log('[Output Totals] Found essence item, processing container');
+            // Process Essences and Rares - find all dropTable containers
+            const allDropTables = detailPanel.querySelectorAll('[class*="SkillActionDetail_dropTable"]');
+
+            allDropTables.forEach(container => {
+                if (processedContainers.has(container)) {
+                    return;
+                }
+
+                // Check for essences
+                if (container.innerText.toLowerCase().includes('essence')) {
+                    this.processDropContainer(container, amount);
+                    processedContainers.add(container);
+                    return;
+                }
+
+                // Check for rares (< 5% drop rate, not essences)
+                if (container.innerText.includes('%')) {
+                    const percentageMatch = container.innerText.match(/([\d\.]+)%/);
+                    if (percentageMatch && parseFloat(percentageMatch[1]) < 5) {
                         this.processDropContainer(container, amount);
                         processedContainers.add(container);
                     }
                 }
             });
-            if (!foundEssence) {
-                console.log('[Output Totals] No essence containers processed');
-            }
-
-            // Process Rares - search ENTIRE panel (rares might be in sibling dropTable)
-            const rareItems = detailPanel.querySelectorAll('[class*="drop"], [class*="Item"]');
-            console.log('[Output Totals] Rare search: found', rareItems.length, 'items in entire panel');
-            let foundRare = false;
-            rareItems.forEach(item => {
-                if (item.innerText.includes('%') && !item.innerText.toLowerCase().includes('essence')) {
-                    const percentage = item.innerText.match(/([\d\.]+)%/);
-                    if (percentage && parseFloat(percentage[1]) < 5) {
-                        const parent = item.closest('[class*="SkillActionDetail"]');
-                        const container = parent?.parentElement;
-
-                        if (container && !processedContainers.has(container) && !parent.querySelector('.mwi-output-total')) {
-                            foundRare = true;
-                            console.log('[Output Totals] Found rare item:', percentage[1], '%, processing container');
-                            this.processDropContainer(container, amount);
-                            processedContainers.add(container);
-                        }
-                    }
-                }
-            });
-            if (!foundRare) {
-                console.log('[Output Totals] No rare containers processed');
-            }
         }
 
         /**
@@ -13343,6 +13374,11 @@
             const children = Array.from(container.children);
 
             children.forEach((child) => {
+                // Skip if this child already has a total next to it
+                if (child.nextSibling?.classList?.contains('mwi-output-total')) {
+                    return;
+                }
+
                 // Check if this child has multiple drop elements
                 const hasDropElements = child.children.length > 1 &&
                                        child.querySelector('[class*="SkillActionDetail_drop"]');
@@ -13351,6 +13387,10 @@
                     // Process multiple drop elements (typical for outputs/essences/rares)
                     const dropElements = child.querySelectorAll('[class*="SkillActionDetail_drop"]');
                     dropElements.forEach(dropEl => {
+                        // Skip if this drop element already has a total
+                        if (dropEl.nextSibling?.classList?.contains('mwi-output-total')) {
+                            return;
+                        }
                         const clone = this.processChildElement(dropEl, amount);
                         if (clone) {
                             dropEl.after(clone);
@@ -13394,16 +13434,16 @@
             clone.classList.add('mwi-output-total');
 
             // Determine color based on item type
-            let color = config.COLOR_INFO; // Default gold for outputs
+            let color = config.COLOR_INFO; // Default blue for outputs
+
             if (child.innerText.toLowerCase().includes('essence')) {
-                color = '#9D4EDD'; // Purple for essences
-            } else if (dropRate < 0.05 && dropRate < 1) {
+                color = config.COLOR_ESSENCE; // Purple for essences
+            } else if (dropRate < 0.05) {
                 color = config.COLOR_WARNING; // Orange for rares (< 5% drop)
             }
 
             clone.style.cssText = `
             color: ${color};
-            text-shadow: 0 0 6px ${color === '#9D4EDD' ? 'rgba(157, 78, 221, 0.6)' : 'rgba(96, 165, 250, 0.6)'};
             font-weight: 600;
             margin-top: 2px;
         `;
@@ -13413,13 +13453,13 @@
                 // Range output (e.g., "1.3 - 4")
                 const minOutput = parseFloat(output[0].trim());
                 const maxOutput = parseFloat(output[1].trim());
-                const expectedMin = (minOutput * amount * dropRate).toFixed(1);
-                const expectedMax = (maxOutput * amount * dropRate).toFixed(1);
+                const expectedMin = (minOutput * amount * dropRate).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+                const expectedMax = (maxOutput * amount * dropRate).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
                 clone.innerText = `${expectedMin} - ${expectedMax}`;
             } else {
                 // Single value output
                 const value = parseFloat(output[0].trim());
-                const expectedValue = (value * amount * dropRate).toFixed(1);
+                const expectedValue = (value * amount * dropRate).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
                 clone.innerText = `${expectedValue}`;
             }
 
