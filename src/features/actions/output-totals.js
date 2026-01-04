@@ -50,17 +50,13 @@ class OutputTotals {
      * @param {HTMLElement} detailPanel - The action detail panel element
      */
     attachToActionPanel(detailPanel) {
-        // Find the input box where user enters action count
-        // Try direct selector first, then check within maxActionCountInput container
-        let inputBox = detailPanel.querySelector('input[type="number"]');
-        if (!inputBox) {
-            // Try finding input within maxActionCountInput container
-            const inputContainer = detailPanel.querySelector('[class*="maxActionCountInput"]');
-            if (inputContainer) {
-                inputBox = inputContainer.querySelector('input');
-            }
+        // Find the input box - same approach as MWIT-E
+        const inputContainer = detailPanel.querySelector('[class*="maxActionCountInput"]');
+        if (!inputContainer) {
+            return;
         }
 
+        const inputBox = inputContainer.querySelector('input');
         if (!inputBox) {
             return;
         }
@@ -70,18 +66,25 @@ class OutputTotals {
             return;
         }
 
-        // Add input listener
+        // Add keyup listener (same as MWIT-E)
         const updateHandler = () => {
             this.updateOutputTotals(detailPanel, inputBox);
         };
 
-        inputBox.addEventListener('input', updateHandler);
-        inputBox.addEventListener('change', updateHandler);
+        inputBox.addEventListener('keyup', updateHandler);
+
+        // Also listen to clicks on the panel (for button clicks)
+        const panelClickHandler = () => {
+            setTimeout(() => {
+                this.updateOutputTotals(detailPanel, inputBox);
+            }, 50);
+        };
+        detailPanel.addEventListener('click', panelClickHandler);
 
         // Store cleanup function
         this.observedInputs.set(inputBox, () => {
-            inputBox.removeEventListener('input', updateHandler);
-            inputBox.removeEventListener('change', updateHandler);
+            inputBox.removeEventListener('keyup', updateHandler);
+            detailPanel.removeEventListener('click', panelClickHandler);
         });
 
         // Initial update if there's already a value
@@ -106,11 +109,15 @@ class OutputTotals {
             return;
         }
 
-        // Find all output containers
-        // The game uses different sections for different drop types
-        const outputsSection = detailPanel.querySelector('div[class*="SkillActionDetail_drops"]');
-        const essencesSection = detailPanel.querySelector('div[class*="SkillActionDetail_essences"]');
-        const raresSection = detailPanel.querySelector('div[class*="SkillActionDetail_rares"]');
+        // Find output containers - same approach as MWIT-E
+        // Try dropTable first, fallback to outputItems
+        let outputsSection = detailPanel.querySelector('[class*="SkillActionDetail_dropTable"]');
+        if (!outputsSection) {
+            outputsSection = detailPanel.querySelector('[class*="SkillActionDetail_outputItems"]');
+        }
+
+        const essencesSection = detailPanel.querySelector('[class*="SkillActionDetail_essences"]');
+        const raresSection = detailPanel.querySelector('[class*="SkillActionDetail_rares"]');
 
         // Process each section with appropriate color
         if (outputsSection) {
@@ -131,14 +138,18 @@ class OutputTotals {
      * @param {string} color - Color for the total display
      */
     processOutputSection(section, amount, color) {
-        // Find all drop elements within this section
-        const dropElements = section.querySelectorAll('div[class*="SkillActionDetail_drop"]');
+        // Find all drop elements within this section - same as MWIT-E
+        const dropElements = section.querySelectorAll('[class*="SkillActionDetail_drop"]');
 
         dropElements.forEach(dropElement => {
-            // Find the output text (e.g., "1.3 - 3.9")
-            const outputText = this.extractOutputText(dropElement);
+            // Find the output text (e.g., "1.3 - 3.9") - first child typically
+            const outputElement = dropElement.children[0];
+            if (!outputElement) {
+                return;
+            }
 
-            if (!outputText) {
+            const outputText = outputElement.innerText?.trim();
+            if (!outputText || !outputText.match(/[\d\.]+/)) {
                 return;
             }
 
@@ -155,14 +166,8 @@ class OutputTotals {
             // Create and insert total display
             const totalElement = this.createTotalElement(totalText, color);
 
-            // Insert after the output text
-            // The first child typically contains the output count/range
-            const firstChild = dropElement.children[0];
-            if (firstChild) {
-                firstChild.after(totalElement);
-            } else {
-                dropElement.appendChild(totalElement);
-            }
+            // Insert after the output element
+            outputElement.after(totalElement);
         });
     }
 
