@@ -13260,7 +13260,7 @@
         updateOutputTotals(detailPanel, inputBox) {
             const amount = parseFloat(inputBox.value);
 
-            // Remove existing totals
+            // Remove existing totals (cloned outputs)
             detailPanel.querySelectorAll('.mwi-output-total').forEach(el => el.remove());
 
             // No amount entered - nothing to calculate
@@ -13268,164 +13268,109 @@
                 return;
             }
 
-            // Find output containers - same approach as MWIT-E
-            // Try dropTable first, fallback to outputItems
-            let outputsSection = detailPanel.querySelector('[class*="SkillActionDetail_dropTable"]');
-            if (!outputsSection) {
-                outputsSection = detailPanel.querySelector('[class*="SkillActionDetail_outputItems"]');
-            }
+            // Find main output container - same as MWIT-E
+            let dropTable = detailPanel.querySelector('[class*="SkillActionDetail_dropTable"]');
+            if (!dropTable) return;
 
-            const essencesSection = detailPanel.querySelector('[class*="SkillActionDetail_essences"]');
-            const raresSection = detailPanel.querySelector('[class*="SkillActionDetail_rares"]');
+            const outputItems = detailPanel.querySelector('[class*="SkillActionDetail_outputItems"]');
+            if (outputItems) dropTable = outputItems;
 
-            // Process each section with appropriate color
-            if (outputsSection) {
-                this.processOutputSection(outputsSection, amount, config.COLOR_INFO);
-            }
-            if (essencesSection) {
-                this.processOutputSection(essencesSection, amount, '#9D4EDD'); // Purple for essences
-            }
-            if (raresSection) {
-                this.processOutputSection(raresSection, amount, config.COLOR_WARNING);
-            }
+            // Process the entire dropTable (contains outputs, essences, rares)
+            this.processDropContainer(dropTable, amount);
         }
 
         /**
-         * Process a single output section (outputs, essences, or rares)
-         * @param {HTMLElement} section - The section container
+         * Process drop container (matches MWIT-E implementation)
+         * @param {HTMLElement} container - The drop table container
          * @param {number} amount - Number of actions
-         * @param {string} color - Color for the total display
          */
-        processOutputSection(section, amount, color) {
-            // Find all drop elements within this section - same as MWIT-E
-            const dropElements = section.querySelectorAll('[class*="SkillActionDetail_drop"]');
+        processDropContainer(container, amount) {
+            if (!container) return;
 
-            dropElements.forEach(dropElement => {
-                // Find the output text (e.g., "1.3 - 3.9") - first child typically
-                const outputElement = dropElement.children[0];
-                if (!outputElement) {
-                    return;
+            const children = Array.from(container.children);
+
+            children.forEach((child) => {
+                // Check if this child has multiple drop elements
+                const hasDropElements = child.children.length > 1 &&
+                                       child.querySelector('[class*="SkillActionDetail_drop"]');
+
+                if (hasDropElements) {
+                    // Process multiple drop elements (typical for outputs/essences/rares)
+                    const dropElements = child.querySelectorAll('[class*="SkillActionDetail_drop"]');
+                    dropElements.forEach(dropEl => {
+                        const clone = this.processChildElement(dropEl, amount);
+                        if (clone) {
+                            dropEl.after(clone);
+                        }
+                    });
+                } else {
+                    // Process single element
+                    const clone = this.processChildElement(child, amount);
+                    if (clone) {
+                        child.parentNode.insertBefore(clone, child.nextSibling);
+                    }
                 }
-
-                const outputText = outputElement.innerText?.trim();
-                if (!outputText || !outputText.match(/[\d\.]+/)) {
-                    return;
-                }
-
-                // Find drop rate if present (e.g., "~3%")
-                const dropRate = this.extractDropRate(dropElement);
-
-                // Calculate totals
-                const totalText = this.calculateTotal(outputText, amount, dropRate);
-
-                if (!totalText) {
-                    return;
-                }
-
-                // Create and insert total display
-                const totalElement = this.createTotalElement(totalText, color);
-
-                // Insert after the output element
-                outputElement.after(totalElement);
             });
         }
 
         /**
-         * Extract output text from drop element
-         * @param {HTMLElement} dropElement - The drop element
-         * @returns {string|null} Output text or null
-         */
-        extractOutputText(dropElement) {
-            // The first child typically contains the output count/range
-            const firstChild = dropElement.children[0];
-
-            if (!firstChild) {
-                return null;
-            }
-
-            const text = firstChild.innerText.trim();
-
-            // Check if it looks like an output (contains numbers or ranges)
-            if (text.match(/[\d\.]+(\s*-\s*[\d\.]+)?/)) {
-                return text;
-            }
-
-            return null;
-        }
-
-        /**
-         * Extract drop rate from drop element
-         * @param {HTMLElement} dropElement - The drop element
-         * @returns {number} Drop rate (0.0 to 1.0)
-         */
-        extractDropRate(dropElement) {
-            // Look for percentage text like "~3%" or "3%"
-            const text = dropElement.innerText;
-            const match = text.match(/~?([\d\.]+)%/);
-
-            if (match) {
-                return parseFloat(match[1]) / 100; // Convert 3% to 0.03
-            }
-
-            return 1.0; // Default to 100% (guaranteed drop)
-        }
-
-        /**
-         * Calculate total output
-         * @param {string} outputText - Output text (e.g., "1.3 - 3.9" or "1")
+         * Process a single child element and return clone with calculated total
+         * @param {HTMLElement} child - The child element to process
          * @param {number} amount - Number of actions
-         * @param {number} dropRate - Drop rate (0.0 to 1.0)
-         * @returns {string|null} Formatted total or null
+         * @returns {HTMLElement|null} Clone element or null
          */
-        calculateTotal(outputText, amount, dropRate) {
-            // Parse output text
-            // Could be: "1.3 - 3.9" (range) or "1" (single value)
+        processChildElement(child, amount) {
+            // Look for output element (first child with numbers or ranges)
+            const outputElement = child.children[0]?.innerText.includes('-') ||
+                                child.children[0]?.innerText.match(/[\d\.]+/)
+                                ? child.children[0]
+                                : null;
 
-            if (outputText.includes('-')) {
-                // Range output
-                const parts = outputText.split('-');
-                const minOutput = parseFloat(parts[0].trim());
-                const maxOutput = parseFloat(parts[1].trim());
+            if (!outputElement) return null;
 
-                if (isNaN(minOutput) || isNaN(maxOutput)) {
-                    return null;
-                }
+            // Extract drop rate from the child's text
+            const dropRateText = child.innerText;
+            const rateMatch = dropRateText.match(/~?([\d\.]+)%/);
+            const dropRate = rateMatch ? parseFloat(rateMatch[1]) / 100 : 1; // Default to 100%
 
-                const expectedMin = (minOutput * amount * dropRate).toFixed(1);
-                const expectedMax = (maxOutput * amount * dropRate).toFixed(1);
+            // Parse output values
+            const output = outputElement.innerText.split('-');
 
-                return `${expectedMin} - ${expectedMax}`;
-            } else {
-                // Single value
-                const value = parseFloat(outputText);
+            // Create styled clone (same as MWIT-E)
+            const clone = outputElement.cloneNode(true);
+            clone.classList.add('mwi-output-total');
 
-                if (isNaN(value)) {
-                    return null;
-                }
-
-                const expectedValue = (value * amount * dropRate).toFixed(1);
-                return expectedValue;
+            // Determine color based on item type
+            let color = config.COLOR_INFO; // Default gold for outputs
+            if (child.innerText.toLowerCase().includes('essence')) {
+                color = '#9D4EDD'; // Purple for essences
+            } else if (dropRate < 0.05 && dropRate < 1) {
+                color = config.COLOR_WARNING; // Orange for rares (< 5% drop)
             }
-        }
 
-        /**
-         * Create total display element
-         * @param {string} totalText - Total text to display
-         * @param {string} color - Color for the text
-         * @returns {HTMLElement} The total element
-         */
-        createTotalElement(totalText, color) {
-            const element = document.createElement('div');
-            element.className = 'mwi-output-total';
-            element.style.cssText = `
+            clone.style.cssText = `
             color: ${color};
+            text-shadow: 0 0 6px ${color === '#9D4EDD' ? 'rgba(157, 78, 221, 0.6)' : 'rgba(96, 165, 250, 0.6)'};
             font-weight: 600;
             margin-top: 2px;
-            font-size: 0.95em;
         `;
-            element.textContent = totalText;
 
-            return element;
+            // Calculate and set the expected output
+            if (output.length > 1) {
+                // Range output (e.g., "1.3 - 4")
+                const minOutput = parseFloat(output[0].trim());
+                const maxOutput = parseFloat(output[1].trim());
+                const expectedMin = (minOutput * amount * dropRate).toFixed(1);
+                const expectedMax = (maxOutput * amount * dropRate).toFixed(1);
+                clone.innerText = `${expectedMin} - ${expectedMax}`;
+            } else {
+                // Single value output
+                const value = parseFloat(output[0].trim());
+                const expectedValue = (value * amount * dropRate).toFixed(1);
+                clone.innerText = `${expectedValue}`;
+            }
+
+            return clone;
         }
 
         /**
