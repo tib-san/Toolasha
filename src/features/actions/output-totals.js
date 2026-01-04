@@ -119,37 +119,52 @@ class OutputTotals {
         // Process main outputs - just like MWIT-E
         this.processDropContainer(dropTable, amount);
 
-        // Process Essences - EXACT MWIT-E approach
-        // Search the SAME dropTable for essences
-        const essencesContainer = detailPanel.querySelector('[class*="SkillActionDetail_dropTable"]');
-        if (essencesContainer) {
-            const essenceItems = essencesContainer.querySelectorAll('[class*="drop"], [class*="Item"]');
-            essenceItems.forEach(item => {
-                if (item.innerText.toLowerCase().includes('essence')) {
-                    const parent = item.closest('[class*="SkillActionDetail"]');
-                    if (parent && !parent.querySelector('.mwi-output-total')) {
-                        this.processDropContainer(parent.parentElement, amount);
-                    }
+        // Track processed containers to avoid duplicates
+        const processedContainers = new Set();
+
+        // Process Essences - search ENTIRE panel (essences might be in sibling dropTable)
+        const essenceItems = detailPanel.querySelectorAll('[class*="drop"], [class*="Item"]');
+        console.log('[Output Totals] Essence search: found', essenceItems.length, 'items in entire panel');
+        let foundEssence = false;
+        essenceItems.forEach(item => {
+            if (item.innerText.toLowerCase().includes('essence')) {
+                const parent = item.closest('[class*="SkillActionDetail"]');
+                const container = parent?.parentElement;
+
+                if (container && !processedContainers.has(container) && !parent.querySelector('.mwi-output-total')) {
+                    foundEssence = true;
+                    console.log('[Output Totals] Found essence item, processing container');
+                    this.processDropContainer(container, amount);
+                    processedContainers.add(container);
                 }
-            });
+            }
+        });
+        if (!foundEssence) {
+            console.log('[Output Totals] No essence containers processed');
         }
 
-        // Process Rares - EXACT MWIT-E approach
-        // Search the SAME dropTable for rares
-        const raresContainer = detailPanel.querySelector('[class*="SkillActionDetail_dropTable"]');
-        if (raresContainer) {
-            const rareItems = raresContainer.querySelectorAll('[class*="drop"], [class*="Item"]');
-            rareItems.forEach(item => {
-                if (item.innerText.includes('%') && !item.innerText.toLowerCase().includes('essence')) {
-                    const percentage = item.innerText.match(/([\d\.]+)%/);
-                    if (percentage && parseFloat(percentage[1]) < 5) {
-                        const parent = item.closest('[class*="SkillActionDetail"]');
-                        if (parent && !parent.querySelector('.mwi-output-total')) {
-                            this.processDropContainer(parent.parentElement, amount);
-                        }
+        // Process Rares - search ENTIRE panel (rares might be in sibling dropTable)
+        const rareItems = detailPanel.querySelectorAll('[class*="drop"], [class*="Item"]');
+        console.log('[Output Totals] Rare search: found', rareItems.length, 'items in entire panel');
+        let foundRare = false;
+        rareItems.forEach(item => {
+            if (item.innerText.includes('%') && !item.innerText.toLowerCase().includes('essence')) {
+                const percentage = item.innerText.match(/([\d\.]+)%/);
+                if (percentage && parseFloat(percentage[1]) < 5) {
+                    const parent = item.closest('[class*="SkillActionDetail"]');
+                    const container = parent?.parentElement;
+
+                    if (container && !processedContainers.has(container) && !parent.querySelector('.mwi-output-total')) {
+                        foundRare = true;
+                        console.log('[Output Totals] Found rare item:', percentage[1], '%, processing container');
+                        this.processDropContainer(container, amount);
+                        processedContainers.add(container);
                     }
                 }
-            });
+            }
+        });
+        if (!foundRare) {
+            console.log('[Output Totals] No rare containers processed');
         }
     }
 
