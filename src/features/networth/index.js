@@ -81,7 +81,6 @@ class NetworthFeature {
 
         // Only recalculate if pricing mode actually changed
         if (currentPricingMode !== this.lastPricingMode) {
-            console.log(`[Networth] Pricing mode changed from ${this.lastPricingMode} to ${currentPricingMode}, recalculating...`);
             await this.recalculate(true);
         }
     }
