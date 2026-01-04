@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.851
+// @version      0.4.852
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -18565,7 +18565,7 @@
         networthCache.checkAndInvalidate(marketData);
 
         // Get pricing mode from settings
-        const pricingMode = config.getSetting('networth_pricingMode') || 'ask';
+        const pricingMode = config.getSettingValue('networth_pricingMode', 'ask');
 
         const characterItems = gameData.characterItems || [];
         const marketListings = gameData.myMarketListings || [];
@@ -19370,7 +19370,7 @@
          * Force immediate recalculation (called when settings change)
          */
         async forceRecalculate() {
-            const currentPricingMode = config.getSetting('networth_pricingMode') || 'ask';
+            const currentPricingMode = config.getSettingValue('networth_pricingMode', 'ask');
 
             // Only recalculate if pricing mode actually changed
             if (currentPricingMode !== this.lastPricingMode) {

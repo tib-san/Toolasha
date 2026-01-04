@@ -422,7 +422,7 @@ export async function calculateNetworth() {
     networthCache.checkAndInvalidate(marketData);
 
     // Get pricing mode from settings
-    const pricingMode = config.getSetting('networth_pricingMode') || 'ask';
+    const pricingMode = config.getSettingValue('networth_pricingMode', 'ask');
 
     const characterItems = gameData.characterItems || [];
     const marketListings = gameData.myMarketListings || [];

@@ -77,7 +77,7 @@ class NetworthFeature {
      * Force immediate recalculation (called when settings change)
      */
     async forceRecalculate() {
-        const currentPricingMode = config.getSetting('networth_pricingMode') || 'ask';
+        const currentPricingMode = config.getSettingValue('networth_pricingMode', 'ask');
 
         // Only recalculate if pricing mode actually changed
         if (currentPricingMode !== this.lastPricingMode) {
