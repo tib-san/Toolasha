@@ -13268,21 +13268,51 @@
                 return;
             }
 
-            // Find ALL drop containers (outputs, essences, rares are separate)
-            // Look for outputItems first (production actions)
+            // Find main drop container (same as MWIT-E approach)
+            let dropTable = detailPanel.querySelector('[class*="SkillActionDetail_dropTable"]');
+            if (!dropTable) return;
+
             const outputItems = detailPanel.querySelector('[class*="SkillActionDetail_outputItems"]');
-            if (outputItems) {
-                console.log('[Output Totals] Found outputItems container');
-                this.processDropContainer(outputItems, amount);
-            }
+            if (outputItems) dropTable = outputItems;
 
-            // Look for ALL dropTable containers (gathering actions have multiple: outputs, essences, rares)
-            const dropTables = detailPanel.querySelectorAll('[class*="SkillActionDetail_dropTable"]');
-            console.log('[Output Totals] Found', dropTables.length, 'dropTable containers');
+            console.log('[Output Totals] Found main dropTable');
 
-            dropTables.forEach((dropTable, index) => {
-                console.log('[Output Totals] Processing dropTable', index);
-                this.processDropContainer(dropTable, amount);
+            // Process main outputs
+            this.processDropContainer(dropTable, amount);
+
+            // Process Essences (same as MWIT-E)
+            // Look for items with "essence" in the text
+            const essenceItems = dropTable.querySelectorAll('[class*="drop"], [class*="Item"]');
+            const processedEssences = new Set();
+
+            essenceItems.forEach(item => {
+                if (item.innerText.toLowerCase().includes('essence')) {
+                    const parent = item.closest('[class*="SkillActionDetail"]');
+                    if (parent && !processedEssences.has(parent) && !parent.querySelector('.cloned-output')) {
+                        console.log('[Output Totals] Found essence container:', parent.innerText.substring(0, 50));
+                        this.processDropContainer(parent.parentElement, amount);
+                        processedEssences.add(parent);
+                    }
+                }
+            });
+
+            // Process Rares (same as MWIT-E)
+            // Look for items with low drop rates
+            const rareItems = dropTable.querySelectorAll('[class*="drop"], [class*="Item"]');
+            const processedRares = new Set();
+
+            rareItems.forEach(item => {
+                if (item.innerText.includes('%') && !item.innerText.toLowerCase().includes('essence')) {
+                    const percentage = item.innerText.match(/([\d\.]+)%/);
+                    if (percentage && parseFloat(percentage[1]) < 5) {
+                        const parent = item.closest('[class*="SkillActionDetail"]');
+                        if (parent && !processedRares.has(parent) && !parent.querySelector('.cloned-output')) {
+                            console.log('[Output Totals] Found rare container:', parent.innerText.substring(0, 50));
+                            this.processDropContainer(parent.parentElement, amount);
+                            processedRares.add(parent);
+                        }
+                    }
+                }
             });
         }
 
