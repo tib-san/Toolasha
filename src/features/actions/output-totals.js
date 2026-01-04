@@ -121,36 +121,36 @@ class OutputTotals {
         // Process main outputs
         this.processDropContainer(dropTable, amount);
 
-        // Process Essences (same as MWIT-E)
-        // Look for items with "essence" in the text
-        const essenceItems = dropTable.querySelectorAll('[class*="drop"], [class*="Item"]');
-        const processedEssences = new Set();
+        // Process Essences - search the ENTIRE panel, not just dropTable
+        // Essences/Rares are in sibling sections, not children of dropTable
+        const allItems = detailPanel.querySelectorAll('[class*="drop"], [class*="Item"]');
+        console.log('[Output Totals] Searching entire panel,', allItems.length, 'items total');
+        const processedContainers = new Set();
 
-        essenceItems.forEach(item => {
-            if (item.innerText.toLowerCase().includes('essence')) {
+        allItems.forEach((item, index) => {
+            const text = item.innerText?.toLowerCase() || '';
+            console.log(`[Output Totals] Item ${index}:`, item.innerText?.substring(0, 50));
+
+            // Check for essence
+            if (text.includes('essence')) {
+                console.log('[Output Totals] Found essence item!');
                 const parent = item.closest('[class*="SkillActionDetail"]');
-                if (parent && !processedEssences.has(parent) && !parent.querySelector('.cloned-output')) {
-                    console.log('[Output Totals] Found essence container:', parent.innerText.substring(0, 50));
+                if (parent && !processedContainers.has(parent)) {
+                    console.log('[Output Totals] Processing essence, parent.parentElement:', parent.parentElement);
                     this.processDropContainer(parent.parentElement, amount);
-                    processedEssences.add(parent);
+                    processedContainers.add(parent);
                 }
             }
-        });
-
-        // Process Rares (same as MWIT-E)
-        // Look for items with low drop rates
-        const rareItems = dropTable.querySelectorAll('[class*="drop"], [class*="Item"]');
-        const processedRares = new Set();
-
-        rareItems.forEach(item => {
-            if (item.innerText.includes('%') && !item.innerText.toLowerCase().includes('essence')) {
+            // Check for rare (low drop rate, not essence)
+            else if (item.innerText?.includes('%')) {
                 const percentage = item.innerText.match(/([\d\.]+)%/);
                 if (percentage && parseFloat(percentage[1]) < 5) {
+                    console.log('[Output Totals] Found rare item with', percentage[1], '%');
                     const parent = item.closest('[class*="SkillActionDetail"]');
-                    if (parent && !processedRares.has(parent) && !parent.querySelector('.cloned-output')) {
-                        console.log('[Output Totals] Found rare container:', parent.innerText.substring(0, 50));
+                    if (parent && !processedContainers.has(parent)) {
+                        console.log('[Output Totals] Processing rare, parent.parentElement:', parent.parentElement);
                         this.processDropContainer(parent.parentElement, amount);
-                        processedRares.add(parent);
+                        processedContainers.add(parent);
                     }
                 }
             }
