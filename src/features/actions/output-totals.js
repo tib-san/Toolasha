@@ -109,15 +109,22 @@ class OutputTotals {
             return;
         }
 
-        // Find main output container - same as MWIT-E
-        let dropTable = detailPanel.querySelector('[class*="SkillActionDetail_dropTable"]');
-        if (!dropTable) return;
-
+        // Find ALL drop containers (outputs, essences, rares are separate)
+        // Look for outputItems first (production actions)
         const outputItems = detailPanel.querySelector('[class*="SkillActionDetail_outputItems"]');
-        if (outputItems) dropTable = outputItems;
+        if (outputItems) {
+            console.log('[Output Totals] Found outputItems container');
+            this.processDropContainer(outputItems, amount);
+        }
 
-        // Process the entire dropTable (contains outputs, essences, rares)
-        this.processDropContainer(dropTable, amount);
+        // Look for ALL dropTable containers (gathering actions have multiple: outputs, essences, rares)
+        const dropTables = detailPanel.querySelectorAll('[class*="SkillActionDetail_dropTable"]');
+        console.log('[Output Totals] Found', dropTables.length, 'dropTable containers');
+
+        dropTables.forEach((dropTable, index) => {
+            console.log('[Output Totals] Processing dropTable', index);
+            this.processDropContainer(dropTable, amount);
+        });
     }
 
     /**
@@ -129,15 +136,21 @@ class OutputTotals {
         if (!container) return;
 
         const children = Array.from(container.children);
+        console.log('[Output Totals] Processing container with', children.length, 'children');
 
-        children.forEach((child) => {
+        children.forEach((child, index) => {
+            console.log(`[Output Totals] Child ${index}:`, child.className, 'text:', child.innerText?.substring(0, 50));
+
             // Check if this child has multiple drop elements
             const hasDropElements = child.children.length > 1 &&
                                    child.querySelector('[class*="SkillActionDetail_drop"]');
 
+            console.log(`[Output Totals] Child ${index} hasDropElements:`, hasDropElements);
+
             if (hasDropElements) {
                 // Process multiple drop elements (typical for outputs/essences/rares)
                 const dropElements = child.querySelectorAll('[class*="SkillActionDetail_drop"]');
+                console.log(`[Output Totals] Found ${dropElements.length} drop elements`);
                 dropElements.forEach(dropEl => {
                     const clone = this.processChildElement(dropEl, amount);
                     if (clone) {
@@ -146,9 +159,13 @@ class OutputTotals {
                 });
             } else {
                 // Process single element
+                console.log(`[Output Totals] Processing child ${index} as single element`);
                 const clone = this.processChildElement(child, amount);
                 if (clone) {
+                    console.log(`[Output Totals] Created clone for child ${index}`);
                     child.parentNode.insertBefore(clone, child.nextSibling);
+                } else {
+                    console.log(`[Output Totals] No clone created for child ${index}`);
                 }
             }
         });
@@ -161,11 +178,18 @@ class OutputTotals {
      * @returns {HTMLElement|null} Clone element or null
      */
     processChildElement(child, amount) {
+        console.log('[Output Totals] processChildElement called, child:', child.className);
+        console.log('[Output Totals] child.children[0]:', child.children[0]);
+        console.log('[Output Totals] child.children[0]?.innerText:', child.children[0]?.innerText);
+
         // Look for output element (first child with numbers or ranges)
-        const outputElement = child.children[0]?.innerText.includes('-') ||
-                            child.children[0]?.innerText.match(/[\d\.]+/)
-                            ? child.children[0]
-                            : null;
+        const hasRange = child.children[0]?.innerText?.includes('-');
+        const hasNumbers = child.children[0]?.innerText?.match(/[\d\.]+/);
+        console.log('[Output Totals] hasRange:', hasRange, 'hasNumbers:', hasNumbers);
+
+        const outputElement = (hasRange || hasNumbers) ? child.children[0] : null;
+
+        console.log('[Output Totals] outputElement:', outputElement);
 
         if (!outputElement) return null;
 
