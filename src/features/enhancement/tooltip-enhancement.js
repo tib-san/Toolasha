@@ -786,8 +786,10 @@ export function buildEnhancementTooltipHTML(enhancementData) {
         html += '<br>Consumed Items (Philosopher\'s Mirror):';
         html += '<div style="margin-left: 12px;">';
 
-        // Show consumed items in descending order (higher level first)
-        const sortedConsumed = [...optimalStrategy.consumedItems].sort((a, b) => b.level - a.level);
+        // Show consumed items in descending order (higher level first), filter out zero quantities
+        const sortedConsumed = [...optimalStrategy.consumedItems]
+            .filter(item => item.quantity > 0)
+            .sort((a, b) => b.level - a.level);
         sortedConsumed.forEach((item, index) => {
             if (index > 0) html += '<br>'; // Add line break before items after the first
             html += '+' + item.level + ': ' + item.quantity + ' × ' + numberFormatter(item.costEach) + ' = ' + numberFormatter(item.totalCost);

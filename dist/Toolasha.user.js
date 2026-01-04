@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.867
+// @version      0.4.868
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -6584,8 +6584,10 @@
             html += '<br>Consumed Items (Philosopher\'s Mirror):';
             html += '<div style="margin-left: 12px;">';
 
-            // Show consumed items in descending order (higher level first)
-            const sortedConsumed = [...optimalStrategy.consumedItems].sort((a, b) => b.level - a.level);
+            // Show consumed items in descending order (higher level first), filter out zero quantities
+            const sortedConsumed = [...optimalStrategy.consumedItems]
+                .filter(item => item.quantity > 0)
+                .sort((a, b) => b.level - a.level);
             sortedConsumed.forEach((item, index) => {
                 if (index > 0) html += '<br>'; // Add line break before items after the first
                 html += '+' + item.level + ': ' + item.quantity + ' × ' + numberFormatter(item.costEach) + ' = ' + numberFormatter(item.totalCost);
