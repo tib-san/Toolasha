@@ -548,6 +548,31 @@ function buildLevelBreakdownsArray(strategy, itemHrid, targetLevel, config) {
 }
 
 /**
+ * Fibonacci calculation for item quantities (from Enhancelator)
+ * @private
+ */
+function fib(n) {
+    if (n === 0 || n === 1) {
+        return 1;
+    }
+    return fib(n - 1) + fib(n - 2);
+}
+
+/**
+ * Mirror Fibonacci calculation for mirror quantities (from Enhancelator)
+ * @private
+ */
+function mirrorFib(n) {
+    if (n === 0) {
+        return 1;
+    }
+    if (n === 1) {
+        return 2;
+    }
+    return mirrorFib(n - 1) + mirrorFib(n - 2) + 1;
+}
+
+/**
  * Apply Philosopher's Mirror optimization to enhancement strategies
  *
  * Algorithm (matches Enhancelator):
@@ -623,39 +648,56 @@ function applyPhilosopherMirrorOptimization(strategies, itemHrid, targetLevel, c
                 };
             }
 
-            // Build consumed items array for display
-            const consumedItems = [];
-            for (let level = mirrorStartLevel; level <= targetLevel; level++) {
-                const consumedLevel = level - 1;
-                consumedItems.push({
-                    level: consumedLevel,
-                    breakdown: levelBreakdowns[consumedLevel]
-                });
-            }
+            // Calculate consumed item quantities using Fibonacci (Enhancelator approach)
+            const n = targetLevel - mirrorStartLevel;
+            const numLowerTier = fib(n);           // Quantity of (mirrorStartLevel - 2) items
+            const numUpperTier = fib(n + 1);       // Quantity of (mirrorStartLevel - 1) items
+            const numMirrors = mirrorFib(n);       // Quantity of Philosopher's Mirrors
 
-            // Count Philosopher's Mirrors used
-            const mirrorCount = targetLevel - mirrorStartLevel + 1;
+            const lowerTierLevel = mirrorStartLevel - 2;
+            const upperTierLevel = mirrorStartLevel - 1;
+
+            // Get cost of one item at each level
+            const costLowerTier = levelBreakdowns[lowerTierLevel].totalCost;
+            const costUpperTier = levelBreakdowns[upperTierLevel].totalCost;
+
+            // Calculate total costs
+            const totalLowerTierCost = numLowerTier * costLowerTier;
+            const totalUpperTierCost = numUpperTier * costUpperTier;
+            const totalMirrorsCost = numMirrors * mirrorPrice;
+
+            // Build consumed items array for display (only two levels)
+            const consumedItems = [
+                {
+                    level: lowerTierLevel,
+                    quantity: numLowerTier,
+                    costEach: costLowerTier,
+                    totalCost: totalLowerTierCost
+                },
+                {
+                    level: upperTierLevel,
+                    quantity: numUpperTier,
+                    costEach: costUpperTier,
+                    totalCost: totalUpperTierCost
+                }
+            ];
 
             // Get final breakdown for target level
             const finalBreakdown = levelBreakdowns[targetLevel];
-
-            // Calculate consumed items cost as: Total - Base - Materials - Protection - Mirrors
-            const mirrorsCost = mirrorCount * mirrorPrice;
-            const consumedCost = finalBreakdown.totalCost - finalBreakdown.baseCost - finalBreakdown.materialCost - finalBreakdown.protectionCost - mirrorsCost;
 
             return {
                 ...strategy,
                 baseCost: finalBreakdown.baseCost,
                 materialCost: finalBreakdown.materialCost,
                 protectionCost: finalBreakdown.protectionCost,
-                consumedItemsCost: consumedCost, // Everything else after accounting for base, materials, protection, and mirrors
-                philosopherMirrorCost: mirrorsCost, // Simple: mirror count × mirror price
+                consumedItemsCost: totalLowerTierCost + totalUpperTierCost,
+                philosopherMirrorCost: totalMirrorsCost,
                 totalCost: finalBreakdown.totalCost,
                 mirrorStartLevel: mirrorStartLevel,
                 usedMirror: true,
                 traditionalCost: strategy.totalCost,
-                consumedItems: consumedItems, // Array of {level, breakdown}
-                mirrorCount: mirrorCount
+                consumedItems: consumedItems, // Array of {level, quantity, costEach, totalCost}
+                mirrorCount: numMirrors
             };
         }
 
@@ -740,41 +782,22 @@ export function buildEnhancementTooltipHTML(enhancementData) {
 
             html += '<br>Protection: ' + protectionDisplay;
         }
-
-        // Consumed items section
+        // Consumed items section (Fibonacci-based quantities)
         html += '<br>Consumed Items (Philosopher\'s Mirror):';
+        html += '<div style="margin-left: 12px;">';
 
-        // Calculate consumed items subtotal
-        let consumedSubtotal = 0;
-        for (const item of optimalStrategy.consumedItems) {
-            consumedSubtotal += item.breakdown.totalCost;
-        }
+        // Show consumed items in descending order (higher level first)
+        const sortedConsumed = [...optimalStrategy.consumedItems].sort((a, b) => b.level - a.level);
+        sortedConsumed.forEach((item, index) => {
+            if (index > 0) html += '<br>'; // Add line break before items after the first
+            html += '+' + item.level + ': ' + item.quantity + ' × ' + numberFormatter(item.costEach) + ' = ' + numberFormatter(item.totalCost);
+        });
 
-        // Check if detailed breakdown should be shown
-        const showDetail = config.getSetting('enhanceSim_showConsumedItemsDetail');
-
-        if (showDetail) {
-            // Detailed breakdown: show each consumed item individually
-            html += '<div style="margin-left: 12px;">';
-
-            // Show consumed items in descending order
-            const sortedConsumed = [...optimalStrategy.consumedItems].sort((a, b) => b.level - a.level);
-
-            for (const item of sortedConsumed) {
-                html += '<br>+' + item.level + ' item: ' + numberFormatter(item.breakdown.totalCost);
-            }
-
-            html += '<br><span style="font-weight: bold;">Subtotal: ' + numberFormatter(consumedSubtotal) + '</span>';
-            html += '</div>';
-        } else {
-            // Simple: just show the subtotal
-            html += ' ' + numberFormatter(consumedSubtotal);
-        }
-
+        html += '</div>';
         // Philosopher's Mirror cost
         if (optimalStrategy.philosopherMirrorCost > 0) {
             const mirrorPrice = getRealisticBaseItemPrice('/items/philosophers_mirror');
-            html += '<br>Philosopher\'s Mirror: ' + numberFormatter(optimalStrategy.philosopherMirrorCost);
+            html += 'Philosopher\'s Mirror: ' + numberFormatter(optimalStrategy.philosopherMirrorCost);
             if (optimalStrategy.mirrorCount > 0 && mirrorPrice > 0) {
                 html += ' (' + optimalStrategy.mirrorCount + 'x @ ' + numberFormatter(mirrorPrice) + ' each)';
             }
