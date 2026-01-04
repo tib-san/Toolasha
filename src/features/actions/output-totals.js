@@ -135,10 +135,11 @@ class OutputTotals {
             if (text.includes('essence')) {
                 console.log('[Output Totals] Found essence item!');
                 const parent = item.closest('[class*="SkillActionDetail"]');
-                if (parent && !processedContainers.has(parent)) {
-                    console.log('[Output Totals] Processing essence, parent.parentElement:', parent.parentElement);
-                    this.processDropContainer(parent.parentElement, amount);
-                    processedContainers.add(parent);
+                const container = parent?.parentElement;
+                if (container && !processedContainers.has(container) && !container.querySelector('.mwi-output-total')) {
+                    console.log('[Output Totals] Processing essence container');
+                    this.processDropContainer(container, amount);
+                    processedContainers.add(container);
                 }
             }
             // Check for rare (low drop rate, not essence)
@@ -147,10 +148,11 @@ class OutputTotals {
                 if (percentage && parseFloat(percentage[1]) < 5) {
                     console.log('[Output Totals] Found rare item with', percentage[1], '%');
                     const parent = item.closest('[class*="SkillActionDetail"]');
-                    if (parent && !processedContainers.has(parent)) {
-                        console.log('[Output Totals] Processing rare, parent.parentElement:', parent.parentElement);
-                        this.processDropContainer(parent.parentElement, amount);
-                        processedContainers.add(parent);
+                    const container = parent?.parentElement;
+                    if (container && !processedContainers.has(container) && !container.querySelector('.mwi-output-total')) {
+                        console.log('[Output Totals] Processing rare container');
+                        this.processDropContainer(container, amount);
+                        processedContainers.add(container);
                     }
                 }
             }
