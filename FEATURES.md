@@ -62,16 +62,7 @@ Complete list of all Toolasha features with brief descriptions.
 
 ## Notifications
 
-- **Empty Queue Alert** - Browser notification when done
-
-## Color Customization
-
-- **Profit/Loss Colors** - Customizable green/red colors
-- **Warning/Info Colors** - Customizable orange/blue colors
-- **Essence Color** - Customizable purple for essences
-- **Tooltip Colors** - Separate colors for light backgrounds
-- **Text/Border Colors** - Customizable UI colors
-- **Accent Color** - Main script color theme
+- **Empty Queue Alert** - Browser notification when 
 
 ## Settings & Configuration
 
@@ -80,3 +71,4 @@ Complete list of all Toolasha features with brief descriptions.
 - **Pricing Mode Selection** - Choose profit calculation method
 - **Expected Value Options** - Drop display preferences
 - **Inventory Badge Options** - Badge display settings
+- **Color Customization** - Lots of color customizability

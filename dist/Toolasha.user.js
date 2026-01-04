@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.858
+// @version      0.4.859
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -6964,7 +6964,7 @@
 
             // Create enhancement display container
             const enhancementDiv = dom.createStyledDiv(
-                { color: config.SCRIPT_COLOR_TOOLTIP },
+                { color: config.COLOR_TOOLTIP_INFO },
                 '',
                 'market-enhancement-injected'
             );
@@ -7123,7 +7123,7 @@
 
             // Create profit display container
             const profitDiv = dom.createStyledDiv(
-                { color: config.SCRIPT_COLOR_TOOLTIP, marginTop: '8px' },
+                { color: config.COLOR_TOOLTIP_INFO, marginTop: '8px' },
                 '',
                 'market-profit-injected'
             );
@@ -7262,7 +7262,7 @@
 
             // Create EV display container
             const evDiv = dom.createStyledDiv(
-                { color: config.SCRIPT_COLOR_TOOLTIP, marginTop: '8px' },
+                { color: config.COLOR_TOOLTIP_INFO, marginTop: '8px' },
                 '',
                 'market-ev-injected'
             );
@@ -7598,7 +7598,7 @@
 
             // Create consumable display container
             const consumableDiv = dom.createStyledDiv(
-                { color: config.SCRIPT_COLOR_TOOLTIP, marginTop: '8px' },
+                { color: config.COLOR_TOOLTIP_INFO, marginTop: '8px' },
                 '',
                 'consumable-stats-injected'
             );

@@ -257,7 +257,7 @@ class TooltipConsumables {
 
         // Create consumable display container
         const consumableDiv = dom.createStyledDiv(
-            { color: config.SCRIPT_COLOR_TOOLTIP, marginTop: '8px' },
+            { color: config.COLOR_TOOLTIP_INFO, marginTop: '8px' },
             '',
             'consumable-stats-injected'
         );

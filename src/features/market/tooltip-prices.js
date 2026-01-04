@@ -259,7 +259,7 @@ class TooltipPrices {
 
         // Create enhancement display container
         const enhancementDiv = dom.createStyledDiv(
-            { color: config.SCRIPT_COLOR_TOOLTIP },
+            { color: config.COLOR_TOOLTIP_INFO },
             '',
             'market-enhancement-injected'
         );
@@ -418,7 +418,7 @@ class TooltipPrices {
 
         // Create profit display container
         const profitDiv = dom.createStyledDiv(
-            { color: config.SCRIPT_COLOR_TOOLTIP, marginTop: '8px' },
+            { color: config.COLOR_TOOLTIP_INFO, marginTop: '8px' },
             '',
             'market-profit-injected'
         );
@@ -557,7 +557,7 @@ class TooltipPrices {
 
         // Create EV display container
         const evDiv = dom.createStyledDiv(
-            { color: config.SCRIPT_COLOR_TOOLTIP, marginTop: '8px' },
+            { color: config.COLOR_TOOLTIP_INFO, marginTop: '8px' },
             '',
             'market-ev-injected'
         );
