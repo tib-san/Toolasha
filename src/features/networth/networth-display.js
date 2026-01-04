@@ -223,12 +223,12 @@ class NetworthInventoryDisplay {
             <div id="mwi-networth-details" style="display: none; margin-left: 20px;">
                 <!-- Current Assets -->
                 <div style="cursor: pointer; margin-top: 8px;" id="mwi-current-assets-toggle">
-                    + Current Assets: ${networthFormatter(Math.round(networthData.currentAssets.ask))}
+                    + Current Assets: ${networthFormatter(Math.round((networthData.currentAssets.ask + networthData.currentAssets.bid) / 2))}
                 </div>
                 <div id="mwi-current-assets-details" style="display: none; margin-left: 20px;">
                     <!-- Equipment Value -->
                     <div style="cursor: pointer; margin-top: 4px;" id="mwi-equipment-toggle">
-                        + Equipment value: ${networthFormatter(Math.round(networthData.currentAssets.equipped.ask))}
+                        + Equipment value: ${networthFormatter(Math.round((networthData.currentAssets.equipped.ask + networthData.currentAssets.equipped.bid) / 2))}
                     </div>
                     <div id="mwi-equipment-breakdown" style="display: none; margin-left: 20px; font-size: 0.8rem; color: #bbb;">
                         ${this.renderEquipmentBreakdown(networthData.currentAssets.equipped.breakdown)}
@@ -236,13 +236,13 @@ class NetworthInventoryDisplay {
 
                     <!-- Inventory Value -->
                     <div style="cursor: pointer; margin-top: 4px;" id="mwi-inventory-toggle">
-                        + Inventory value: ${networthFormatter(Math.round(networthData.currentAssets.inventory.ask))}
+                        + Inventory value: ${networthFormatter(Math.round((networthData.currentAssets.inventory.ask + networthData.currentAssets.inventory.bid) / 2))}
                     </div>
                     <div id="mwi-inventory-breakdown" style="display: none; margin-left: 20px;">
                         ${this.renderInventoryBreakdown(networthData.currentAssets.inventory.byCategory)}
                     </div>
 
-                    <div style="margin-top: 4px;">Market listings: ${networthFormatter(Math.round(networthData.currentAssets.listings.ask))}</div>
+                    <div style="margin-top: 4px;">Market listings: ${networthFormatter(Math.round((networthData.currentAssets.listings.ask + networthData.currentAssets.listings.bid) / 2))}</div>
                 </div>
 
                 <!-- Fixed Assets -->
@@ -424,21 +424,21 @@ class NetworthInventoryDisplay {
         this.setupToggle(
             'mwi-current-assets-toggle',
             'mwi-current-assets-details',
-            `Current Assets: ${networthFormatter(Math.round(networthData.currentAssets.ask))}`
+            `Current Assets: ${networthFormatter(Math.round((networthData.currentAssets.ask + networthData.currentAssets.bid) / 2))}`
         );
 
         // Equipment toggle
         this.setupToggle(
             'mwi-equipment-toggle',
             'mwi-equipment-breakdown',
-            `Equipment value: ${networthFormatter(Math.round(networthData.currentAssets.equipped.ask))}`
+            `Equipment value: ${networthFormatter(Math.round((networthData.currentAssets.equipped.ask + networthData.currentAssets.equipped.bid) / 2))}`
         );
 
         // Inventory toggle
         this.setupToggle(
             'mwi-inventory-toggle',
             'mwi-inventory-breakdown',
-            `Inventory value: ${networthFormatter(Math.round(networthData.currentAssets.inventory.ask))}`
+            `Inventory value: ${networthFormatter(Math.round((networthData.currentAssets.inventory.ask + networthData.currentAssets.inventory.bid) / 2))}`
         );
 
         // Inventory category toggles

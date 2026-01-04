@@ -240,30 +240,6 @@ class ActionTimeDisplay {
             return;
         }
 
-        // Re-apply CSS override on every update to prevent game's CSS from truncating text
-        // Use setProperty with 'important' to ensure we override game's styles
-        // Apply to the element itself and all parent elements up the chain
-        actionNameElement.style.setProperty('overflow', 'visible', 'important');
-        actionNameElement.style.setProperty('text-overflow', 'clip', 'important');
-        actionNameElement.style.setProperty('white-space', 'nowrap', 'important');
-        actionNameElement.style.setProperty('max-width', 'none', 'important');
-        actionNameElement.style.setProperty('width', 'auto', 'important');
-        actionNameElement.style.setProperty('min-width', 'max-content', 'important');
-
-        // Apply to entire parent chain (up to 5 levels)
-        let parent = actionNameElement.parentElement;
-        let levels = 0;
-        while (parent && levels < 5) {
-            parent.style.setProperty('overflow', 'visible', 'important');
-            parent.style.setProperty('text-overflow', 'clip', 'important');
-            parent.style.setProperty('white-space', 'nowrap', 'important');
-            parent.style.setProperty('max-width', 'none', 'important');
-            parent.style.setProperty('width', 'auto', 'important');
-            parent.style.setProperty('min-width', 'max-content', 'important');
-            parent = parent.parentElement;
-            levels++;
-        }
-
         // Parse action name from DOM
         // Format can be: "Action Name (#123)", "Action Name (123)", "Action Name: Item (123)", etc.
         // First, strip any stats we previously appended
@@ -333,6 +309,61 @@ class ActionTimeDisplay {
             // Reconnect observer
             this.reconnectActionNameObserver(actionNameElement);
             return;
+        }
+
+        // Skip combat actions - no time display for combat
+        if (actionDetails.type === '/action_types/combat') {
+            this.displayElement.innerHTML = '';
+            this.clearAppendedStats(actionNameElement);
+
+            // REMOVE CSS overrides for combat to restore normal HP/MP bar width
+            actionNameElement.style.removeProperty('overflow');
+            actionNameElement.style.removeProperty('text-overflow');
+            actionNameElement.style.removeProperty('white-space');
+            actionNameElement.style.removeProperty('max-width');
+            actionNameElement.style.removeProperty('width');
+            actionNameElement.style.removeProperty('min-width');
+
+            // Remove from parent chain as well
+            let parent = actionNameElement.parentElement;
+            let levels = 0;
+            while (parent && levels < 5) {
+                parent.style.removeProperty('overflow');
+                parent.style.removeProperty('text-overflow');
+                parent.style.removeProperty('white-space');
+                parent.style.removeProperty('max-width');
+                parent.style.removeProperty('width');
+                parent.style.removeProperty('min-width');
+                parent = parent.parentElement;
+                levels++;
+            }
+
+            this.reconnectActionNameObserver(actionNameElement);
+            return;
+        }
+
+        // Re-apply CSS override on every update to prevent game's CSS from truncating text
+        // ONLY for non-combat actions (combat needs normal width for HP/MP bars)
+        // Use setProperty with 'important' to ensure we override game's styles
+        actionNameElement.style.setProperty('overflow', 'visible', 'important');
+        actionNameElement.style.setProperty('text-overflow', 'clip', 'important');
+        actionNameElement.style.setProperty('white-space', 'nowrap', 'important');
+        actionNameElement.style.setProperty('max-width', 'none', 'important');
+        actionNameElement.style.setProperty('width', 'auto', 'important');
+        actionNameElement.style.setProperty('min-width', 'max-content', 'important');
+
+        // Apply to entire parent chain (up to 5 levels)
+        let parent = actionNameElement.parentElement;
+        let levels = 0;
+        while (parent && levels < 5) {
+            parent.style.setProperty('overflow', 'visible', 'important');
+            parent.style.setProperty('text-overflow', 'clip', 'important');
+            parent.style.setProperty('white-space', 'nowrap', 'important');
+            parent.style.setProperty('max-width', 'none', 'important');
+            parent.style.setProperty('width', 'auto', 'important');
+            parent.style.setProperty('min-width', 'max-content', 'important');
+            parent = parent.parentElement;
+            levels++;
         }
 
         // Get character data
