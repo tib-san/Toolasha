@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.850
+// @version      0.4.851
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -1016,6 +1016,10 @@
             // Settings loaded from settings-config.js via settings-storage.js
             this.settingsMap = {};
 
+            // === SETTING CHANGE CALLBACKS ===
+            // Map of setting keys to callback functions
+            this.settingChangeCallbacks = {};
+
             // === FEATURE REGISTRY ===
             // Feature toggles with metadata for future UI
             this.features = {
@@ -1292,7 +1296,21 @@
                 if (key.startsWith('color_')) {
                     this.applyColorSettings();
                 }
+
+                // Trigger registered callbacks for this setting
+                if (this.settingChangeCallbacks[key]) {
+                    this.settingChangeCallbacks[key](value);
+                }
             }
+        }
+
+        /**
+         * Register a callback to be called when a specific setting changes
+         * @param {string} key - Setting key to watch
+         * @param {Function} callback - Callback function to call when setting changes
+         */
+        onSettingChange(key, callback) {
+            this.settingChangeCallbacks[key] = callback;
         }
 
         /**
@@ -19289,6 +19307,7 @@
             this.isActive = false;
             this.updateInterval = null;
             this.currentData = null;
+            this.lastPricingMode = null;
         }
 
         /**
@@ -19296,6 +19315,11 @@
          */
         async initialize() {
             if (this.isActive) return;
+
+            // Register callback for pricing mode changes
+            config.onSettingChange('networth_pricingMode', () => {
+                this.forceRecalculate();
+            });
 
             // Initialize header display (always enabled with networth feature)
             if (config.isFeatureEnabled('networth')) {
@@ -19318,12 +19342,16 @@
 
         /**
          * Recalculate networth and update displays
+         * @param {boolean} force - Force recalculation even if already running
          */
-        async recalculate() {
+        async recalculate(force = false) {
             try {
                 // Calculate networth
                 const networthData = await calculateNetworth();
                 this.currentData = networthData;
+
+                // Track pricing mode for change detection
+                this.lastPricingMode = networthData.pricingMode;
 
                 // Update displays
                 if (config.isFeatureEnabled('networth')) {
@@ -19335,6 +19363,19 @@
                 }
             } catch (error) {
                 console.error('[Networth] Error calculating networth:', error);
+            }
+        }
+
+        /**
+         * Force immediate recalculation (called when settings change)
+         */
+        async forceRecalculate() {
+            const currentPricingMode = config.getSetting('networth_pricingMode') || 'ask';
+
+            // Only recalculate if pricing mode actually changed
+            if (currentPricingMode !== this.lastPricingMode) {
+                console.log(`[Networth] Pricing mode changed from ${this.lastPricingMode} to ${currentPricingMode}, recalculating...`);
+                await this.recalculate(true);
             }
         }
 

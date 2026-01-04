@@ -43,6 +43,10 @@ class Config {
         // Settings loaded from settings-config.js via settings-storage.js
         this.settingsMap = {};
 
+        // === SETTING CHANGE CALLBACKS ===
+        // Map of setting keys to callback functions
+        this.settingChangeCallbacks = {};
+
         // === FEATURE REGISTRY ===
         // Feature toggles with metadata for future UI
         this.features = {
@@ -319,7 +323,21 @@ class Config {
             if (key.startsWith('color_')) {
                 this.applyColorSettings();
             }
+
+            // Trigger registered callbacks for this setting
+            if (this.settingChangeCallbacks[key]) {
+                this.settingChangeCallbacks[key](value);
+            }
         }
+    }
+
+    /**
+     * Register a callback to be called when a specific setting changes
+     * @param {string} key - Setting key to watch
+     * @param {Function} callback - Callback function to call when setting changes
+     */
+    onSettingChange(key, callback) {
+        this.settingChangeCallbacks[key] = callback;
     }
 
     /**
