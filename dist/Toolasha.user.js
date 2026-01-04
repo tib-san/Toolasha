@@ -13233,7 +13233,12 @@
             inputBox.addEventListener('keyup', updateHandler);
 
             // Also listen to clicks on the panel (for button clicks)
-            const panelClickHandler = () => {
+            // But NOT for clicks on the input box itself
+            const panelClickHandler = (event) => {
+                // Only process if click is NOT on the input box
+                if (event.target === inputBox) {
+                    return;
+                }
                 setTimeout(() => {
                     this.updateOutputTotals(detailPanel, inputBox);
                 }, 50);
@@ -13275,7 +13280,7 @@
             const outputItems = detailPanel.querySelector('[class*="SkillActionDetail_outputItems"]');
             if (outputItems) dropTable = outputItems;
 
-            // Process main outputs - just like MWIT-E
+            // Process main outputs
             this.processDropContainer(dropTable, amount);
 
             // Track processed containers to avoid duplicates
