@@ -73,6 +73,14 @@ export const settingsGroups = {
                 default: true,
                 dependencies: ['itemTooltip_prices']
             },
+            itemTooltip_detailedProfit: {
+                id: 'itemTooltip_detailedProfit',
+                label: 'Show detailed materials breakdown in profit display',
+                type: 'checkbox',
+                default: false,
+                dependencies: ['itemTooltip_profit'],
+                help: 'Shows material costs table with Ask/Bid prices, actions/hour, and profit breakdown'
+            },
             itemTooltip_expectedValue: {
                 id: 'itemTooltip_expectedValue',
                 label: 'Show expected value for openable containers',

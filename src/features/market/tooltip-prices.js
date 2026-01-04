@@ -423,7 +423,10 @@ class TooltipPrices {
             'market-profit-injected'
         );
 
-        // Build simplified profit display - only show net profit/hr and profit/day
+        // Check if detailed view is enabled
+        const showDetailed = config.getSetting('itemTooltip_detailedProfit');
+
+        // Build profit display
         let html = '<div style="border-top: 1px solid rgba(255,255,255,0.2); padding-top: 8px;">';
 
         if (profitData.itemPrice.bid > 0 && profitData.itemPrice.ask > 0) {
@@ -435,6 +438,11 @@ class TooltipPrices {
             const profitColor = profitData.profitPerHour >= 0 ? config.COLOR_PROFIT : config.COLOR_LOSS;
 
             html += `<div style="color: ${profitColor}; font-weight: bold;">Net: ${numberFormatter(profitData.profitPerHour)}/hr (${formatKMB(profitPerDay)}/day)</div>`;
+
+            // Show detailed breakdown if enabled
+            if (showDetailed) {
+                html += this.buildDetailedProfitDisplay(profitData);
+            }
         } else {
             // No market data - show cost
             html += '<div style="font-size: 0.9em; margin-left: 8px;">';
@@ -451,6 +459,78 @@ class TooltipPrices {
 
         profitDiv.innerHTML = html;
         tooltipText.appendChild(profitDiv);
+    }
+
+    /**
+     * Build detailed profit display with materials table
+     * @param {Object} profitData - Profit calculation data
+     * @returns {string} HTML string for detailed display
+     */
+    buildDetailedProfitDisplay(profitData) {
+        let html = '';
+
+        // Materials table
+        if (profitData.materialCosts && profitData.materialCosts.length > 0) {
+            html += '<div style="margin-top: 8px;">';
+            html += `<table style="width: 100%; border-collapse: collapse; font-size: 0.85em; color: ${config.COLOR_INFO};">`;
+
+            // Table header
+            html += `<tr style="border-bottom: 1px solid ${config.COLOR_BORDER};">`;
+            html += '<th style="padding: 2px 4px; text-align: left;">Material</th>';
+            html += '<th style="padding: 2px 4px; text-align: center;">Count</th>';
+            html += '<th style="padding: 2px 4px; text-align: right;">Ask</th>';
+            html += '<th style="padding: 2px 4px; text-align: right;">Bid</th>';
+            html += '</tr>';
+
+            // Fetch market prices for all materials (profit calculator only stores one price based on mode)
+            const materialsWithPrices = profitData.materialCosts.map(material => {
+                const itemHrid = material.itemHrid;
+                const marketPrice = marketAPI.getPrice(itemHrid, 0);
+
+                return {
+                    ...material,
+                    askPrice: (marketPrice?.ask && marketPrice.ask > 0) ? marketPrice.ask : 0,
+                    bidPrice: (marketPrice?.bid && marketPrice.bid > 0) ? marketPrice.bid : 0
+                };
+            });
+
+            // Calculate totals using actual amounts (not count - materialCosts uses 'amount' field)
+            const totalCount = materialsWithPrices.reduce((sum, m) => sum + m.amount, 0);
+            const totalAsk = materialsWithPrices.reduce((sum, m) => sum + (m.askPrice * m.amount), 0);
+            const totalBid = materialsWithPrices.reduce((sum, m) => sum + (m.bidPrice * m.amount), 0);
+
+            // Total row
+            html += `<tr style="border-bottom: 1px solid ${config.COLOR_BORDER};">`;
+            html += '<td style="padding: 2px 4px; font-weight: bold;">Total</td>';
+            html += `<td style="padding: 2px 4px; text-align: center;">${totalCount.toFixed(1)}</td>`;
+            html += `<td style="padding: 2px 4px; text-align: right;">${formatKMB(totalAsk)}</td>`;
+            html += `<td style="padding: 2px 4px; text-align: right;">${formatKMB(totalBid)}</td>`;
+            html += '</tr>';
+
+            // Material rows
+            for (const material of materialsWithPrices) {
+                html += '<tr>';
+                html += `<td style="padding: 2px 4px;">${material.itemName}</td>`;
+                html += `<td style="padding: 2px 4px; text-align: center;">${material.amount.toFixed(1)}</td>`;
+                html += `<td style="padding: 2px 4px; text-align: right;">${formatKMB(material.askPrice)}</td>`;
+                html += `<td style="padding: 2px 4px; text-align: right;">${formatKMB(material.bidPrice)}</td>`;
+                html += '</tr>';
+            }
+
+            html += '</table>';
+            html += '</div>';
+        }
+
+        // Detailed profit breakdown
+        html += '<div style="margin-top: 8px; font-size: 0.85em;">';
+        const profitPerAction = profitData.profitPerHour / profitData.actionsPerHour;
+        const profitPerDay = profitData.profitPerHour * 24;
+        const profitColor = profitData.profitPerHour >= 0 ? config.COLOR_PROFIT : config.COLOR_LOSS;
+
+        html += `<div style="color: ${profitColor};">Profit: ${numberFormatter(profitPerAction)}/action, ${numberFormatter(profitData.profitPerHour)}/hour, ${formatKMB(profitPerDay)}/day</div>`;
+        html += '</div>';
+
+        return html;
     }
 
 
