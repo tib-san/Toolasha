@@ -7069,14 +7069,14 @@
 
             // Create price display
             const priceDiv = dom.createStyledDiv(
-                { color: config.SCRIPT_COLOR_TOOLTIP },
+                { color: config.COLOR_TOOLTIP_INFO },
                 '',
                 'market-price-injected'
             );
 
             // Show message if no market data at all
             if (price.ask <= 0 && price.bid <= 0) {
-                priceDiv.innerHTML = `Price: <span style="color: gray; font-style: italic;">No market data</span>`;
+                priceDiv.innerHTML = `Price: <span style="color: ${config.COLOR_TEXT_SECONDARY}; font-style: italic;">No market data</span>`;
                 tooltipText.appendChild(priceDiv);
                 return;
             }
