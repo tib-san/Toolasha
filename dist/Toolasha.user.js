@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.861
+// @version      0.4.862
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -6537,21 +6537,33 @@
 
             // Consumed items section
             html += '<br><br>Consumed Items (Philosopher\'s Mirror):';
-            html += '<div style="margin-left: 12px;">';
 
             // Calculate consumed items subtotal
             let consumedSubtotal = 0;
-
-            // Show consumed items in descending order
-            const sortedConsumed = [...optimalStrategy.consumedItems].sort((a, b) => b.level - a.level);
-
-            for (const item of sortedConsumed) {
-                html += '<br>+' + item.level + ' item: ' + numberFormatter(item.breakdown.totalCost);
+            for (const item of optimalStrategy.consumedItems) {
                 consumedSubtotal += item.breakdown.totalCost;
             }
 
-            html += '<br><span style="font-weight: bold;">Subtotal: ' + numberFormatter(consumedSubtotal) + '</span>';
-            html += '</div>';
+            // Check if detailed breakdown should be shown
+            const showDetail = config.getSetting('enhanceSim_showConsumedItemsDetail');
+
+            if (showDetail) {
+                // Detailed breakdown: show each consumed item individually
+                html += '<div style="margin-left: 12px;">';
+
+                // Show consumed items in descending order
+                const sortedConsumed = [...optimalStrategy.consumedItems].sort((a, b) => b.level - a.level);
+
+                for (const item of sortedConsumed) {
+                    html += '<br>+' + item.level + ' item: ' + numberFormatter(item.breakdown.totalCost);
+                }
+
+                html += '<br><span style="font-weight: bold;">Subtotal: ' + numberFormatter(consumedSubtotal) + '</span>';
+                html += '</div>';
+            } else {
+                // Simple: just show the subtotal
+                html += ' ' + numberFormatter(consumedSubtotal);
+            }
 
             // Philosopher's Mirror cost
             if (optimalStrategy.philosopherMirrorCost > 0) {

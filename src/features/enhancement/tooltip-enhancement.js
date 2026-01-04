@@ -13,6 +13,7 @@ import { calculateEnhancement, calculatePerActionTime } from '../../utils/enhanc
 import dataManager from '../../core/data-manager.js';
 import marketAPI from '../../api/marketplace.js';
 import { numberFormatter } from '../../utils/formatters.js';
+import config from '../../core/config.js';
 
 /**
  * Calculate optimal enhancement path for an item
@@ -738,21 +739,33 @@ export function buildEnhancementTooltipHTML(enhancementData) {
 
         // Consumed items section
         html += '<br><br>Consumed Items (Philosopher\'s Mirror):';
-        html += '<div style="margin-left: 12px;">';
 
         // Calculate consumed items subtotal
         let consumedSubtotal = 0;
-
-        // Show consumed items in descending order
-        const sortedConsumed = [...optimalStrategy.consumedItems].sort((a, b) => b.level - a.level);
-
-        for (const item of sortedConsumed) {
-            html += '<br>+' + item.level + ' item: ' + numberFormatter(item.breakdown.totalCost);
+        for (const item of optimalStrategy.consumedItems) {
             consumedSubtotal += item.breakdown.totalCost;
         }
 
-        html += '<br><span style="font-weight: bold;">Subtotal: ' + numberFormatter(consumedSubtotal) + '</span>';
-        html += '</div>';
+        // Check if detailed breakdown should be shown
+        const showDetail = config.getSetting('enhanceSim_showConsumedItemsDetail');
+
+        if (showDetail) {
+            // Detailed breakdown: show each consumed item individually
+            html += '<div style="margin-left: 12px;">';
+
+            // Show consumed items in descending order
+            const sortedConsumed = [...optimalStrategy.consumedItems].sort((a, b) => b.level - a.level);
+
+            for (const item of sortedConsumed) {
+                html += '<br>+' + item.level + ' item: ' + numberFormatter(item.breakdown.totalCost);
+            }
+
+            html += '<br><span style="font-weight: bold;">Subtotal: ' + numberFormatter(consumedSubtotal) + '</span>';
+            html += '</div>';
+        } else {
+            // Simple: just show the subtotal
+            html += ' ' + numberFormatter(consumedSubtotal);
+        }
 
         // Philosopher's Mirror cost
         if (optimalStrategy.philosopherMirrorCost > 0) {
