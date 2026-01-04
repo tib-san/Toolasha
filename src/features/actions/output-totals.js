@@ -51,7 +51,15 @@ class OutputTotals {
      */
     attachToActionPanel(detailPanel) {
         // Find the input box where user enters action count
-        const inputBox = detailPanel.querySelector('input[type="number"]');
+        // Try direct selector first, then check within maxActionCountInput container
+        let inputBox = detailPanel.querySelector('input[type="number"]');
+        if (!inputBox) {
+            // Try finding input within maxActionCountInput container
+            const inputContainer = detailPanel.querySelector('[class*="maxActionCountInput"]');
+            if (inputContainer) {
+                inputBox = inputContainer.querySelector('input');
+            }
+        }
 
         if (!inputBox) {
             return;

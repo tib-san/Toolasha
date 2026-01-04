@@ -13210,7 +13210,15 @@
          */
         attachToActionPanel(detailPanel) {
             // Find the input box where user enters action count
-            const inputBox = detailPanel.querySelector('input[type="number"]');
+            // Try direct selector first, then check within maxActionCountInput container
+            let inputBox = detailPanel.querySelector('input[type="number"]');
+            if (!inputBox) {
+                // Try finding input within maxActionCountInput container
+                const inputContainer = detailPanel.querySelector('[class*="maxActionCountInput"]');
+                if (inputContainer) {
+                    inputBox = inputContainer.querySelector('input');
+                }
+            }
 
             if (!inputBox) {
                 return;
@@ -13515,14 +13523,23 @@
             const display = document.createElement('div');
             display.className = 'mwi-max-produceable';
             display.style.cssText = `
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
             font-size: 0.85em;
-            margin-top: 4px;
             padding: 4px 8px;
             text-align: center;
+            background: rgba(0, 0, 0, 0.7);
             border-top: 1px solid var(--border-color, ${config.COLOR_BORDER});
         `;
 
-            // Insert at bottom of action panel
+            // Make sure the action panel has relative positioning
+            if (actionPanel.style.position !== 'relative' && actionPanel.style.position !== 'absolute') {
+                actionPanel.style.position = 'relative';
+            }
+
+            // Append directly to action panel with absolute positioning
             actionPanel.appendChild(display);
 
             // Store reference
