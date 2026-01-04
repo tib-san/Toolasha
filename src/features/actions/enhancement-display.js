@@ -109,16 +109,6 @@ export async function displayEnhancementStats(panel, itemHrid) {
         // Detect protection item once (avoid repeated DOM queries)
         const protectionItemHrid = getProtectionItemFromUI(panel);
 
-        // Check for Philosopher's Mirror - calculator doesn't apply (100% success, different cost model)
-        if (protectionItemHrid === '/items/philosophers_mirror') {
-            // Remove existing calculator if present
-            const existing = panel.querySelector('#mwi-enhancement-stats');
-            if (existing) {
-                existing.remove();
-            }
-            return; // Exit - Philosopher's Mirror uses different mechanics
-        }
-
         // Calculate per-action time (simple calculation, no Markov chain needed)
         const perActionTime = calculatePerActionTime(
             params.enhancingLevel,
@@ -204,28 +194,26 @@ function generateCostsByLevelTable(panel, params, itemLevel, protectFromLevel, e
             });
         }
 
-        // Add protection item cost
+        // Add protection item cost (but NOT for Philosopher's Mirror - it uses different mechanics)
         let protectionCost = 0;
-        if (calc.protectionCount > 0) {
-            if (protectionItemHrid) {
-                const protectionItemDetail = gameData.itemDetailMap[protectionItemHrid];
-                let protectionPrice = 0;
+        if (calc.protectionCount > 0 && protectionItemHrid && protectionItemHrid !== '/items/philosophers_mirror') {
+            const protectionItemDetail = gameData.itemDetailMap[protectionItemHrid];
+            let protectionPrice = 0;
 
-                const protectionMarketData = marketAPI.getPrice(protectionItemHrid, 0);
-                if (protectionMarketData && protectionMarketData.ask) {
-                    protectionPrice = protectionMarketData.ask;
-                } else {
-                    protectionPrice = protectionItemDetail?.sellPrice || 0;
-                }
-
-                protectionCost = calc.protectionCount * protectionPrice;
-                const protectionName = protectionItemDetail?.name || protectionItemHrid;
-                materialBreakdown[protectionName] = {
-                    cost: protectionCost,
-                    quantity: calc.protectionCount,
-                    unitPrice: protectionPrice
-                };
+            const protectionMarketData = marketAPI.getPrice(protectionItemHrid, 0);
+            if (protectionMarketData && protectionMarketData.ask) {
+                protectionPrice = protectionMarketData.ask;
+            } else {
+                protectionPrice = protectionItemDetail?.sellPrice || 0;
             }
+
+            protectionCost = calc.protectionCount * protectionPrice;
+            const protectionName = protectionItemDetail?.name || protectionItemHrid;
+            materialBreakdown[protectionName] = {
+                cost: protectionCost,
+                quantity: calc.protectionCount,
+                unitPrice: protectionPrice
+            };
         }
 
         const totalCost = materialCost + protectionCost;
@@ -238,6 +226,46 @@ function generateCostsByLevelTable(panel, params, itemLevel, protectFromLevel, e
             cost: totalCost,
             breakdown: materialBreakdown
         });
+    }
+
+    // Calculate Philosopher's Mirror costs (if mirror is equipped)
+    const isPhilosopherMirror = protectionItemHrid === '/items/philosophers_mirror';
+    let mirrorStartLevel = null;
+    let totalSavings = 0;
+
+    if (isPhilosopherMirror) {
+        const mirrorPrice = marketAPI.getPrice('/items/philosophers_mirror', 0)?.ask || 0;
+
+        // Calculate mirror cost for each level (starts at +3)
+        for (let level = 3; level <= 20; level++) {
+            const traditionalCost = costData[level - 1].cost;
+            const mirrorCost = costData[level - 3].cost + costData[level - 2].cost + mirrorPrice;
+
+            costData[level - 1].mirrorCost = mirrorCost;
+            costData[level - 1].isMirrorCheaper = mirrorCost < traditionalCost;
+
+            // Find first level where mirror becomes cheaper
+            if (mirrorStartLevel === null && mirrorCost < traditionalCost) {
+                mirrorStartLevel = level;
+            }
+        }
+
+        // Calculate total savings if mirror is used optimally
+        if (mirrorStartLevel !== null) {
+            const traditionalFinalCost = costData[19].cost; // +20 traditional cost
+            const mirrorFinalCost = costData[19].mirrorCost; // +20 mirror cost
+            totalSavings = traditionalFinalCost - mirrorFinalCost;
+        }
+    }
+
+    // Add Philosopher's Mirror summary banner (if applicable)
+    if (isPhilosopherMirror && mirrorStartLevel !== null) {
+        lines.push('<div style="background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), rgba(255, 215, 0, 0.05)); border: 1px solid #FFD700; border-radius: 4px; padding: 8px; margin-bottom: 8px;">');
+        lines.push('<div style="color: #FFD700; font-weight: bold; font-size: 0.95em;">💎 Philosopher\'s Mirror Strategy:</div>');
+        lines.push(`<div style="color: #fff; font-size: 0.85em; margin-top: 4px;">• Use mirrors starting at <strong>+${mirrorStartLevel}</strong></div>`);
+        lines.push(`<div style="color: #88ff88; font-size: 0.85em;">• Total savings to +20: <strong>${Math.round(totalSavings).toLocaleString()}</strong> coins</div>`);
+        lines.push(`<div style="color: #aaa; font-size: 0.75em; margin-top: 4px; font-style: italic;">Rows highlighted in gold show where mirror is cheaper</div>`);
+        lines.push('</div>');
     }
 
     // Create scrollable table
@@ -264,13 +292,25 @@ function generateCostsByLevelTable(panel, params, itemLevel, protectFromLevel, e
 
     lines.push('<th style="text-align: right; padding: 4px;">Time</th>');
     lines.push('<th style="text-align: right; padding: 4px;">Total Cost</th>');
+
+    // Add Mirror Cost column if Philosopher's Mirror is equipped
+    if (isPhilosopherMirror) {
+        lines.push('<th style="text-align: right; padding: 4px; color: #FFD700;">Mirror Cost</th>');
+    }
+
     lines.push('</tr>');
 
     costData.forEach((data, index) => {
         const isLastRow = index === costData.length - 1;
-        const borderStyle = isLastRow ? '' : 'border-bottom: 1px solid #333;';
+        let borderStyle = isLastRow ? '' : 'border-bottom: 1px solid #333;';
 
-        lines.push(`<tr style="${borderStyle}">`);
+        // Highlight row if mirror is cheaper
+        let rowStyle = borderStyle;
+        if (isPhilosopherMirror && data.isMirrorCheaper) {
+            rowStyle += ' background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), rgba(255, 215, 0, 0.05));';
+        }
+
+        lines.push(`<tr style="${rowStyle}">`);
         lines.push(`<td style="padding: 6px 4px; color: #fff; font-weight: bold;">+${data.level}</td>`);
         lines.push(`<td style="padding: 6px 4px; text-align: right; color: #ccc;">${formatAttempts(data.attempts)}</td>`);
         lines.push(`<td style="padding: 6px 4px; text-align: right; color: ${data.protection > 0 ? '#ffa500' : '#888'};">${data.protection > 0 ? formatAttempts(data.protection) : '-'}</td>`);
@@ -293,6 +333,21 @@ function generateCostsByLevelTable(panel, params, itemLevel, protectFromLevel, e
 
         lines.push(`<td style="padding: 6px 4px; text-align: right; color: #ccc;">${timeReadable(data.time)}</td>`);
         lines.push(`<td style="padding: 6px 4px; text-align: right; color: #ffa500;">${Math.round(data.cost).toLocaleString()}</td>`);
+
+        // Add Mirror Cost column if Philosopher's Mirror is equipped
+        if (isPhilosopherMirror) {
+            if (data.mirrorCost !== undefined) {
+                const mirrorCostFormatted = Math.round(data.mirrorCost).toLocaleString();
+                const isCheaper = data.isMirrorCheaper;
+                const color = isCheaper ? '#FFD700' : '#888';
+                const symbol = isCheaper ? '✨ ' : '';
+                lines.push(`<td style="padding: 6px 4px; text-align: right; color: ${color}; font-weight: ${isCheaper ? 'bold' : 'normal'};">${symbol}${mirrorCostFormatted}</td>`);
+            } else {
+                // Levels 1-2 cannot use mirrors
+                lines.push(`<td style="padding: 6px 4px; text-align: right; color: #666;">N/A</td>`);
+            }
+        }
+
         lines.push('</tr>');
     });
 
