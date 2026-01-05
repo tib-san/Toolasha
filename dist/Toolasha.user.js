@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.877
+// @version      0.4.878
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -20022,9 +20022,10 @@
                 return '<div>No houses built</div>';
             }
 
-            return breakdown.map(house =>
-                `<div style="display: block; margin-bottom: 2px; white-space: nowrap;">${house.name} ${house.level}: ${networthFormatter(Math.round(house.cost))}</div>`
-            ).join('\n');
+            return breakdown.map((house, index) => {
+                const houseText = `${house.name} ${house.level}: ${networthFormatter(Math.round(house.cost))}`;
+                return index < breakdown.length - 1 ? houseText + '<br>' : houseText;
+            }).join('');
         }
 
         /**
@@ -20037,9 +20038,10 @@
                 return '<div>No abilities</div>';
             }
 
-            return breakdown.map(ability =>
-                `<div style="display: block; margin-bottom: 2px; white-space: nowrap;">${ability.name}: ${networthFormatter(Math.round(ability.cost))}</div>`
-            ).join('\n');
+            return breakdown.map((ability, index) => {
+                const abilityText = `${ability.name}: ${networthFormatter(Math.round(ability.cost))}`;
+                return index < breakdown.length - 1 ? abilityText + '<br>' : abilityText;
+            }).join('');
         }
 
         /**
@@ -20052,9 +20054,10 @@
                 return '<div>No ability books</div>';
             }
 
-            return breakdown.map(book => {
-                return `<div style="display: block; margin-bottom: 2px; white-space: nowrap;">${book.name} (${book.count}): ${networthFormatter(Math.round(book.value))}</div>`;
-            }).join('\n');
+            return breakdown.map((book, index) => {
+                const bookText = `${book.name} (${book.count}): ${networthFormatter(Math.round(book.value))}`;
+                return index < breakdown.length - 1 ? bookText + '<br>' : bookText;
+            }).join('');
         }
 
         /**
@@ -20067,9 +20070,10 @@
                 return '<div>No equipment</div>';
             }
 
-            return breakdown.map(item =>
-                `<div style="display: block; margin-bottom: 2px; white-space: nowrap;">${item.name}: ${networthFormatter(Math.round(item.value))}</div>`
-            ).join('\n');
+            return breakdown.map((item, index) => {
+                const itemText = `${item.name}: ${networthFormatter(Math.round(item.value))}`;
+                return index < breakdown.length - 1 ? itemText + '<br>' : itemText;
+            }).join('');
         }
 
         /**
@@ -20090,14 +20094,19 @@
                 const categoryId = `mwi-inventory-${categoryName.toLowerCase().replace(/\s+/g, '-')}`;
                 const categoryToggleId = `${categoryId}-toggle`;
 
+                // Build items HTML with explicit line breaks using BR tags
+                const itemsHTML = categoryData.items.map((item, index) => {
+                    const itemText = `${item.name} x${item.count}: ${networthFormatter(Math.round(item.value))}`;
+                    // Add BR after each item except the last one
+                    return index < categoryData.items.length - 1 ? itemText + '<br>' : itemText;
+                }).join('');
+
                 return `
                 <div style="cursor: pointer; margin-top: 4px; font-size: 0.85rem;" id="${categoryToggleId}">
                     + ${categoryName}: ${networthFormatter(Math.round(categoryData.totalValue))}
                 </div>
-                <div id="${categoryId}" style="display: none; margin-left: 20px; font-size: 0.75rem; color: #999;">
-                    ${categoryData.items.map(item =>
-                        `<div style="display: block; margin-bottom: 2px; white-space: nowrap;">${item.name} x${item.count}: ${networthFormatter(Math.round(item.value))}</div>`
-                    ).join('\n')}
+                <div id="${categoryId}" style="display: none; margin-left: 20px; font-size: 0.75rem; color: #999; white-space: pre-line;">
+                    ${itemsHTML}
                 </div>
             `;
             }).join('');
