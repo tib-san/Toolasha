@@ -160,39 +160,39 @@ export const settingsGroups = {
                 id: 'enhanceSim_enhancingLevel',
                 label: 'Enhancing skill level',
                 type: 'number',
-                default: 125,
+                default: 140,
                 min: 1,
                 max: 150,
-                help: 'Default: 125 (professional enhancer level)'
+                help: 'Default: 140 (professional enhancer level)'
             },
             enhanceSim_houseLevel: {
                 id: 'enhanceSim_houseLevel',
                 label: 'Observatory house room level',
                 type: 'number',
-                default: 6,
+                default: 8,
                 min: 0,
                 max: 8,
-                help: 'Default: 6 (realistic market level)'
+                help: 'Default: 8 (max level)'
             },
             enhanceSim_toolBonus: {
                 id: 'enhanceSim_toolBonus',
                 label: 'Tool success bonus %',
                 type: 'number',
-                default: 5.42,
+                default: 6.05,
                 min: 0,
                 max: 30,
                 step: 0.01,
-                help: 'Default: 5.42 (Celestial Enhancer +10)'
+                help: 'Default: 6.05 (Celestial Enhancer +13)'
             },
             enhanceSim_speedBonus: {
                 id: 'enhanceSim_speedBonus',
                 label: 'Speed bonus %',
                 type: 'number',
-                default: 0,
+                default: 48.5,
                 min: 0,
-                max: 50,
-                step: 0.01,
-                help: 'Default: 0 (not critical for cost calculations)'
+                max: 100,
+                step: 0.1,
+                help: 'Default: 48.5 (All enhancing gear +10: Body/Legs/Hands + Philosopher\'s Necklace)'
             },
             enhanceSim_blessedTea: {
                 id: 'enhanceSim_blessedTea',
@@ -226,11 +226,11 @@ export const settingsGroups = {
                 id: 'enhanceSim_drinkConcentration',
                 label: 'Drink Concentration %',
                 type: 'number',
-                default: 10.32,
+                default: 12.9,
                 min: 0,
                 max: 20,
-                step: 0.01,
-                help: 'Default: 10.32 (Guzzling Pouch +10)'
+                step: 0.1,
+                help: 'Default: 12.9 (Guzzling Pouch +10)'
             }
         }
     },

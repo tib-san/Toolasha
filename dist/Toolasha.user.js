@@ -471,39 +471,39 @@
                     id: 'enhanceSim_enhancingLevel',
                     label: 'Enhancing skill level',
                     type: 'number',
-                    default: 125,
+                    default: 140,
                     min: 1,
                     max: 150,
-                    help: 'Default: 125 (professional enhancer level)'
+                    help: 'Default: 140 (professional enhancer level)'
                 },
                 enhanceSim_houseLevel: {
                     id: 'enhanceSim_houseLevel',
                     label: 'Observatory house room level',
                     type: 'number',
-                    default: 6,
+                    default: 8,
                     min: 0,
                     max: 8,
-                    help: 'Default: 6 (realistic market level)'
+                    help: 'Default: 8 (max level)'
                 },
                 enhanceSim_toolBonus: {
                     id: 'enhanceSim_toolBonus',
                     label: 'Tool success bonus %',
                     type: 'number',
-                    default: 5.42,
+                    default: 6.05,
                     min: 0,
                     max: 30,
                     step: 0.01,
-                    help: 'Default: 5.42 (Celestial Enhancer +10)'
+                    help: 'Default: 6.05 (Celestial Enhancer +13)'
                 },
                 enhanceSim_speedBonus: {
                     id: 'enhanceSim_speedBonus',
                     label: 'Speed bonus %',
                     type: 'number',
-                    default: 0,
+                    default: 48.5,
                     min: 0,
-                    max: 50,
-                    step: 0.01,
-                    help: 'Default: 0 (not critical for cost calculations)'
+                    max: 100,
+                    step: 0.1,
+                    help: 'Default: 48.5 (All enhancing gear +10: Body/Legs/Hands + Philosopher\'s Necklace)'
                 },
                 enhanceSim_blessedTea: {
                     id: 'enhanceSim_blessedTea',
@@ -537,11 +537,11 @@
                     id: 'enhanceSim_drinkConcentration',
                     label: 'Drink Concentration %',
                     type: 'number',
-                    default: 10.32,
+                    default: 12.9,
                     min: 0,
                     max: 20,
-                    step: 0.01,
-                    help: 'Default: 10.32 (Guzzling Pouch +10)'
+                    step: 0.1,
+                    help: 'Default: 12.9 (Guzzling Pouch +10)'
                 }
             }
         },
@@ -5556,7 +5556,7 @@
             return config.getSettingValue(key, defaultValue);
         };
 
-        const houseLevel = getValue('enhanceSim_houseLevel', 6);
+        const houseLevel = getValue('enhanceSim_houseLevel', 8);
         const teas = {
             enhancing: getValue('enhanceSim_enhancingTea', false),
             superEnhancing: getValue('enhanceSim_superEnhancingTea', false),
@@ -5577,20 +5577,20 @@
         const communitySpeedBonus = communityBuffLevel > 0 ? 20 + (communityBuffLevel - 1) * 0.5 : 0;
 
         // Equipment speed is whatever's left after house/community/tea
-        const totalSpeed = getValue('enhanceSim_speedBonus', 0);
+        const totalSpeed = getValue('enhanceSim_speedBonus', 48.5);
         const equipmentSpeedBonus = Math.max(0, totalSpeed - houseSpeedBonus - communitySpeedBonus - teaSpeedBonus);
 
-        const toolBonusEquipment = getValue('enhanceSim_toolBonus', 5.42);
+        const toolBonusEquipment = getValue('enhanceSim_toolBonus', 6.05);
         const totalToolBonus = toolBonusEquipment + houseSuccessBonus;
 
         return {
-            enhancingLevel: getValue('enhanceSim_enhancingLevel', 125) + teaLevelBonus,
+            enhancingLevel: getValue('enhanceSim_enhancingLevel', 140) + teaLevelBonus,
             houseLevel: houseLevel,
             toolBonus: totalToolBonus,  // Total = equipment + house
             speedBonus: totalSpeed,
             rareFindBonus: getValue('enhanceSim_rareFindBonus', 0),
             experienceBonus: getValue('enhanceSim_experienceBonus', 0),
-            guzzlingBonus: 1 + getValue('enhanceSim_drinkConcentration', 10.32) / 100,
+            guzzlingBonus: 1 + getValue('enhanceSim_drinkConcentration', 12.9) / 100,
             teas: teas,
 
             // Display info for manual mode
