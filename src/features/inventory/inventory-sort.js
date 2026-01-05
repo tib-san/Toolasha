@@ -457,12 +457,12 @@ class InventorySort {
         badge.style.cssText = `
             position: absolute;
             top: 2px;
-            left: 2px;
+            right: 2px;
             z-index: 1;
             color: ${config.SCRIPT_COLOR_MAIN};
             font-size: 0.7rem;
             font-weight: bold;
-            text-align: left;
+            text-align: right;
             pointer-events: none;
         `;
         badge.textContent = formatKMB(Math.round(stackValue), 0);

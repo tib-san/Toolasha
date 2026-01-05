@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.880
+// @version      0.4.881
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -20769,12 +20769,12 @@
             badge.style.cssText = `
             position: absolute;
             top: 2px;
-            left: 2px;
+            right: 2px;
             z-index: 1;
             color: ${config.SCRIPT_COLOR_MAIN};
             font-size: 0.7rem;
             font-weight: bold;
-            text-align: left;
+            text-align: right;
             pointer-events: none;
         `;
             badge.textContent = formatKMB(Math.round(stackValue), 0);
