@@ -30,21 +30,20 @@ export async function calculateItemValue(item, pricingMode = 'ask') {
 
     let itemValue = 0;
 
-    // For enhanced items (1+), try market price first, then calculate enhancement cost
-    if (enhancementLevel >= 1) {
-        // Try market price first
-        const marketPrice = getMarketPrice(itemHrid, enhancementLevel, pricingMode);
+    // Check if high enhancement cost mode is enabled
+    const useHighEnhancementCost = config.getSetting('networth_highEnhancementUseCost');
+    const minLevel = config.getSetting('networth_highEnhancementMinLevel') || 13;
 
-        if (marketPrice > 0) {
-            itemValue = marketPrice;
-        } else {
-            // No market data, calculate enhancement cost
+    // For enhanced items (1+)
+    if (enhancementLevel >= 1) {
+        // For high enhancement levels, use cost instead of market price (if enabled)
+        if (useHighEnhancementCost && enhancementLevel >= minLevel) {
             // Check cache first
             const cachedCost = networthCache.get(itemHrid, enhancementLevel);
             if (cachedCost !== null) {
                 itemValue = cachedCost;
             } else {
-                // Not in cache, calculate
+                // Calculate enhancement cost (ignore market price)
                 const enhancementParams = getEnhancingParams();
                 const enhancementPath = calculateEnhancementPath(itemHrid, enhancementLevel, enhancementParams);
 
@@ -53,10 +52,33 @@ export async function calculateItemValue(item, pricingMode = 'ask') {
                     // Cache the result
                     networthCache.set(itemHrid, enhancementLevel, itemValue);
                 } else {
-                    // Enhancement calculation failed, try base item price
-                    console.warn('[Networth] Enhancement calculation failed for:', itemHrid, '+' + enhancementLevel,
-                        'enhancementPath:', enhancementPath, 'params:', enhancementParams);
+                    // Enhancement calculation failed, fallback to base item price
+                    console.warn('[Networth] Enhancement calculation failed for:', itemHrid, '+' + enhancementLevel);
                     itemValue = getMarketPrice(itemHrid, 0, pricingMode);
+                }
+            }
+        } else {
+            // Normal logic for lower enhancement levels: try market price first, then calculate
+            const marketPrice = getMarketPrice(itemHrid, enhancementLevel, pricingMode);
+
+            if (marketPrice > 0) {
+                itemValue = marketPrice;
+            } else {
+                // No market data, calculate enhancement cost
+                const cachedCost = networthCache.get(itemHrid, enhancementLevel);
+                if (cachedCost !== null) {
+                    itemValue = cachedCost;
+                } else {
+                    const enhancementParams = getEnhancingParams();
+                    const enhancementPath = calculateEnhancementPath(itemHrid, enhancementLevel, enhancementParams);
+
+                    if (enhancementPath && enhancementPath.optimalStrategy) {
+                        itemValue = enhancementPath.optimalStrategy.totalCost;
+                        networthCache.set(itemHrid, enhancementLevel, itemValue);
+                    } else {
+                        console.warn('[Networth] Enhancement calculation failed for:', itemHrid, '+' + enhancementLevel);
+                        itemValue = getMarketPrice(itemHrid, 0, pricingMode);
+                    }
                 }
             }
         }

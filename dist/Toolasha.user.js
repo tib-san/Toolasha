@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.868
+// @version      0.4.869
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -632,6 +632,29 @@
                     ],
                     dependencies: ['networth'],
                     help: 'Choose how to value items in networth calculations. Ask = insurance/replacement cost, Bid = quick-sale value, Average = balanced estimate.'
+                },
+                networth_highEnhancementUseCost: {
+                    id: 'networth_highEnhancementUseCost',
+                    label: 'Use enhancement cost for highly enhanced items',
+                    type: 'checkbox',
+                    default: true,
+                    dependencies: ['networth'],
+                    help: 'Market prices are unreliable for highly enhanced items (+13 and above). Use calculated enhancement cost instead.'
+                },
+                networth_highEnhancementMinLevel: {
+                    id: 'networth_highEnhancementMinLevel',
+                    label: 'Minimum enhancement level to use cost',
+                    type: 'select',
+                    default: 13,
+                    options: [
+                        { value: 10, label: '+10 and above' },
+                        { value: 11, label: '+11 and above' },
+                        { value: 12, label: '+12 and above' },
+                        { value: 13, label: '+13 and above (recommended)' },
+                        { value: 15, label: '+15 and above' }
+                    ],
+                    dependencies: ['networth_highEnhancementUseCost'],
+                    help: 'Enhancement level at which to stop trusting market prices'
                 }
             }
         },
@@ -19267,21 +19290,20 @@
 
         let itemValue = 0;
 
-        // For enhanced items (1+), try market price first, then calculate enhancement cost
-        if (enhancementLevel >= 1) {
-            // Try market price first
-            const marketPrice = getMarketPrice(itemHrid, enhancementLevel, pricingMode);
+        // Check if high enhancement cost mode is enabled
+        const useHighEnhancementCost = config.getSetting('networth_highEnhancementUseCost');
+        const minLevel = config.getSetting('networth_highEnhancementMinLevel') || 13;
 
-            if (marketPrice > 0) {
-                itemValue = marketPrice;
-            } else {
-                // No market data, calculate enhancement cost
+        // For enhanced items (1+)
+        if (enhancementLevel >= 1) {
+            // For high enhancement levels, use cost instead of market price (if enabled)
+            if (useHighEnhancementCost && enhancementLevel >= minLevel) {
                 // Check cache first
                 const cachedCost = networthCache.get(itemHrid, enhancementLevel);
                 if (cachedCost !== null) {
                     itemValue = cachedCost;
                 } else {
-                    // Not in cache, calculate
+                    // Calculate enhancement cost (ignore market price)
                     const enhancementParams = getEnhancingParams();
                     const enhancementPath = calculateEnhancementPath(itemHrid, enhancementLevel, enhancementParams);
 
@@ -19290,10 +19312,33 @@
                         // Cache the result
                         networthCache.set(itemHrid, enhancementLevel, itemValue);
                     } else {
-                        // Enhancement calculation failed, try base item price
-                        console.warn('[Networth] Enhancement calculation failed for:', itemHrid, '+' + enhancementLevel,
-                            'enhancementPath:', enhancementPath, 'params:', enhancementParams);
+                        // Enhancement calculation failed, fallback to base item price
+                        console.warn('[Networth] Enhancement calculation failed for:', itemHrid, '+' + enhancementLevel);
                         itemValue = getMarketPrice(itemHrid, 0, pricingMode);
+                    }
+                }
+            } else {
+                // Normal logic for lower enhancement levels: try market price first, then calculate
+                const marketPrice = getMarketPrice(itemHrid, enhancementLevel, pricingMode);
+
+                if (marketPrice > 0) {
+                    itemValue = marketPrice;
+                } else {
+                    // No market data, calculate enhancement cost
+                    const cachedCost = networthCache.get(itemHrid, enhancementLevel);
+                    if (cachedCost !== null) {
+                        itemValue = cachedCost;
+                    } else {
+                        const enhancementParams = getEnhancingParams();
+                        const enhancementPath = calculateEnhancementPath(itemHrid, enhancementLevel, enhancementParams);
+
+                        if (enhancementPath && enhancementPath.optimalStrategy) {
+                            itemValue = enhancementPath.optimalStrategy.totalCost;
+                            networthCache.set(itemHrid, enhancementLevel, itemValue);
+                        } else {
+                            console.warn('[Networth] Enhancement calculation failed for:', itemHrid, '+' + enhancementLevel);
+                            itemValue = getMarketPrice(itemHrid, 0, pricingMode);
+                        }
                     }
                 }
             }

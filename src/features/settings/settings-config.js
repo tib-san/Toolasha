@@ -321,6 +321,29 @@ export const settingsGroups = {
                 ],
                 dependencies: ['networth'],
                 help: 'Choose how to value items in networth calculations. Ask = insurance/replacement cost, Bid = quick-sale value, Average = balanced estimate.'
+            },
+            networth_highEnhancementUseCost: {
+                id: 'networth_highEnhancementUseCost',
+                label: 'Use enhancement cost for highly enhanced items',
+                type: 'checkbox',
+                default: true,
+                dependencies: ['networth'],
+                help: 'Market prices are unreliable for highly enhanced items (+13 and above). Use calculated enhancement cost instead.'
+            },
+            networth_highEnhancementMinLevel: {
+                id: 'networth_highEnhancementMinLevel',
+                label: 'Minimum enhancement level to use cost',
+                type: 'select',
+                default: 13,
+                options: [
+                    { value: 10, label: '+10 and above' },
+                    { value: 11, label: '+11 and above' },
+                    { value: 12, label: '+12 and above' },
+                    { value: 13, label: '+13 and above (recommended)' },
+                    { value: 15, label: '+15 and above' }
+                ],
+                dependencies: ['networth_highEnhancementUseCost'],
+                help: 'Enhancement level at which to stop trusting market prices'
             }
         }
     },
