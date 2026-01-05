@@ -161,8 +161,14 @@ function calculateCurrencyValue(itemHrid) {
         return 1;
     }
 
-    // Cowbells: Market value of Bag of 10 Cowbells / 10
+    // Cowbells: Market value of Bag of 10 Cowbells / 10 (if enabled)
     if (itemHrid === '/items/cowbell') {
+        // Check if cowbells should be included in net worth
+        const includeCowbells = config.getSetting('networth_includeCowbells');
+        if (!includeCowbells) {
+            return null; // Don't include cowbells in net worth
+        }
+
         const bagPrice = marketAPI.getPrice('/items/bag_of_10_cowbells', 0);
         if (bagPrice && bagPrice.ask > 0) {
             return bagPrice.ask / 10;

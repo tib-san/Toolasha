@@ -344,6 +344,14 @@ export const settingsGroups = {
                 ],
                 dependencies: ['networth_highEnhancementUseCost'],
                 help: 'Enhancement level at which to stop trusting market prices'
+            },
+            networth_includeCowbells: {
+                id: 'networth_includeCowbells',
+                label: 'Include cowbells in net worth',
+                type: 'checkbox',
+                default: false,
+                dependencies: ['networth'],
+                help: 'Cowbells are not tradeable, but they have a value based on Bag of 10 Cowbells market price'
             }
         }
     },
