@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.872
+// @version      0.4.873
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -5911,6 +5911,10 @@
         const mirrorPrice = getRealisticBaseItemPrice('/items/philosophers_mirror');
         let mirrorStartLevel = null;
 
+        // DEBUG: Log traditional costs before mirror optimization
+        console.log('[Enhancement Debug] Traditional targetCosts (before mirrors):', [...targetCosts]);
+        console.log('[Enhancement Debug] Mirror price:', mirrorPrice);
+
         if (mirrorPrice > 0) {
             for (let level = 3; level <= currentEnhancementLevel; level++) {
                 const traditionalCost = targetCosts[level];
@@ -5920,10 +5924,15 @@
                     if (mirrorStartLevel === null) {
                         mirrorStartLevel = level;
                     }
+                    console.log(`[Enhancement Debug] Level +${level}: Mirror beneficial! Traditional: ${traditionalCost}, Mirror: ${mirrorCost}, Savings: ${traditionalCost - mirrorCost}`);
                     targetCosts[level] = mirrorCost;
                 }
             }
         }
+
+        // DEBUG: Log final costs after mirror optimization
+        console.log('[Enhancement Debug] Final targetCosts (after mirrors):', [...targetCosts]);
+        console.log('[Enhancement Debug] Mirror start level:', mirrorStartLevel);
 
         // Step 4: Build final result with breakdown
         targetCosts[currentEnhancementLevel];
