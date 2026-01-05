@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.881
+// @version      0.4.882
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
-// @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
+// @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB, and sentientmilk for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
 // @run-at       document-start
 // @match        https://www.milkywayidle.com/*
@@ -13547,7 +13547,7 @@
             this.startUpdates();
 
             // Listen for inventory changes
-            dataManager.on('inventory_updated', () => this.updateAllCounts());
+            dataManager.on('items_updated', () => this.updateAllCounts());
         }
 
         /**

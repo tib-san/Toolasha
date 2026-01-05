@@ -32,7 +32,7 @@ class MaxProduceable {
         this.startUpdates();
 
         // Listen for inventory changes
-        dataManager.on('inventory_updated', () => this.updateAllCounts());
+        dataManager.on('items_updated', () => this.updateAllCounts());
     }
 
     /**
