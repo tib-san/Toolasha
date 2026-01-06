@@ -16,8 +16,8 @@ import config from '../../core/config.js';
 class MaxProduceable {
     constructor() {
         this.actionElements = new Map(); // actionPanel → {actionHrid, displayElement}
-        this.updateTimer = null;
         this.unregisterObserver = null;
+        this.lastCrimsonMilkCount = null; // For debugging inventory updates
     }
 
     /**
@@ -31,15 +31,19 @@ class MaxProduceable {
         console.log('[MaxProduceable] Initializing...');
 
         this.setupObserver();
-        this.startUpdates();
 
-        // Listen for inventory changes
+        // Event-driven updates (no polling needed)
         dataManager.on('items_updated', () => {
-            console.log('[MaxProduceable] items_updated event fired - updating all counts');
+            console.log('[MaxProduceable] items_updated event - updating displays');
             this.updateAllCounts();
         });
 
-        console.log('[MaxProduceable] Initialized successfully');
+        dataManager.on('action_completed', () => {
+            console.log('[MaxProduceable] action_completed event - updating displays');
+            this.updateAllCounts();
+        });
+
+        console.log('[MaxProduceable] Initialized (event-driven mode)');
     }
 
     /**
@@ -65,7 +69,6 @@ class MaxProduceable {
         const actionHrid = this.getActionHridFromPanel(actionPanel);
 
         if (!actionHrid) {
-            console.log('[MaxProduceable] No action HRID found for panel');
             return;
         }
 
@@ -76,12 +79,9 @@ class MaxProduceable {
             return;
         }
 
-        console.log('[MaxProduceable] Injecting for action:', actionDetails.name, actionHrid);
-
         // Check if already injected
         const existingDisplay = actionPanel.querySelector('.mwi-max-produceable');
         if (existingDisplay) {
-            console.log('[MaxProduceable] Found existing display, re-registering');
             // Re-register existing display (DOM elements may be reused across navigation)
             this.actionElements.set(actionPanel, {
                 actionHrid: actionHrid,
@@ -158,18 +158,26 @@ class MaxProduceable {
     /**
      * Calculate max produceable count for an action
      * @param {string} actionHrid - The action HRID
+     * @param {Array} inventory - Inventory array (optional, will fetch if not provided)
      * @returns {number|null} Max produceable count or null
      */
-    calculateMaxProduceable(actionHrid) {
+    calculateMaxProduceable(actionHrid, inventory = null) {
         const actionDetails = dataManager.getActionDetails(actionHrid);
-        const inventory = dataManager.getInventory();
 
-        console.log('[MaxProduceable] Calculate for', actionHrid);
-        console.log('[MaxProduceable]   Inventory available:', inventory ? `${inventory.length} items` : 'NULL');
+        // Get inventory if not provided
+        if (!inventory) {
+            inventory = dataManager.getInventory();
+        }
 
         if (!actionDetails || !inventory) {
-            console.log('[MaxProduceable]   Returning null (no data)');
             return null;
+        }
+
+        // Debug for Crimson Cheese specifically
+        const isCrimsonCheese = actionHrid === '/actions/cheesesmithing/crimson_cheese';
+        if (isCrimsonCheese) {
+            console.log('[MaxProduceable] Calculating Crimson Cheese:');
+            console.log('[MaxProduceable]   Action requires:', actionDetails.inputItems);
         }
 
         // Calculate max crafts per input
@@ -182,7 +190,9 @@ class MaxProduceable {
             const invCount = invItem?.count || 0;
             const maxCrafts = Math.floor(invCount / input.count);
 
-            console.log('[MaxProduceable]   Input:', input.itemHrid, 'Need:', input.count, 'Have:', invCount, 'Max crafts:', maxCrafts);
+            if (isCrimsonCheese) {
+                console.log('[MaxProduceable]   Input:', input.itemHrid, 'need:', input.count, 'have:', invCount, 'max crafts:', maxCrafts);
+            }
 
             return maxCrafts;
         });
@@ -197,32 +207,35 @@ class MaxProduceable {
             );
 
             const upgradeCount = upgradeItem?.count || 0;
-            console.log('[MaxProduceable]   Upgrade item:', actionDetails.upgradeItemHrid, 'Have:', upgradeCount);
             minCrafts = Math.min(minCrafts, upgradeCount);
+
+            if (isCrimsonCheese) {
+                console.log('[MaxProduceable]   Upgrade item:', actionDetails.upgradeItemHrid, 'have:', upgradeCount);
+            }
         }
 
-        console.log('[MaxProduceable]   Final max crafts:', minCrafts);
+        if (isCrimsonCheese) {
+            console.log('[MaxProduceable]   Final result:', minCrafts);
+        }
+
         return minCrafts;
     }
 
     /**
      * Update display count for a single action panel
      * @param {HTMLElement} actionPanel - The action panel element
+     * @param {Array} inventory - Inventory array (optional)
      */
-    updateCount(actionPanel) {
+    updateCount(actionPanel, inventory = null) {
         const data = this.actionElements.get(actionPanel);
 
         if (!data) {
-            console.log('[MaxProduceable] UpdateCount called but no data in Map for panel');
             return;
         }
 
-        console.log('[MaxProduceable] UpdateCount for:', data.actionHrid);
-
-        const maxCrafts = this.calculateMaxProduceable(data.actionHrid);
+        const maxCrafts = this.calculateMaxProduceable(data.actionHrid, inventory);
 
         if (maxCrafts === null) {
-            console.log('[MaxProduceable]   Hiding display (null result)');
             data.displayElement.style.display = 'none';
             return;
         }
@@ -237,8 +250,6 @@ class MaxProduceable {
             color = config.COLOR_PROFIT; // Green - plenty of materials
         }
 
-        console.log('[MaxProduceable]   Showing:', maxCrafts, 'Color:', color);
-
         data.displayElement.style.display = 'block';
         data.displayElement.innerHTML = `<span style="color: ${color};">Can produce: ${maxCrafts.toLocaleString()}</span>`;
     }
@@ -247,30 +258,30 @@ class MaxProduceable {
      * Update all counts
      */
     updateAllCounts() {
-        console.log('[MaxProduceable] UpdateAllCounts - tracking', this.actionElements.size, 'panels');
+        // Get inventory once for all calculations (like MWIT-E does)
+        const inventory = dataManager.getInventory();
+
+        if (!inventory) {
+            return;
+        }
+
+        // Find crimson milk in inventory for debugging (only log if changed)
+        const crimsonMilk = inventory.find(item => item.itemHrid === '/items/crimson_milk' && item.itemLocationHrid === '/item_locations/inventory');
+        const newCount = crimsonMilk?.count || 0;
+        if (!this.lastCrimsonMilkCount || this.lastCrimsonMilkCount !== newCount) {
+            console.log('[MaxProduceable] Crimson milk count changed:', this.lastCrimsonMilkCount, '→', newCount);
+            this.lastCrimsonMilkCount = newCount;
+        }
 
         // Clean up stale references and update valid ones
         for (const actionPanel of [...this.actionElements.keys()]) {
             if (document.body.contains(actionPanel)) {
-                this.updateCount(actionPanel);
+                this.updateCount(actionPanel, inventory);
             } else {
                 // Panel no longer in DOM, remove from tracking
-                console.log('[MaxProduceable] Removing stale panel from tracking');
                 this.actionElements.delete(actionPanel);
             }
         }
-
-        console.log('[MaxProduceable] After cleanup, tracking', this.actionElements.size, 'panels');
-    }
-
-    /**
-     * Start periodic updates
-     */
-    startUpdates() {
-        // Update every 2 seconds
-        this.updateTimer = setInterval(() => {
-            this.updateAllCounts();
-        }, 2000);
     }
 
     /**
@@ -280,11 +291,6 @@ class MaxProduceable {
         if (this.unregisterObserver) {
             this.unregisterObserver();
             this.unregisterObserver = null;
-        }
-
-        if (this.updateTimer) {
-            clearInterval(this.updateTimer);
-            this.updateTimer = null;
         }
 
         // Remove all injected elements

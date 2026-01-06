@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.894
+// @version      0.4.895
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
-// @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB, and sentientmilk for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
+// @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB, and sentientmilk for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name.
 // @license      CC-BY-NC-SA-4.0
 // @run-at       document-start
 // @match        https://www.milkywayidle.com/*
@@ -1718,6 +1718,11 @@
                 const data = JSON.parse(message);
                 const messageType = data.type;
 
+                // Debug logging for items_updated specifically
+                if (messageType === 'items_updated') {
+                    console.log('[WebSocket] items_updated message received, handlers registered:', this.messageHandlers.get(messageType)?.length || 0);
+                }
+
                 // Save critical data to GM storage for Combat Sim export
                 this.saveCombatSimData(messageType, message);
 
@@ -2264,17 +2269,61 @@
                     }
                 }
 
+                // CRITICAL: Update inventory from action_completed (this is how inventory updates during gathering!)
+                if (data.endCharacterItems && Array.isArray(data.endCharacterItems)) {
+                    console.log('[DataManager] action_completed contains', data.endCharacterItems.length, 'item updates');
+
+                    for (const endItem of data.endCharacterItems) {
+                        // Only update inventory items
+                        if (endItem.itemLocationHrid !== '/item_locations/inventory') {
+                            continue;
+                        }
+
+                        // Find and update the item in inventory
+                        for (const invItem of this.characterItems) {
+                            if (invItem.id === endItem.id) {
+                                console.log('[DataManager]   Updated via action_completed:', endItem.itemHrid, 'from', invItem.count, 'to', endItem.count);
+                                invItem.count = endItem.count;
+                                break;
+                            }
+                        }
+                    }
+                }
+
                 this.emit('action_completed', data);
             });
 
             // Handle items_updated (inventory/equipment changes)
             this.webSocketHook.on('items_updated', (data) => {
                 if (data.endCharacterItems) {
-                    // Update inventory cache with fresh data
-                    this.characterItems = data.endCharacterItems;
+                    console.log('[DataManager] items_updated received:', data.endCharacterItems.length, 'items');
+
+                    // Update inventory items in-place (endCharacterItems contains only changed items, not full inventory)
+                    for (const item of data.endCharacterItems) {
+                        if (item.itemLocationHrid !== "/item_locations/inventory") {
+                            // Equipment items handled by updateEquipmentMap
+                            continue;
+                        }
+
+                        console.log('[DataManager]   Updating item:', item.itemHrid, 'count:', item.count, 'id:', item.id);
+
+                        // Update or add inventory item
+                        const index = this.characterItems.findIndex((invItem) => invItem.id === item.id);
+                        if (index !== -1) {
+                            // Update existing item count
+                            console.log('[DataManager]     Found at index', index, '- old count:', this.characterItems[index].count, '→ new count:', item.count);
+                            this.characterItems[index].count = item.count;
+                        } else {
+                            // Add new item to inventory
+                            console.log('[DataManager]     New item, adding to inventory');
+                            this.characterItems.push(item);
+                        }
+                    }
+
                     this.updateEquipmentMap(data.endCharacterItems);
                 }
 
+                console.log('[DataManager] Emitting items_updated event to', this.eventListeners.get('items_updated')?.length || 0, 'listeners');
                 this.emit('items_updated', data);
             });
 
@@ -13707,8 +13756,8 @@
     class MaxProduceable {
         constructor() {
             this.actionElements = new Map(); // actionPanel → {actionHrid, displayElement}
-            this.updateTimer = null;
             this.unregisterObserver = null;
+            this.lastCrimsonMilkCount = null; // For debugging inventory updates
         }
 
         /**
@@ -13722,15 +13771,19 @@
             console.log('[MaxProduceable] Initializing...');
 
             this.setupObserver();
-            this.startUpdates();
 
-            // Listen for inventory changes
+            // Event-driven updates (no polling needed)
             dataManager.on('items_updated', () => {
-                console.log('[MaxProduceable] items_updated event fired - updating all counts');
+                console.log('[MaxProduceable] items_updated event - updating displays');
                 this.updateAllCounts();
             });
 
-            console.log('[MaxProduceable] Initialized successfully');
+            dataManager.on('action_completed', () => {
+                console.log('[MaxProduceable] action_completed event - updating displays');
+                this.updateAllCounts();
+            });
+
+            console.log('[MaxProduceable] Initialized (event-driven mode)');
         }
 
         /**
@@ -13756,7 +13809,6 @@
             const actionHrid = this.getActionHridFromPanel(actionPanel);
 
             if (!actionHrid) {
-                console.log('[MaxProduceable] No action HRID found for panel');
                 return;
             }
 
@@ -13767,12 +13819,9 @@
                 return;
             }
 
-            console.log('[MaxProduceable] Injecting for action:', actionDetails.name, actionHrid);
-
             // Check if already injected
             const existingDisplay = actionPanel.querySelector('.mwi-max-produceable');
             if (existingDisplay) {
-                console.log('[MaxProduceable] Found existing display, re-registering');
                 // Re-register existing display (DOM elements may be reused across navigation)
                 this.actionElements.set(actionPanel, {
                     actionHrid: actionHrid,
@@ -13849,18 +13898,26 @@
         /**
          * Calculate max produceable count for an action
          * @param {string} actionHrid - The action HRID
+         * @param {Array} inventory - Inventory array (optional, will fetch if not provided)
          * @returns {number|null} Max produceable count or null
          */
-        calculateMaxProduceable(actionHrid) {
+        calculateMaxProduceable(actionHrid, inventory = null) {
             const actionDetails = dataManager.getActionDetails(actionHrid);
-            const inventory = dataManager.getInventory();
 
-            console.log('[MaxProduceable] Calculate for', actionHrid);
-            console.log('[MaxProduceable]   Inventory available:', inventory ? `${inventory.length} items` : 'NULL');
+            // Get inventory if not provided
+            if (!inventory) {
+                inventory = dataManager.getInventory();
+            }
 
             if (!actionDetails || !inventory) {
-                console.log('[MaxProduceable]   Returning null (no data)');
                 return null;
+            }
+
+            // Debug for Crimson Cheese specifically
+            const isCrimsonCheese = actionHrid === '/actions/cheesesmithing/crimson_cheese';
+            if (isCrimsonCheese) {
+                console.log('[MaxProduceable] Calculating Crimson Cheese:');
+                console.log('[MaxProduceable]   Action requires:', actionDetails.inputItems);
             }
 
             // Calculate max crafts per input
@@ -13873,7 +13930,9 @@
                 const invCount = invItem?.count || 0;
                 const maxCrafts = Math.floor(invCount / input.count);
 
-                console.log('[MaxProduceable]   Input:', input.itemHrid, 'Need:', input.count, 'Have:', invCount, 'Max crafts:', maxCrafts);
+                if (isCrimsonCheese) {
+                    console.log('[MaxProduceable]   Input:', input.itemHrid, 'need:', input.count, 'have:', invCount, 'max crafts:', maxCrafts);
+                }
 
                 return maxCrafts;
             });
@@ -13888,32 +13947,35 @@
                 );
 
                 const upgradeCount = upgradeItem?.count || 0;
-                console.log('[MaxProduceable]   Upgrade item:', actionDetails.upgradeItemHrid, 'Have:', upgradeCount);
                 minCrafts = Math.min(minCrafts, upgradeCount);
+
+                if (isCrimsonCheese) {
+                    console.log('[MaxProduceable]   Upgrade item:', actionDetails.upgradeItemHrid, 'have:', upgradeCount);
+                }
             }
 
-            console.log('[MaxProduceable]   Final max crafts:', minCrafts);
+            if (isCrimsonCheese) {
+                console.log('[MaxProduceable]   Final result:', minCrafts);
+            }
+
             return minCrafts;
         }
 
         /**
          * Update display count for a single action panel
          * @param {HTMLElement} actionPanel - The action panel element
+         * @param {Array} inventory - Inventory array (optional)
          */
-        updateCount(actionPanel) {
+        updateCount(actionPanel, inventory = null) {
             const data = this.actionElements.get(actionPanel);
 
             if (!data) {
-                console.log('[MaxProduceable] UpdateCount called but no data in Map for panel');
                 return;
             }
 
-            console.log('[MaxProduceable] UpdateCount for:', data.actionHrid);
-
-            const maxCrafts = this.calculateMaxProduceable(data.actionHrid);
+            const maxCrafts = this.calculateMaxProduceable(data.actionHrid, inventory);
 
             if (maxCrafts === null) {
-                console.log('[MaxProduceable]   Hiding display (null result)');
                 data.displayElement.style.display = 'none';
                 return;
             }
@@ -13928,8 +13990,6 @@
                 color = config.COLOR_PROFIT; // Green - plenty of materials
             }
 
-            console.log('[MaxProduceable]   Showing:', maxCrafts, 'Color:', color);
-
             data.displayElement.style.display = 'block';
             data.displayElement.innerHTML = `<span style="color: ${color};">Can produce: ${maxCrafts.toLocaleString()}</span>`;
         }
@@ -13938,30 +13998,30 @@
          * Update all counts
          */
         updateAllCounts() {
-            console.log('[MaxProduceable] UpdateAllCounts - tracking', this.actionElements.size, 'panels');
+            // Get inventory once for all calculations (like MWIT-E does)
+            const inventory = dataManager.getInventory();
+
+            if (!inventory) {
+                return;
+            }
+
+            // Find crimson milk in inventory for debugging (only log if changed)
+            const crimsonMilk = inventory.find(item => item.itemHrid === '/items/crimson_milk' && item.itemLocationHrid === '/item_locations/inventory');
+            const newCount = crimsonMilk?.count || 0;
+            if (!this.lastCrimsonMilkCount || this.lastCrimsonMilkCount !== newCount) {
+                console.log('[MaxProduceable] Crimson milk count changed:', this.lastCrimsonMilkCount, '→', newCount);
+                this.lastCrimsonMilkCount = newCount;
+            }
 
             // Clean up stale references and update valid ones
             for (const actionPanel of [...this.actionElements.keys()]) {
                 if (document.body.contains(actionPanel)) {
-                    this.updateCount(actionPanel);
+                    this.updateCount(actionPanel, inventory);
                 } else {
                     // Panel no longer in DOM, remove from tracking
-                    console.log('[MaxProduceable] Removing stale panel from tracking');
                     this.actionElements.delete(actionPanel);
                 }
             }
-
-            console.log('[MaxProduceable] After cleanup, tracking', this.actionElements.size, 'panels');
-        }
-
-        /**
-         * Start periodic updates
-         */
-        startUpdates() {
-            // Update every 2 seconds
-            this.updateTimer = setInterval(() => {
-                this.updateAllCounts();
-            }, 2000);
         }
 
         /**
@@ -13971,11 +14031,6 @@
             if (this.unregisterObserver) {
                 this.unregisterObserver();
                 this.unregisterObserver = null;
-            }
-
-            if (this.updateTimer) {
-                clearInterval(this.updateTimer);
-                this.updateTimer = null;
             }
 
             // Remove all injected elements

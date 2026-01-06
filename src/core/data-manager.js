@@ -190,17 +190,61 @@ class DataManager {
                 }
             }
 
+            // CRITICAL: Update inventory from action_completed (this is how inventory updates during gathering!)
+            if (data.endCharacterItems && Array.isArray(data.endCharacterItems)) {
+                console.log('[DataManager] action_completed contains', data.endCharacterItems.length, 'item updates');
+
+                for (const endItem of data.endCharacterItems) {
+                    // Only update inventory items
+                    if (endItem.itemLocationHrid !== '/item_locations/inventory') {
+                        continue;
+                    }
+
+                    // Find and update the item in inventory
+                    for (const invItem of this.characterItems) {
+                        if (invItem.id === endItem.id) {
+                            console.log('[DataManager]   Updated via action_completed:', endItem.itemHrid, 'from', invItem.count, 'to', endItem.count);
+                            invItem.count = endItem.count;
+                            break;
+                        }
+                    }
+                }
+            }
+
             this.emit('action_completed', data);
         });
 
         // Handle items_updated (inventory/equipment changes)
         this.webSocketHook.on('items_updated', (data) => {
             if (data.endCharacterItems) {
-                // Update inventory cache with fresh data
-                this.characterItems = data.endCharacterItems;
+                console.log('[DataManager] items_updated received:', data.endCharacterItems.length, 'items');
+
+                // Update inventory items in-place (endCharacterItems contains only changed items, not full inventory)
+                for (const item of data.endCharacterItems) {
+                    if (item.itemLocationHrid !== "/item_locations/inventory") {
+                        // Equipment items handled by updateEquipmentMap
+                        continue;
+                    }
+
+                    console.log('[DataManager]   Updating item:', item.itemHrid, 'count:', item.count, 'id:', item.id);
+
+                    // Update or add inventory item
+                    const index = this.characterItems.findIndex((invItem) => invItem.id === item.id);
+                    if (index !== -1) {
+                        // Update existing item count
+                        console.log('[DataManager]     Found at index', index, '- old count:', this.characterItems[index].count, '→ new count:', item.count);
+                        this.characterItems[index].count = item.count;
+                    } else {
+                        // Add new item to inventory
+                        console.log('[DataManager]     New item, adding to inventory');
+                        this.characterItems.push(item);
+                    }
+                }
+
                 this.updateEquipmentMap(data.endCharacterItems);
             }
 
+            console.log('[DataManager] Emitting items_updated event to', this.eventListeners.get('items_updated')?.length || 0, 'listeners');
             this.emit('items_updated', data);
         });
 
