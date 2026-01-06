@@ -107,6 +107,7 @@ async function handleEnhancementStart(action) {
 
         if (matchingSessionId) {
             await enhancementTracker.resumeSession(matchingSessionId);
+            enhancementUI.scheduleUpdate();
             return;
         }
 
@@ -117,6 +118,8 @@ async function handleEnhancementStart(action) {
             // Extend by 5 levels (or to 20, whichever is lower)
             const newTarget = Math.min(currentLevel + 5, 20);
             await enhancementTracker.extendSessionTarget(extendableSessionId, newTarget);
+            enhancementUI.switchToSession(extendableSessionId);
+            enhancementUI.scheduleUpdate();
             return;
         }
 
@@ -127,7 +130,9 @@ async function handleEnhancementStart(action) {
         }
 
         // Priority 4: Always start new session when tracker is enabled
-        await enhancementTracker.startSession(itemHrid, currentLevel, targetLevel, protectFrom);
+        const sessionId = await enhancementTracker.startSession(itemHrid, currentLevel, targetLevel, protectFrom);
+        enhancementUI.switchToSession(sessionId);
+        enhancementUI.scheduleUpdate();
 
     } catch (error) {
     }
@@ -291,9 +296,13 @@ async function handleEnhancementResult(action, data) {
                 startLevel = newLevel - 1;
             }
 
-            await enhancementTracker.startSession(itemHrid, startLevel, targetLevel, protectFrom);
+            const sessionId = await enhancementTracker.startSession(itemHrid, startLevel, targetLevel, protectFrom);
             currentSession = enhancementTracker.getCurrentSession();
             justCreatedNewSession = true; // Flag that we just created this session
+
+            // Switch UI to new session and update display
+            enhancementUI.switchToSession(sessionId);
+            enhancementUI.scheduleUpdate();
         }
 
         // On first attempt (rawCount === 1), start session if auto-start is enabled
@@ -319,8 +328,12 @@ async function handleEnhancementResult(action, data) {
 
                 // Always start new session when tracker is enabled
                 const targetLevel = action.enhancingMaxLevel || Math.min(newLevel + 5, 20);
-                await enhancementTracker.startSession(itemHrid, startLevel, targetLevel, protectFrom);
+                const sessionId = await enhancementTracker.startSession(itemHrid, startLevel, targetLevel, protectFrom);
                 currentSession = enhancementTracker.getCurrentSession();
+
+                // Switch UI to new session and update display
+                enhancementUI.switchToSession(sessionId);
+                enhancementUI.scheduleUpdate();
 
                 if (!currentSession) {
                     return;
@@ -336,6 +349,10 @@ async function handleEnhancementResult(action, data) {
                 const newTarget = Math.min(newLevel + 5, 20);
                 await enhancementTracker.extendSessionTarget(extendableSessionId, newTarget);
                 currentSession = enhancementTracker.getCurrentSession();
+
+                // Switch UI to extended session and update display
+                enhancementUI.switchToSession(extendableSessionId);
+                enhancementUI.scheduleUpdate();
             } else {
                 return;
             }

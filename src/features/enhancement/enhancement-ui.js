@@ -178,6 +178,19 @@ class EnhancementUI {
     }
 
     /**
+     * Switch viewing to a specific session by ID
+     * @param {string} sessionId - Session ID to view
+     */
+    switchToSession(sessionId) {
+        const sessions = Object.values(enhancementTracker.getAllSessions());
+        const index = sessions.findIndex(session => session.id === sessionId);
+
+        if (index !== -1) {
+            this.currentViewingIndex = index;
+        }
+    }
+
+    /**
      * Create the floating UI panel
      */
     createFloatingUI() {

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.890
+// @version      0.4.891
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB, and sentientmilk for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -22069,6 +22069,19 @@
         }
 
         /**
+         * Switch viewing to a specific session by ID
+         * @param {string} sessionId - Session ID to view
+         */
+        switchToSession(sessionId) {
+            const sessions = Object.values(enhancementTracker.getAllSessions());
+            const index = sessions.findIndex(session => session.id === sessionId);
+
+            if (index !== -1) {
+                this.currentViewingIndex = index;
+            }
+        }
+
+        /**
          * Create the floating UI panel
          */
         createFloatingUI() {
@@ -23088,9 +23101,13 @@
                     startLevel = newLevel - 1;
                 }
 
-                await enhancementTracker.startSession(itemHrid, startLevel, targetLevel, protectFrom);
+                const sessionId = await enhancementTracker.startSession(itemHrid, startLevel, targetLevel, protectFrom);
                 currentSession = enhancementTracker.getCurrentSession();
                 justCreatedNewSession = true; // Flag that we just created this session
+
+                // Switch UI to new session and update display
+                enhancementUI.switchToSession(sessionId);
+                enhancementUI.scheduleUpdate();
             }
 
             // On first attempt (rawCount === 1), start session if auto-start is enabled
@@ -23116,8 +23133,12 @@
 
                     // Always start new session when tracker is enabled
                     const targetLevel = action.enhancingMaxLevel || Math.min(newLevel + 5, 20);
-                    await enhancementTracker.startSession(itemHrid, startLevel, targetLevel, protectFrom);
+                    const sessionId = await enhancementTracker.startSession(itemHrid, startLevel, targetLevel, protectFrom);
                     currentSession = enhancementTracker.getCurrentSession();
+
+                    // Switch UI to new session and update display
+                    enhancementUI.switchToSession(sessionId);
+                    enhancementUI.scheduleUpdate();
 
                     if (!currentSession) {
                         return;
@@ -23133,6 +23154,10 @@
                     const newTarget = Math.min(newLevel + 5, 20);
                     await enhancementTracker.extendSessionTarget(extendableSessionId, newTarget);
                     currentSession = enhancementTracker.getCurrentSession();
+
+                    // Switch UI to extended session and update display
+                    enhancementUI.switchToSession(extendableSessionId);
+                    enhancementUI.scheduleUpdate();
                 } else {
                     return;
                 }
