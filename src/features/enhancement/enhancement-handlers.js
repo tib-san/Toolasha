@@ -281,6 +281,12 @@ async function handleEnhancementResult(action, data) {
                 return;
             }
 
+            // Different item - finalize old session and start new one
+            if (currentSession && currentSession.itemHrid !== itemHrid) {
+                await enhancementTracker.finalizeCurrentSession();
+                currentSession = null;
+            }
+
             if (!currentSession) {
                 // CRITICAL: On first event, primaryItemHash shows RESULT level, not starting level
                 // We need to infer the starting level from the result
