@@ -69,7 +69,15 @@ class MaxProduceable {
         }
 
         // Check if already injected
-        if (actionPanel.querySelector('.mwi-max-produceable')) {
+        const existingDisplay = actionPanel.querySelector('.mwi-max-produceable');
+        if (existingDisplay) {
+            // Re-register existing display (DOM elements may be reused across navigation)
+            this.actionElements.set(actionPanel, {
+                actionHrid: actionHrid,
+                displayElement: existingDisplay
+            });
+            // Update with fresh inventory data
+            this.updateCount(actionPanel);
             return;
         }
 
@@ -212,8 +220,14 @@ class MaxProduceable {
      * Update all counts
      */
     updateAllCounts() {
-        for (const actionPanel of this.actionElements.keys()) {
-            this.updateCount(actionPanel);
+        // Clean up stale references and update valid ones
+        for (const actionPanel of [...this.actionElements.keys()]) {
+            if (document.body.contains(actionPanel)) {
+                this.updateCount(actionPanel);
+            } else {
+                // Panel no longer in DOM, remove from tracking
+                this.actionElements.delete(actionPanel);
+            }
         }
     }
 
