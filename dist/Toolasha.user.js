@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.888
+// @version      0.4.889
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB, and sentientmilk for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name. 
 // @license      CC-BY-NC-SA-4.0
@@ -1616,8 +1616,11 @@
             // Capture hook instance for listener closure
             const hookInstance = this;
 
-            // Get original WebSocket from unsafeWindow (game's context)
-            const OriginalWebSocket = unsafeWindow.WebSocket;
+            // Get target window - unsafeWindow in Firefox, window in Chrome/Chromium
+            const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+
+            // Get original WebSocket from game's context
+            const OriginalWebSocket = targetWindow.WebSocket;
 
             // Create wrapper class
             class WrappedWebSocket extends OriginalWebSocket {
@@ -1660,7 +1663,7 @@
             });
 
             // Replace window.WebSocket in game's context
-            unsafeWindow.WebSocket = WrappedWebSocket;
+            targetWindow.WebSocket = WrappedWebSocket;
 
             this.isHooked = true;
             console.log('[WebSocket Hook] Hook successfully installed');
@@ -23062,19 +23065,37 @@
                 return;
             }
 
-            // On first attempt (rawCount === 1), start session if auto-start is enabled
-            // BUT: Ignore if we already have an active session (handles out-of-order events)
+            // Check for item changes on EVERY attempt (not just rawCount === 1)
             let currentSession = enhancementTracker.getCurrentSession();
-            if (rawCount === 1) {
-                if (currentSession && currentSession.itemHrid === itemHrid) {
-                    // Already have a session for this item, ignore this late rawCount=1 event
-                    return;
+            let justCreatedNewSession = false;
+
+            // If session exists but is for a different item, finalize and start new session
+            if (currentSession && currentSession.itemHrid !== itemHrid) {
+                await enhancementTracker.finalizeCurrentSession();
+                currentSession = null;
+
+                // Create new session for the new item
+                const protectFrom = action.enhancingProtectionMinLevel || 0;
+                const targetLevel = action.enhancingMaxLevel || Math.min(newLevel + 5, 20);
+
+                // Infer starting level from current level
+                let startLevel = newLevel;
+                if (newLevel > 0 && newLevel < Math.max(2, protectFrom)) {
+                    startLevel = newLevel - 1;
                 }
 
-                // Different item - finalize old session and start new one
-                if (currentSession && currentSession.itemHrid !== itemHrid) {
-                    await enhancementTracker.finalizeCurrentSession();
-                    currentSession = null;
+                await enhancementTracker.startSession(itemHrid, startLevel, targetLevel, protectFrom);
+                currentSession = enhancementTracker.getCurrentSession();
+                justCreatedNewSession = true; // Flag that we just created this session
+            }
+
+            // On first attempt (rawCount === 1), start session if auto-start is enabled
+            // BUT: Ignore if we already have an active session (handles out-of-order events)
+            if (rawCount === 1) {
+                // Skip early return if we just created a session for item change
+                if (!justCreatedNewSession && currentSession && currentSession.itemHrid === itemHrid) {
+                    // Already have a session for this item, ignore this late rawCount=1 event
+                    return;
                 }
 
                 if (!currentSession) {

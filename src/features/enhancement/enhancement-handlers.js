@@ -272,19 +272,37 @@ async function handleEnhancementResult(action, data) {
             return;
         }
 
-        // On first attempt (rawCount === 1), start session if auto-start is enabled
-        // BUT: Ignore if we already have an active session (handles out-of-order events)
+        // Check for item changes on EVERY attempt (not just rawCount === 1)
         let currentSession = enhancementTracker.getCurrentSession();
-        if (rawCount === 1) {
-            if (currentSession && currentSession.itemHrid === itemHrid) {
-                // Already have a session for this item, ignore this late rawCount=1 event
-                return;
+        let justCreatedNewSession = false;
+
+        // If session exists but is for a different item, finalize and start new session
+        if (currentSession && currentSession.itemHrid !== itemHrid) {
+            await enhancementTracker.finalizeCurrentSession();
+            currentSession = null;
+
+            // Create new session for the new item
+            const protectFrom = action.enhancingProtectionMinLevel || 0;
+            const targetLevel = action.enhancingMaxLevel || Math.min(newLevel + 5, 20);
+
+            // Infer starting level from current level
+            let startLevel = newLevel;
+            if (newLevel > 0 && newLevel < Math.max(2, protectFrom)) {
+                startLevel = newLevel - 1;
             }
 
-            // Different item - finalize old session and start new one
-            if (currentSession && currentSession.itemHrid !== itemHrid) {
-                await enhancementTracker.finalizeCurrentSession();
-                currentSession = null;
+            await enhancementTracker.startSession(itemHrid, startLevel, targetLevel, protectFrom);
+            currentSession = enhancementTracker.getCurrentSession();
+            justCreatedNewSession = true; // Flag that we just created this session
+        }
+
+        // On first attempt (rawCount === 1), start session if auto-start is enabled
+        // BUT: Ignore if we already have an active session (handles out-of-order events)
+        if (rawCount === 1) {
+            // Skip early return if we just created a session for item change
+            if (!justCreatedNewSession && currentSession && currentSession.itemHrid === itemHrid) {
+                // Already have a session for this item, ignore this late rawCount=1 event
+                return;
             }
 
             if (!currentSession) {

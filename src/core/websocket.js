@@ -26,8 +26,11 @@ class WebSocketHook {
         // Capture hook instance for listener closure
         const hookInstance = this;
 
-        // Get original WebSocket from unsafeWindow (game's context)
-        const OriginalWebSocket = unsafeWindow.WebSocket;
+        // Get target window - unsafeWindow in Firefox, window in Chrome/Chromium
+        const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+
+        // Get original WebSocket from game's context
+        const OriginalWebSocket = targetWindow.WebSocket;
 
         // Create wrapper class
         class WrappedWebSocket extends OriginalWebSocket {
@@ -70,7 +73,7 @@ class WebSocketHook {
         });
 
         // Replace window.WebSocket in game's context
-        unsafeWindow.WebSocket = WrappedWebSocket;
+        targetWindow.WebSocket = WrappedWebSocket;
 
         this.isHooked = true;
         console.log('[WebSocket Hook] Hook successfully installed');
