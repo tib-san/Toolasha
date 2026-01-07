@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.898
+// @version      0.4.900
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB, and sentientmilk for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name.
 // @license      CC-BY-NC-SA-4.0
@@ -678,6 +678,13 @@
             title: 'Skills',
             icon: '📚',
             settings: {
+                skillRemainingXP: {
+                    id: 'skillRemainingXP',
+                    label: 'Left sidebar: Show remaining XP to next level',
+                    type: 'checkbox',
+                    default: true,
+                    help: 'Displays how much XP needed to reach the next level under skill progress bars'
+                },
                 skillbook: {
                     id: 'skillbook',
                     label: 'Skill books: Show books needed to reach target level',
@@ -1292,6 +1299,15 @@
                     description: 'Shows dungeon icons for combat tasks',
                     settingKey: 'taskIconsDungeons',
                     dependencies: ['taskIcons']
+                },
+
+                // Skills Features
+                skillRemainingXP: {
+                    enabled: true,
+                    name: 'Remaining XP Display',
+                    category: 'Skills',
+                    description: 'Shows remaining XP to next level on skill bars',
+                    settingKey: 'skillRemainingXP'
                 },
 
                 // House Features
@@ -18392,181 +18408,6 @@
     const taskRerollTracker = new TaskRerollTracker();
 
     /**
-     * Task Sorter
-     * Sorts tasks in the task board by skill type
-     */
-
-
-    class TaskSorter {
-        constructor() {
-            this.initialized = false;
-            this.sortButton = null;
-
-            // Task type ordering (combat tasks go to bottom)
-            this.TASK_ORDER = {
-                'Milking': 1,
-                'Foraging': 2,
-                'Woodcutting': 3,
-                'Cheesesmithing': 4,
-                'Crafting': 5,
-                'Tailoring': 6,
-                'Cooking': 7,
-                'Brewing': 8,
-                'Alchemy': 9,
-                'Enhancing': 10,
-                'Defeat': 99  // Combat tasks at bottom
-            };
-        }
-
-        /**
-         * Initialize the task sorter
-         */
-        initialize() {
-            if (this.initialized) return;
-
-            console.log('[TaskSorter] Initializing...');
-
-            // Wait for DOM to be ready, then add sort button
-            this.waitForTaskPanel();
-
-            this.initialized = true;
-        }
-
-        /**
-         * Wait for task panel to appear, then add sort button
-         */
-        waitForTaskPanel() {
-            const checkPanel = () => {
-                const taskPanelHeader = document.querySelector(GAME.TASK_PANEL);
-                if (taskPanelHeader) {
-                    this.addSortButton(taskPanelHeader);
-                } else {
-                    // Check again in 100ms
-                    setTimeout(checkPanel, 100);
-                }
-            };
-
-            checkPanel();
-        }
-
-        /**
-         * Add sort button to task panel header
-         */
-        addSortButton(headerElement) {
-            // Check if button already exists
-            if (this.sortButton && document.contains(this.sortButton)) {
-                return;
-            }
-
-            // Create sort button
-            this.sortButton = document.createElement('button');
-            this.sortButton.className = 'Button_button__1Fe9z Button_small__3fqC7';
-            this.sortButton.textContent = 'Sort Tasks';
-            this.sortButton.style.marginLeft = '8px';
-            this.sortButton.addEventListener('click', () => this.sortTasks());
-
-            headerElement.appendChild(this.sortButton);
-            console.log('[TaskSorter] Sort button added');
-        }
-
-        /**
-         * Parse task card to extract skill type and task name
-         */
-        parseTaskCard(taskCard) {
-            const nameElement = taskCard.querySelector('[class*="RandomTask_name"]');
-            if (!nameElement) return null;
-
-            const fullText = nameElement.textContent.trim();
-
-            // Format is "SkillType - TaskName"
-            const match = fullText.match(/^(.+?)\s*-\s*(.+)$/);
-            if (!match) return null;
-
-            const [, skillType, taskName] = match;
-
-            return {
-                skillType: skillType.trim(),
-                taskName: taskName.trim(),
-                fullText
-            };
-        }
-
-        /**
-         * Get sort order for a task
-         */
-        getTaskOrder(taskCard) {
-            const parsed = this.parseTaskCard(taskCard);
-            if (!parsed) return 999; // Unknown tasks go to end
-
-            const skillOrder = this.TASK_ORDER[parsed.skillType] || 999;
-
-            return {
-                skillOrder,
-                taskName: parsed.taskName,
-                skillType: parsed.skillType
-            };
-        }
-
-        /**
-         * Compare two task cards for sorting
-         */
-        compareTaskCards(cardA, cardB) {
-            const orderA = this.getTaskOrder(cardA);
-            const orderB = this.getTaskOrder(cardB);
-
-            // First sort by skill type
-            if (orderA.skillOrder !== orderB.skillOrder) {
-                return orderA.skillOrder - orderB.skillOrder;
-            }
-
-            // Within same skill type, sort alphabetically by task name
-            return orderA.taskName.localeCompare(orderB.taskName);
-        }
-
-        /**
-         * Sort all tasks in the task board
-         */
-        sortTasks() {
-            const taskList = document.querySelector(GAME.TASK_LIST);
-            if (!taskList) {
-                console.log('[TaskSorter] Task list not found');
-                return;
-            }
-
-            // Get all task cards
-            const taskCards = Array.from(taskList.querySelectorAll(GAME.TASK_CARD));
-            if (taskCards.length === 0) {
-                console.log('[TaskSorter] No tasks to sort');
-                return;
-            }
-
-            console.log(`[TaskSorter] Sorting ${taskCards.length} tasks...`);
-
-            // Sort the cards
-            taskCards.sort((a, b) => this.compareTaskCards(a, b));
-
-            // Re-append in sorted order
-            taskCards.forEach(card => taskList.appendChild(card));
-
-            console.log('[TaskSorter] Tasks sorted');
-        }
-
-        /**
-         * Cleanup
-         */
-        cleanup() {
-            if (this.sortButton && document.contains(this.sortButton)) {
-                this.sortButton.remove();
-            }
-            this.sortButton = null;
-            this.initialized = false;
-        }
-    }
-
-    // Create singleton instance
-    const taskSorter = new TaskSorter();
-
-    /**
      * Task Icons
      * Adds visual icon overlays to task cards
      */
@@ -18698,13 +18539,28 @@
             const taskCards = taskList.querySelectorAll(GAME.TASK_CARD);
 
             taskCards.forEach((card) => {
-                // Remove existing icons first
-                const hasIcons = card.querySelector('.mwi-task-icon');
-                if (hasIcons) {
-                    this.removeIcons(card);
-                }
+                // Get current task name
+                const nameElement = card.querySelector(GAME.TASK_NAME);
+                if (!nameElement) return;
 
-                this.addIconsToTaskCard(card);
+                const taskName = nameElement.textContent.trim();
+
+                // Check if this card already has icons for this exact task
+                const processedTaskName = card.getAttribute('data-mwi-task-processed');
+
+                // Only process if:
+                // 1. Card has never been processed, OR
+                // 2. Task name has changed (task was rerolled)
+                if (processedTaskName !== taskName) {
+                    // Remove old icons (if any)
+                    this.removeIcons(card);
+
+                    // Add new icons
+                    this.addIconsToTaskCard(card);
+
+                    // Mark card as processed with current task name
+                    card.setAttribute('data-mwi-task-processed', taskName);
+                }
             });
         }
 
@@ -18772,9 +18628,13 @@
          * Find monster HRID by display name
          */
         findMonsterHrid(monsterName) {
+            // Strip zone tier suffix (e.g., "Grizzly BearZ8" → "Grizzly Bear")
+            // Format is: MonsterNameZ# where # is the zone index
+            const cleanName = monsterName.replace(/Z\d+$/, '').trim();
+
             // Search through monsters to find matching name
             for (const [hrid, monster] of this.monstersByHrid) {
-                if (monster.name === monsterName) {
+                if (monster.name === cleanName) {
                     return hrid;
                 }
             }
@@ -18938,8 +18798,11 @@
             this.observers.forEach(unregister => unregister());
             this.observers = [];
 
-            // Remove all icons
+            // Remove all icons and data attributes
             document.querySelectorAll('.mwi-task-icon').forEach(icon => icon.remove());
+            document.querySelectorAll('[data-mwi-task-processed]').forEach(card => {
+                card.removeAttribute('data-mwi-task-processed');
+            });
 
             this.initialized = false;
         }
@@ -18947,6 +18810,366 @@
 
     // Create singleton instance
     const taskIcons = new TaskIcons();
+
+    /**
+     * Task Sorter
+     * Sorts tasks in the task board by skill type
+     */
+
+
+    class TaskSorter {
+        constructor() {
+            this.initialized = false;
+            this.sortButton = null;
+
+            // Task type ordering (combat tasks go to bottom)
+            this.TASK_ORDER = {
+                'Milking': 1,
+                'Foraging': 2,
+                'Woodcutting': 3,
+                'Cheesesmithing': 4,
+                'Crafting': 5,
+                'Tailoring': 6,
+                'Cooking': 7,
+                'Brewing': 8,
+                'Alchemy': 9,
+                'Enhancing': 10,
+                'Defeat': 99  // Combat tasks at bottom
+            };
+        }
+
+        /**
+         * Initialize the task sorter
+         */
+        initialize() {
+            if (this.initialized) return;
+
+            // Wait for DOM to be ready, then add sort button
+            this.waitForTaskPanel();
+
+            this.initialized = true;
+        }
+
+        /**
+         * Wait for task panel to appear, then add sort button
+         */
+        waitForTaskPanel() {
+            const checkPanel = () => {
+                const taskPanelHeader = document.querySelector(GAME.TASK_PANEL);
+                if (taskPanelHeader) {
+                    this.addSortButton(taskPanelHeader);
+                } else {
+                    // Check again in 100ms
+                    setTimeout(checkPanel, 100);
+                }
+            };
+
+            checkPanel();
+        }
+
+        /**
+         * Add sort button to task panel header
+         */
+        addSortButton(headerElement) {
+            // Check if button already exists
+            if (this.sortButton && document.contains(this.sortButton)) {
+                return;
+            }
+
+            // Create sort button
+            this.sortButton = document.createElement('button');
+            this.sortButton.className = 'Button_button__1Fe9z Button_small__3fqC7';
+            this.sortButton.textContent = 'Sort Tasks';
+            this.sortButton.style.marginLeft = '8px';
+            this.sortButton.addEventListener('click', () => this.sortTasks());
+
+            headerElement.appendChild(this.sortButton);
+        }
+
+        /**
+         * Parse task card to extract skill type and task name
+         */
+        parseTaskCard(taskCard) {
+            const nameElement = taskCard.querySelector('[class*="RandomTask_name"]');
+            if (!nameElement) return null;
+
+            const fullText = nameElement.textContent.trim();
+
+            // Format is "SkillType - TaskName"
+            const match = fullText.match(/^(.+?)\s*-\s*(.+)$/);
+            if (!match) return null;
+
+            const [, skillType, taskName] = match;
+
+            return {
+                skillType: skillType.trim(),
+                taskName: taskName.trim(),
+                fullText
+            };
+        }
+
+        /**
+         * Get sort order for a task
+         */
+        getTaskOrder(taskCard) {
+            const parsed = this.parseTaskCard(taskCard);
+            if (!parsed) return 999; // Unknown tasks go to end
+
+            const skillOrder = this.TASK_ORDER[parsed.skillType] || 999;
+
+            return {
+                skillOrder,
+                taskName: parsed.taskName,
+                skillType: parsed.skillType
+            };
+        }
+
+        /**
+         * Compare two task cards for sorting
+         */
+        compareTaskCards(cardA, cardB) {
+            const orderA = this.getTaskOrder(cardA);
+            const orderB = this.getTaskOrder(cardB);
+
+            // First sort by skill type
+            if (orderA.skillOrder !== orderB.skillOrder) {
+                return orderA.skillOrder - orderB.skillOrder;
+            }
+
+            // Within same skill type, sort alphabetically by task name
+            return orderA.taskName.localeCompare(orderB.taskName);
+        }
+
+        /**
+         * Sort all tasks in the task board
+         */
+        sortTasks() {
+            const taskList = document.querySelector(GAME.TASK_LIST);
+            if (!taskList) {
+                return;
+            }
+
+            // Get all task cards
+            const taskCards = Array.from(taskList.querySelectorAll(GAME.TASK_CARD));
+            if (taskCards.length === 0) {
+                return;
+            }
+
+            // Sort the cards
+            taskCards.sort((a, b) => this.compareTaskCards(a, b));
+
+            // Re-append in sorted order
+            taskCards.forEach(card => taskList.appendChild(card));
+
+            // After sorting, React may re-render task cards and remove our icons
+            // Clear the processed markers and force icon re-processing
+            if (config.isFeatureEnabled('taskIcons')) {
+                // Clear processed markers so icons get re-added
+                taskCards.forEach(card => {
+                    card.removeAttribute('data-mwi-task-processed');
+                });
+
+                // Trigger icon re-processing
+                // Use setTimeout to ensure React has finished any re-rendering
+                setTimeout(() => {
+                    taskIcons.processAllTaskCards();
+                }, 100);
+            }
+        }
+
+        /**
+         * Cleanup
+         */
+        cleanup() {
+            if (this.sortButton && document.contains(this.sortButton)) {
+                this.sortButton.remove();
+            }
+            this.sortButton = null;
+            this.initialized = false;
+        }
+    }
+
+    // Create singleton instance
+    const taskSorter = new TaskSorter();
+
+    /**
+     * Remaining XP Display
+     * Shows remaining XP to next level on skill bars in the left navigation panel
+     */
+
+
+    class RemainingXP {
+        constructor() {
+            this.initialized = false;
+            this.updateInterval = null;
+            this.unregisterObservers = [];
+        }
+
+        /**
+         * Initialize the remaining XP display
+         */
+        initialize() {
+            if (this.initialized) return;
+
+            // Watch for skill buttons appearing
+            this.watchSkillButtons();
+
+            // Update every second (like MWIT-E does)
+            this.updateInterval = setInterval(() => {
+                this.updateAllSkillBars();
+            }, 1000);
+
+            this.initialized = true;
+        }
+
+        /**
+         * Watch for skill buttons in the navigation panel
+         */
+        watchSkillButtons() {
+            const unregister = domObserver.onClass(
+                'RemainingXP-SkillBar',
+                'NavigationBar_currentExperience',
+                () => {
+                    this.updateAllSkillBars();
+                }
+            );
+            this.unregisterObservers.push(unregister);
+        }
+
+        /**
+         * Update all skill bars with remaining XP
+         */
+        updateAllSkillBars() {
+            // Remove any existing XP displays
+            document.querySelectorAll('.mwi-remaining-xp').forEach(el => el.remove());
+
+            // Find all skill progress bars
+            const progressBars = document.querySelectorAll('[class*="NavigationBar_currentExperience"]');
+
+            progressBars.forEach(progressBar => {
+                this.addRemainingXP(progressBar);
+            });
+        }
+
+        /**
+         * Add remaining XP display to a skill bar
+         * @param {HTMLElement} progressBar - The progress bar element
+         */
+        addRemainingXP(progressBar) {
+            try {
+                // Get the skill button container
+                const skillButton = progressBar.closest('[class*="NavigationBar_skillButton"]');
+                if (!skillButton) return;
+
+                // Find the skill name element
+                const skillNameElement = skillButton.querySelector('[class*="NavigationBar_name"]');
+                if (!skillNameElement) return;
+
+                const skillName = skillNameElement.textContent.trim();
+
+                // Calculate remaining XP for this skill
+                const remainingXP = this.calculateRemainingXP(skillName);
+                if (remainingXP === null) return;
+
+                // Find the progress bar container (parent of the progress bar)
+                const progressContainer = progressBar.parentNode;
+                if (!progressContainer) return;
+
+                // Create the remaining XP display
+                const xpDisplay = document.createElement('span');
+                xpDisplay.className = 'mwi-remaining-xp';
+                xpDisplay.textContent = `${numberFormatter(remainingXP)} XP left`;
+                xpDisplay.style.cssText = `
+                font-size: 11px;
+                color: #FFFFFF;
+                display: block;
+                margin-top: -8px;
+                text-align: center;
+                width: 100%;
+                font-weight: 600;
+                text-shadow:
+                    0 0 4px rgba(0, 0, 0, 1),
+                    0 0 8px rgba(0, 0, 0, 1),
+                    2px 2px 0 rgba(0, 0, 0, 1),
+                    -2px -2px 0 rgba(0, 0, 0, 1),
+                    2px -2px 0 rgba(0, 0, 0, 1),
+                    -2px 2px 0 rgba(0, 0, 0, 1),
+                    0 0 12px rgba(138, 43, 226, 0.8);
+                font-family: 'Arial', sans-serif;
+                background: linear-gradient(90deg,
+                    transparent,
+                    rgba(75, 0, 130, 0.18),
+                    transparent);
+                padding: 1px 0;
+                letter-spacing: 0.3px;
+                pointer-events: none;
+            `;
+
+                // Insert after the progress bar
+                progressContainer.insertBefore(xpDisplay, progressBar.nextSibling);
+
+            } catch (error) {
+                // Silent fail - don't spam console with errors
+            }
+        }
+
+        /**
+         * Calculate remaining XP to next level for a skill
+         * @param {string} skillName - The skill name (e.g., "Milking", "Combat")
+         * @returns {number|null} Remaining XP or null if unavailable
+         */
+        calculateRemainingXP(skillName) {
+            // Convert skill name to HRID
+            const skillHrid = `/skills/${skillName.toLowerCase()}`;
+
+            // Get character skills data
+            const characterData = dataManager.getCharacterData();
+            if (!characterData || !characterData.characterSkills) return null;
+
+            // Find the skill
+            const skill = characterData.characterSkills.find(s => s.skillHrid === skillHrid);
+            if (!skill) return null;
+
+            // Get level experience table
+            const gameData = dataManager.getInitClientData();
+            if (!gameData || !gameData.levelExperienceTable) return null;
+
+            const currentExp = skill.experience;
+            const currentLevel = skill.level;
+            const nextLevel = currentLevel + 1;
+
+            // Get XP required for next level
+            const expForNextLevel = gameData.levelExperienceTable[nextLevel];
+            if (expForNextLevel === undefined) return null; // Max level
+
+            // Calculate remaining XP
+            const remainingXP = expForNextLevel - currentExp;
+
+            return Math.max(0, Math.ceil(remainingXP));
+        }
+
+        /**
+         * Disable the remaining XP display
+         */
+        disable() {
+            if (this.updateInterval) {
+                clearInterval(this.updateInterval);
+                this.updateInterval = null;
+            }
+
+            // Unregister observers
+            this.unregisterObservers.forEach(unregister => unregister());
+            this.unregisterObservers = [];
+
+            // Remove all XP displays
+            document.querySelectorAll('.mwi-remaining-xp').forEach(el => el.remove());
+
+            this.initialized = false;
+        }
+    }
+
+    // Create and export singleton instance
+    const remainingXP = new RemainingXP();
 
     /**
      * House Upgrade Cost Calculator
@@ -24607,6 +24830,15 @@
             name: 'Task Icons',
             category: 'Tasks',
             initialize: () => taskIcons.initialize(),
+            async: false
+        },
+
+        // Skills Features
+        {
+            key: 'skillRemainingXP',
+            name: 'Remaining XP Display',
+            category: 'Skills',
+            initialize: () => remainingXP.initialize(),
             async: false
         },
 

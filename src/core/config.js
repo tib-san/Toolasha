@@ -218,6 +218,15 @@ class Config {
                 dependencies: ['taskIcons']
             },
 
+            // Skills Features
+            skillRemainingXP: {
+                enabled: true,
+                name: 'Remaining XP Display',
+                category: 'Skills',
+                description: 'Shows remaining XP to next level on skill bars',
+                settingKey: 'skillRemainingXP'
+            },
+
             // House Features
             houseCostDisplay: {
                 enabled: true,

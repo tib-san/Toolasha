@@ -367,6 +367,13 @@ export const settingsGroups = {
         title: 'Skills',
         icon: '📚',
         settings: {
+            skillRemainingXP: {
+                id: 'skillRemainingXP',
+                label: 'Left sidebar: Show remaining XP to next level',
+                type: 'checkbox',
+                default: true,
+                help: 'Displays how much XP needed to reach the next level under skill progress bars'
+            },
             skillbook: {
                 id: 'skillbook',
                 label: 'Skill books: Show books needed to reach target level',

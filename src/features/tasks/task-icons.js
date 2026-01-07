@@ -134,13 +134,28 @@ class TaskIcons {
         const taskCards = taskList.querySelectorAll(GAME.TASK_CARD);
 
         taskCards.forEach((card) => {
-            // Remove existing icons first
-            const hasIcons = card.querySelector('.mwi-task-icon');
-            if (hasIcons) {
-                this.removeIcons(card);
-            }
+            // Get current task name
+            const nameElement = card.querySelector(GAME.TASK_NAME);
+            if (!nameElement) return;
 
-            this.addIconsToTaskCard(card);
+            const taskName = nameElement.textContent.trim();
+
+            // Check if this card already has icons for this exact task
+            const processedTaskName = card.getAttribute('data-mwi-task-processed');
+
+            // Only process if:
+            // 1. Card has never been processed, OR
+            // 2. Task name has changed (task was rerolled)
+            if (processedTaskName !== taskName) {
+                // Remove old icons (if any)
+                this.removeIcons(card);
+
+                // Add new icons
+                this.addIconsToTaskCard(card);
+
+                // Mark card as processed with current task name
+                card.setAttribute('data-mwi-task-processed', taskName);
+            }
         });
     }
 
@@ -208,9 +223,13 @@ class TaskIcons {
      * Find monster HRID by display name
      */
     findMonsterHrid(monsterName) {
+        // Strip zone tier suffix (e.g., "Grizzly BearZ8" → "Grizzly Bear")
+        // Format is: MonsterNameZ# where # is the zone index
+        const cleanName = monsterName.replace(/Z\d+$/, '').trim();
+
         // Search through monsters to find matching name
         for (const [hrid, monster] of this.monstersByHrid) {
-            if (monster.name === monsterName) {
+            if (monster.name === cleanName) {
                 return hrid;
             }
         }
@@ -374,8 +393,11 @@ class TaskIcons {
         this.observers.forEach(unregister => unregister());
         this.observers = [];
 
-        // Remove all icons
+        // Remove all icons and data attributes
         document.querySelectorAll('.mwi-task-icon').forEach(icon => icon.remove());
+        document.querySelectorAll('[data-mwi-task-processed]').forEach(card => {
+            card.removeAttribute('data-mwi-task-processed');
+        });
 
         this.initialized = false;
     }

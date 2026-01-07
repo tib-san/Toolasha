@@ -6,6 +6,7 @@
 import { GAME } from '../../utils/selectors.js';
 import config from '../../core/config.js';
 import dataManager from '../../core/data-manager.js';
+import taskIcons from './task-icons.js';
 
 class TaskSorter {
     constructor() {
@@ -33,8 +34,6 @@ class TaskSorter {
      */
     initialize() {
         if (this.initialized) return;
-
-        console.log('[TaskSorter] Initializing...');
 
         // Wait for DOM to be ready, then add sort button
         this.waitForTaskPanel();
@@ -76,7 +75,6 @@ class TaskSorter {
         this.sortButton.addEventListener('click', () => this.sortTasks());
 
         headerElement.appendChild(this.sortButton);
-        console.log('[TaskSorter] Sort button added');
     }
 
     /**
@@ -139,18 +137,14 @@ class TaskSorter {
     sortTasks() {
         const taskList = document.querySelector(GAME.TASK_LIST);
         if (!taskList) {
-            console.log('[TaskSorter] Task list not found');
             return;
         }
 
         // Get all task cards
         const taskCards = Array.from(taskList.querySelectorAll(GAME.TASK_CARD));
         if (taskCards.length === 0) {
-            console.log('[TaskSorter] No tasks to sort');
             return;
         }
-
-        console.log(`[TaskSorter] Sorting ${taskCards.length} tasks...`);
 
         // Sort the cards
         taskCards.sort((a, b) => this.compareTaskCards(a, b));
@@ -158,7 +152,20 @@ class TaskSorter {
         // Re-append in sorted order
         taskCards.forEach(card => taskList.appendChild(card));
 
-        console.log('[TaskSorter] Tasks sorted');
+        // After sorting, React may re-render task cards and remove our icons
+        // Clear the processed markers and force icon re-processing
+        if (config.isFeatureEnabled('taskIcons')) {
+            // Clear processed markers so icons get re-added
+            taskCards.forEach(card => {
+                card.removeAttribute('data-mwi-task-processed');
+            });
+
+            // Trigger icon re-processing
+            // Use setTimeout to ensure React has finished any re-rendering
+            setTimeout(() => {
+                taskIcons.processAllTaskCards();
+            }, 100);
+        }
     }
 
     /**

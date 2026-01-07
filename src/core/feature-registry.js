@@ -26,6 +26,7 @@ import taskProfitDisplay from '../features/tasks/task-profit-display.js';
 import taskRerollTracker from '../features/tasks/task-reroll-tracker.js';
 import taskSorter from '../features/tasks/task-sorter.js';
 import taskIcons from '../features/tasks/task-icons.js';
+import remainingXP from '../features/skills/remaining-xp.js';
 import housePanelObserver from '../features/house/house-panel-observer.js';
 import networthFeature from '../features/networth/index.js';
 import inventorySort from '../features/inventory/inventory-sort.js';
@@ -243,6 +244,15 @@ const featureRegistry = [
         name: 'Task Icons',
         category: 'Tasks',
         initialize: () => taskIcons.initialize(),
+        async: false
+    },
+
+    // Skills Features
+    {
+        key: 'skillRemainingXP',
+        name: 'Remaining XP Display',
+        category: 'Skills',
+        initialize: () => remainingXP.initialize(),
         async: false
     },
 
