@@ -16,6 +16,7 @@ import actionTimeDisplay from '../features/actions/action-time-display.js';
 import quickInputButtons from '../features/actions/quick-input-buttons.js';
 import outputTotals from '../features/actions/output-totals.js';
 import maxProduceable from '../features/actions/max-produceable.js';
+import requiredMaterials from '../features/actions/required-materials.js';
 import abilityBookCalculator from '../features/abilities/ability-book-calculator.js';
 import zoneIndices from '../features/combat/zone-indices.js';
 import combatScore from '../features/profile/combat-score.js';
@@ -168,6 +169,24 @@ const featureRegistry = [
             // Look for our injected max produceable displays
             const maxProduceElements = document.querySelectorAll('.mwi-max-produceable');
             return maxProduceElements.length > 0 || null; // null if no crafting actions visible
+        }
+    },
+    {
+        key: 'requiredMaterials',
+        name: 'Required Materials Display',
+        category: 'Actions',
+        initialize: () => requiredMaterials.initialize(),
+        async: false,
+        healthCheck: () => {
+            // Check if any action detail panels are open with required materials
+            const actionPanels = document.querySelectorAll('[class*="SkillActionDetail_skillActionDetail"]');
+            if (actionPanels.length === 0) {
+                return null; // No panels open, can't verify
+            }
+
+            // Look for our injected required materials displays
+            const materialsElements = document.querySelectorAll('.mwi-required-materials');
+            return materialsElements.length > 0 || null; // null if panels open but no input entered yet
         }
     },
 

@@ -112,6 +112,13 @@ class Config {
                 description: 'Shows profit/loss for gathering and production',
                 settingKey: 'actionPanel_foragingTotal'
             },
+            requiredMaterials: {
+                enabled: true,
+                name: 'Required Materials Display',
+                category: 'Actions',
+                description: 'Shows total required and missing materials for production actions',
+                settingKey: 'requiredMaterials'
+            },
 
             // Combat Features
             abilityBookCalculator: {

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.900
+// @version      0.4.901
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB, and sentientmilk for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name.
 // @license      CC-BY-NC-SA-4.0
@@ -377,6 +377,13 @@
                     type: 'checkbox',
                     default: true,
                     help: 'Displays how many items you can make based on current inventory'
+                },
+                requiredMaterials: {
+                    id: 'requiredMaterials',
+                    label: 'Action panel: Show total required and missing materials',
+                    type: 'checkbox',
+                    default: true,
+                    help: 'Displays total materials needed and shortfall when entering quantity'
                 }
             }
         },
@@ -1194,6 +1201,13 @@
                     category: 'Actions',
                     description: 'Shows profit/loss for gathering and production',
                     settingKey: 'actionPanel_foragingTotal'
+                },
+                requiredMaterials: {
+                    enabled: true,
+                    name: 'Required Materials Display',
+                    category: 'Actions',
+                    description: 'Shows total required and missing materials for production actions',
+                    settingKey: 'requiredMaterials'
                 },
 
                 // Combat Features
@@ -14051,6 +14065,323 @@
     const maxProduceable = new MaxProduceable();
 
     /**
+     * DOM Selector Constants
+     * Centralized selector strings for querying game elements
+     * If game class names change, update here only
+     */
+
+    /**
+     * Game UI Selectors (class names from game code)
+     */
+    const GAME = {
+        // Header
+        TOTAL_LEVEL: '[class*="Header_totalLevel"]',
+
+        // Settings Panel
+        SETTINGS_PANEL_TITLE: '[class*="SettingsPanel_title"]',
+        SETTINGS_TABS_CONTAINER: 'div[class*="SettingsPanel_tabsComponentContainer"]',
+        TABS_FLEX_CONTAINER: '[class*="MuiTabs-flexContainer"]',
+        TAB_PANELS_CONTAINER: '[class*="TabsComponent_tabPanelsContainer"]',
+        TAB_PANEL: '[class*="TabPanel_tabPanel"]',
+
+        // Game Panel
+        GAME_PANEL: 'div[class*="GamePage_gamePanel"]',
+
+        // Skill Action Detail
+        SKILL_ACTION_DETAIL: '[class*="SkillActionDetail_skillActionDetail"]',
+        SKILL_ACTION_NAME: '[class*="SkillActionDetail_name"]',
+        ENHANCING_COMPONENT: 'div.SkillActionDetail_enhancingComponent__17bOx',
+
+        // Action Queue
+        QUEUED_ACTIONS: '[class*="QueuedActions_action"]',
+        MAX_ACTION_COUNT_INPUT: '[class*="maxActionCountInput"]',
+
+        // Tasks
+        TASK_PANEL: '[class*="TasksPanel_taskSlotCount"]',
+        TASK_LIST: '[class*="TasksPanel_taskList"]',
+        TASK_CARD: '[class*="RandomTask_randomTask"]',
+        TASK_NAME: '[class*="RandomTask_name"]',
+        TASK_INFO: '.RandomTask_taskInfo__1uasf',
+        TASK_ACTION: '.RandomTask_action__3eC6o',
+        TASK_REWARDS: '.RandomTask_rewards__YZk7D',
+        TASK_CONTENT: '[class*="RandomTask_content"]',
+        TASK_NAME_DIV: 'div[class*="RandomTask_name"]',
+
+        // House Panel
+        HOUSE_HEADER: '[class*="HousePanel_header"]',
+        HOUSE_COSTS: '[class*="HousePanel_costs"]',
+        HOUSE_ITEM_REQUIREMENTS: '[class*="HousePanel_itemRequirements"]',
+
+        // Inventory
+        INVENTORY_ITEMS: '[class*="Inventory_items"]',
+        INVENTORY_CATEGORY_BUTTON: '.Inventory_categoryButton__35s1x',
+        INVENTORY_LABEL: '.Inventory_label__XEOAx',
+
+        // Items
+        ITEM_CONTAINER: '.Item_itemContainer__x7kH1',
+        ITEM_ITEM: '.Item_item__2De2O',
+        ITEM_COUNT: '.Item_count__1HVvv',
+        ITEM_TOOLTIP_TEXT: '.ItemTooltipText_itemTooltipText__zFq3A',
+
+        // Navigation/Experience Bars
+        NAV_LEVEL: '[class*="NavigationBar_level"]',
+        NAV_CURRENT_EXPERIENCE: '[class*="NavigationBar_currentExperience"]',
+
+        // Enhancement
+        PROTECTION_ITEM_INPUT: '[class*="protectionItemInputContainer"]',
+
+        // Tooltips
+        MUI_TOOLTIP: '.MuiTooltip-tooltip'
+    };
+
+    /**
+     * Toolasha-specific selectors (our injected elements)
+     */
+    const TOOLASHA = {
+        // Settings
+        SETTINGS_TAB: '#toolasha-settings-tab',
+        SETTING_WITH_DEPS: '.toolasha-setting[data-dependencies]',
+
+        // Task features
+        TASK_PROFIT: '.mwi-task-profit',
+        REROLL_COST_DISPLAY: '.mwi-reroll-cost-display',
+
+        // Action features
+        QUEUE_TOTAL_TIME: '#mwi-queue-total-time',
+        FORAGING_PROFIT: '#mwi-foraging-profit',
+        PRODUCTION_PROFIT: '#mwi-production-profit',
+
+        // House features
+        HOUSE_PRICING: '.mwi-house-pricing',
+        HOUSE_PRICING_EMPTY: '.mwi-house-pricing-empty',
+        HOUSE_TOTAL: '.mwi-house-total',
+        HOUSE_TO_LEVEL: '.mwi-house-to-level',
+
+        // Profile/Combat Score
+        SCORE_CLOSE_BTN: '#mwi-score-close-btn',
+        SCORE_TOGGLE: '#mwi-score-toggle',
+        SCORE_DETAILS: '#mwi-score-details',
+        HOUSE_TOGGLE: '#mwi-house-toggle',
+        HOUSE_BREAKDOWN: '#mwi-house-breakdown',
+        ABILITY_TOGGLE: '#mwi-ability-toggle',
+        ABILITY_BREAKDOWN: '#mwi-ability-breakdown',
+        EQUIPMENT_TOGGLE: '#mwi-equipment-toggle',
+        EQUIPMENT_BREAKDOWN: '#mwi-equipment-breakdown',
+
+        // Market features
+        MARKET_PRICE_INJECTED: '.market-price-injected',
+        MARKET_PROFIT_INJECTED: '.market-profit-injected',
+        MARKET_EV_INJECTED: '.market-ev-injected',
+        MARKET_ENHANCEMENT_INJECTED: '.market-enhancement-injected',
+
+        // UI features
+        ALCHEMY_DIMMED: '.mwi-alchemy-dimmed',
+        EXP_PERCENTAGE: '.mwi-exp-percentage',
+        STACK_PRICE: '.mwi-stack-price',
+        NETWORTH_HEADER: '.mwi-networth-header',
+
+        // Enhancement
+        ENHANCEMENT_STATS: '#mwi-enhancement-stats',
+
+        // Generic
+        COLLAPSIBLE_SECTION: '.mwi-collapsible-section',
+        EXPANDABLE_HEADER: '.mwi-expandable-header',
+        SECTION_HEADER_NEXT: '.mwi-section-header + div',
+
+        // Legacy/cleanup markers
+        INSERTED_SPAN: '.insertedSpan',
+        SCRIPT_INJECTED: '.script-injected',
+        CONSUMABLE_STATS_INJECTED: '.consumable-stats-injected'
+    };
+
+    /**
+     * Required Materials Display
+     * Shows total required materials and missing amounts for production actions
+     */
+
+
+    class RequiredMaterials {
+        constructor() {
+            this.initialized = false;
+            this.observers = [];
+            this.processedPanels = new WeakSet();
+        }
+
+        initialize() {
+            if (this.initialized) return;
+
+            // Watch for action panels appearing
+            const unregister = domObserver.onClass(
+                'RequiredMaterials-ActionPanel',
+                'SkillActionDetail_skillActionDetail',
+                () => this.processActionPanels()
+            );
+            this.observers.push(unregister);
+
+            // Process existing panels
+            this.processActionPanels();
+
+            this.initialized = true;
+        }
+
+        processActionPanels() {
+            const panels = document.querySelectorAll('[class*="SkillActionDetail_skillActionDetail"]');
+
+            panels.forEach(panel => {
+                // Skip if already processed
+                if (this.processedPanels.has(panel)) {
+                    return;
+                }
+
+                // Find the number input field (same logic as quick-input-buttons)
+                let inputField = panel.querySelector('input[type="number"]');
+                if (!inputField) {
+                    // Try finding input within maxActionCountInput container
+                    const inputContainer = panel.querySelector('[class*="maxActionCountInput"]');
+                    if (inputContainer) {
+                        inputField = inputContainer.querySelector('input');
+                    }
+                }
+
+                if (!inputField) {
+                    return;
+                }
+
+                // Mark as processed
+                this.processedPanels.add(panel);
+
+                // Attach input listener
+                inputField.addEventListener('input', () => {
+                    this.updateRequiredMaterials(panel, inputField.value);
+                });
+
+                // Also listen for button clicks that change the input
+                // This catches quick input buttons and Max button
+                panel.addEventListener('click', (e) => {
+                    if (e.target.matches('button')) {
+                        setTimeout(() => {
+                            this.updateRequiredMaterials(panel, inputField.value);
+                        }, 50);
+                    }
+                });
+            });
+        }
+
+        updateRequiredMaterials(panel, amount) {
+            // Remove existing displays
+            const existingDisplays = panel.querySelectorAll('.mwi-required-materials');
+            existingDisplays.forEach(el => el.remove());
+
+            const numActions = parseInt(amount) || 0;
+            if (numActions <= 0) {
+                return;
+            }
+
+            // Find requirements container
+            const requiresDiv = panel.querySelector('[class*="SkillActionDetail_itemRequirements"]');
+            if (!requiresDiv) {
+                return;
+            }
+
+            // Get inventory spans and input spans
+            const inventorySpans = panel.querySelectorAll('[class*="SkillActionDetail_inventoryCount"]');
+            const inputSpans = Array.from(panel.querySelectorAll('[class*="SkillActionDetail_inputCount"]'))
+                .filter(span => !span.textContent.includes('Required'));
+
+            // Process each material using MWIT-E's approach
+            // Iterate through requiresDiv children to find inputCount spans and their target containers
+            const children = Array.from(requiresDiv.children);
+            let materialIndex = 0;
+
+            children.forEach((child, index) => {
+                if (child.className && child.className.includes('inputCount')) {
+                    // Found an inputCount span - the next sibling is our target container
+                    const targetContainer = requiresDiv.children[index + 1];
+                    if (!targetContainer) return;
+
+                    // Get corresponding inventory and input data
+                    if (materialIndex >= inventorySpans.length || materialIndex >= inputSpans.length) return;
+
+                    const invText = inventorySpans[materialIndex].textContent.trim();
+                    const inputText = inputSpans[materialIndex].textContent.trim();
+
+                    // Parse inventory amount (handle K/M suffixes)
+                    const invValue = this.parseAmount(invText);
+
+                    // Parse per-action requirement (format: "X / Y")
+                    const match = inputText.match(/\/\s*([\d,\.]+)/);
+                    const perActionAmount = match ? this.parseAmount(match[1]) : 0;
+
+                    if (perActionAmount > 0) {
+                        const totalRequired = perActionAmount * numActions;
+                        const missing = Math.max(0, totalRequired - invValue);
+
+                        // Create display element
+                        const displaySpan = document.createElement('span');
+                        displaySpan.className = 'mwi-required-materials';
+                        displaySpan.style.cssText = `
+                        display: block;
+                        font-size: 0.85em;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        margin-top: 2px;
+                    `;
+
+                        // Build text
+                        let text = `Required: ${numberFormatter(totalRequired)}`;
+                        if (missing > 0) {
+                            text += ` || Missing: ${numberFormatter(missing)}`;
+                            displaySpan.style.color = config.COLOR_LOSS; // Red
+                        } else {
+                            displaySpan.style.color = config.COLOR_WARNING; // Gold/orange
+                        }
+
+                        displaySpan.textContent = text;
+
+                        // Append to target container
+                        targetContainer.appendChild(displaySpan);
+                    }
+
+                    materialIndex++;
+                }
+            });
+        }
+
+        /**
+         * Parse amount from text (handles K/M suffixes and number formatting)
+         */
+        parseAmount(text) {
+            // Remove spaces
+            text = text.replace(/\s/g, '');
+
+            // Handle K/M suffixes (case insensitive)
+            const lowerText = text.toLowerCase();
+            if (lowerText.includes('k')) {
+                return parseFloat(lowerText.replace('k', '')) * 1000;
+            }
+            if (lowerText.includes('m')) {
+                return parseFloat(lowerText.replace('m', '')) * 1000000;
+            }
+
+            // Remove commas and parse
+            return parseFloat(text.replace(/,/g, '')) || 0;
+        }
+
+        cleanup() {
+            this.observers.forEach(unregister => unregister());
+            this.observers = [];
+            this.processedPanels = new WeakSet();
+
+            document.querySelectorAll('.mwi-required-materials').forEach(el => el.remove());
+
+            this.initialized = false;
+        }
+    }
+
+    const requiredMaterials = new RequiredMaterials();
+
+    /**
      * Ability Book Calculator
      * Shows number of books needed to reach target ability level
      * Appears in Item Dictionary when viewing ability books
@@ -17212,136 +17543,6 @@
             taskInfo: taskInfo
         };
     }
-
-    /**
-     * DOM Selector Constants
-     * Centralized selector strings for querying game elements
-     * If game class names change, update here only
-     */
-
-    /**
-     * Game UI Selectors (class names from game code)
-     */
-    const GAME = {
-        // Header
-        TOTAL_LEVEL: '[class*="Header_totalLevel"]',
-
-        // Settings Panel
-        SETTINGS_PANEL_TITLE: '[class*="SettingsPanel_title"]',
-        SETTINGS_TABS_CONTAINER: 'div[class*="SettingsPanel_tabsComponentContainer"]',
-        TABS_FLEX_CONTAINER: '[class*="MuiTabs-flexContainer"]',
-        TAB_PANELS_CONTAINER: '[class*="TabsComponent_tabPanelsContainer"]',
-        TAB_PANEL: '[class*="TabPanel_tabPanel"]',
-
-        // Game Panel
-        GAME_PANEL: 'div[class*="GamePage_gamePanel"]',
-
-        // Skill Action Detail
-        SKILL_ACTION_DETAIL: '[class*="SkillActionDetail_skillActionDetail"]',
-        SKILL_ACTION_NAME: '[class*="SkillActionDetail_name"]',
-        ENHANCING_COMPONENT: 'div.SkillActionDetail_enhancingComponent__17bOx',
-
-        // Action Queue
-        QUEUED_ACTIONS: '[class*="QueuedActions_action"]',
-        MAX_ACTION_COUNT_INPUT: '[class*="maxActionCountInput"]',
-
-        // Tasks
-        TASK_PANEL: '[class*="TasksPanel_taskSlotCount"]',
-        TASK_LIST: '[class*="TasksPanel_taskList"]',
-        TASK_CARD: '[class*="RandomTask_randomTask"]',
-        TASK_NAME: '[class*="RandomTask_name"]',
-        TASK_INFO: '.RandomTask_taskInfo__1uasf',
-        TASK_ACTION: '.RandomTask_action__3eC6o',
-        TASK_REWARDS: '.RandomTask_rewards__YZk7D',
-        TASK_CONTENT: '[class*="RandomTask_content"]',
-        TASK_NAME_DIV: 'div[class*="RandomTask_name"]',
-
-        // House Panel
-        HOUSE_HEADER: '[class*="HousePanel_header"]',
-        HOUSE_COSTS: '[class*="HousePanel_costs"]',
-        HOUSE_ITEM_REQUIREMENTS: '[class*="HousePanel_itemRequirements"]',
-
-        // Inventory
-        INVENTORY_ITEMS: '[class*="Inventory_items"]',
-        INVENTORY_CATEGORY_BUTTON: '.Inventory_categoryButton__35s1x',
-        INVENTORY_LABEL: '.Inventory_label__XEOAx',
-
-        // Items
-        ITEM_CONTAINER: '.Item_itemContainer__x7kH1',
-        ITEM_ITEM: '.Item_item__2De2O',
-        ITEM_COUNT: '.Item_count__1HVvv',
-        ITEM_TOOLTIP_TEXT: '.ItemTooltipText_itemTooltipText__zFq3A',
-
-        // Navigation/Experience Bars
-        NAV_LEVEL: '[class*="NavigationBar_level"]',
-        NAV_CURRENT_EXPERIENCE: '[class*="NavigationBar_currentExperience"]',
-
-        // Enhancement
-        PROTECTION_ITEM_INPUT: '[class*="protectionItemInputContainer"]',
-
-        // Tooltips
-        MUI_TOOLTIP: '.MuiTooltip-tooltip'
-    };
-
-    /**
-     * Toolasha-specific selectors (our injected elements)
-     */
-    const TOOLASHA = {
-        // Settings
-        SETTINGS_TAB: '#toolasha-settings-tab',
-        SETTING_WITH_DEPS: '.toolasha-setting[data-dependencies]',
-
-        // Task features
-        TASK_PROFIT: '.mwi-task-profit',
-        REROLL_COST_DISPLAY: '.mwi-reroll-cost-display',
-
-        // Action features
-        QUEUE_TOTAL_TIME: '#mwi-queue-total-time',
-        FORAGING_PROFIT: '#mwi-foraging-profit',
-        PRODUCTION_PROFIT: '#mwi-production-profit',
-
-        // House features
-        HOUSE_PRICING: '.mwi-house-pricing',
-        HOUSE_PRICING_EMPTY: '.mwi-house-pricing-empty',
-        HOUSE_TOTAL: '.mwi-house-total',
-        HOUSE_TO_LEVEL: '.mwi-house-to-level',
-
-        // Profile/Combat Score
-        SCORE_CLOSE_BTN: '#mwi-score-close-btn',
-        SCORE_TOGGLE: '#mwi-score-toggle',
-        SCORE_DETAILS: '#mwi-score-details',
-        HOUSE_TOGGLE: '#mwi-house-toggle',
-        HOUSE_BREAKDOWN: '#mwi-house-breakdown',
-        ABILITY_TOGGLE: '#mwi-ability-toggle',
-        ABILITY_BREAKDOWN: '#mwi-ability-breakdown',
-        EQUIPMENT_TOGGLE: '#mwi-equipment-toggle',
-        EQUIPMENT_BREAKDOWN: '#mwi-equipment-breakdown',
-
-        // Market features
-        MARKET_PRICE_INJECTED: '.market-price-injected',
-        MARKET_PROFIT_INJECTED: '.market-profit-injected',
-        MARKET_EV_INJECTED: '.market-ev-injected',
-        MARKET_ENHANCEMENT_INJECTED: '.market-enhancement-injected',
-
-        // UI features
-        ALCHEMY_DIMMED: '.mwi-alchemy-dimmed',
-        EXP_PERCENTAGE: '.mwi-exp-percentage',
-        STACK_PRICE: '.mwi-stack-price',
-        NETWORTH_HEADER: '.mwi-networth-header',
-
-        // Enhancement
-        ENHANCEMENT_STATS: '#mwi-enhancement-stats',
-
-        // Generic
-        COLLAPSIBLE_SECTION: '.mwi-collapsible-section',
-        EXPANDABLE_HEADER: '.mwi-expandable-header',
-        SECTION_HEADER_NEXT: '.mwi-section-header + div',
-
-        // Legacy/cleanup markers
-        INSERTED_SPAN: '.insertedSpan',
-        SCRIPT_INJECTED: '.script-injected',
-        CONSUMABLE_STATS_INJECTED: '.consumable-stats-injected'
-    };
 
     /**
      * Task Profit Display
@@ -24754,6 +24955,24 @@
                 // Look for our injected max produceable displays
                 const maxProduceElements = document.querySelectorAll('.mwi-max-produceable');
                 return maxProduceElements.length > 0 || null; // null if no crafting actions visible
+            }
+        },
+        {
+            key: 'requiredMaterials',
+            name: 'Required Materials Display',
+            category: 'Actions',
+            initialize: () => requiredMaterials.initialize(),
+            async: false,
+            healthCheck: () => {
+                // Check if any action detail panels are open with required materials
+                const actionPanels = document.querySelectorAll('[class*="SkillActionDetail_skillActionDetail"]');
+                if (actionPanels.length === 0) {
+                    return null; // No panels open, can't verify
+                }
+
+                // Look for our injected required materials displays
+                const materialsElements = document.querySelectorAll('.mwi-required-materials');
+                return materialsElements.length > 0 || null; // null if panels open but no input entered yet
             }
         },
 

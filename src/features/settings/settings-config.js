@@ -66,6 +66,13 @@ export const settingsGroups = {
                 type: 'checkbox',
                 default: true,
                 help: 'Displays how many items you can make based on current inventory'
+            },
+            requiredMaterials: {
+                id: 'requiredMaterials',
+                label: 'Action panel: Show total required and missing materials',
+                type: 'checkbox',
+                default: true,
+                help: 'Displays total materials needed and shortfall when entering quantity'
             }
         }
     },
