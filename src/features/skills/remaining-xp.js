@@ -111,27 +111,12 @@ class RemainingXP {
             xpDisplay.textContent = `${numberFormatter(remainingXP)} XP left`;
             xpDisplay.style.cssText = `
                 font-size: 11px;
-                color: #FFFFFF;
+                color: ${config.COLOR_REMAINING_XP};
                 display: block;
                 margin-top: -8px;
                 text-align: center;
                 width: 100%;
                 font-weight: 600;
-                text-shadow:
-                    0 0 4px rgba(0, 0, 0, 1),
-                    0 0 8px rgba(0, 0, 0, 1),
-                    2px 2px 0 rgba(0, 0, 0, 1),
-                    -2px -2px 0 rgba(0, 0, 0, 1),
-                    2px -2px 0 rgba(0, 0, 0, 1),
-                    -2px 2px 0 rgba(0, 0, 0, 1),
-                    0 0 12px rgba(138, 43, 226, 0.8);
-                font-family: 'Arial', sans-serif;
-                background: linear-gradient(90deg,
-                    transparent,
-                    rgba(75, 0, 130, 0.18),
-                    transparent);
-                padding: 1px 0;
-                letter-spacing: 0.3px;
                 pointer-events: none;
             `;
 

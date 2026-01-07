@@ -196,7 +196,7 @@ class TooltipPrices {
         }
 
         // Check for gathering sources (Foraging, Woodcutting, Milking)
-        if (config.getSetting('itemTooltip_profit') && enhancementLevel === 0) {
+        if (config.getSetting('itemTooltip_gathering') && enhancementLevel === 0) {
             const gatheringData = await this.findGatheringSources(itemHrid);
             if (gatheringData && (gatheringData.soloActions.length > 0 || gatheringData.zoneActions.length > 0)) {
                 this.injectGatheringDisplay(tooltipElement, gatheringData, isCollectionTooltip);
@@ -669,7 +669,18 @@ class TooltipPrices {
                 for (const drop of action.dropTable) {
                     if (drop.itemHrid === itemHrid) {
                         foundInDrop = true;
-                        dropRate = drop.rate;
+                        dropRate = drop.dropRate;
+                        break;
+                    }
+                }
+            }
+
+            // Check rare drop table (rare finds from production actions)
+            if (!foundInDrop && action.rareDropTable) {
+                for (const drop of action.rareDropTable) {
+                    if (drop.itemHrid === itemHrid) {
+                        foundInDrop = true;
+                        dropRate = drop.dropRate;
                         break;
                     }
                 }
@@ -717,15 +728,27 @@ class TooltipPrices {
 
         // Calculate items/hr for zone actions (no profit)
         for (const action of zoneActions) {
-            const profitData = await calculateGatheringProfit(action.actionHrid);
-            if (profitData) {
-                // Find this specific item in the outputs
-                const output = profitData.baseOutputs?.find(o =>
-                    o.itemHrid === itemHrid || o.name === gameData.itemDetailMap[itemHrid]?.name
-                );
-                if (output) {
-                    action.itemsPerHour = output.itemsPerHour || 0;
-                }
+            const actionDetail = gameData.actionDetailMap[action.actionHrid];
+            if (!actionDetail) {
+                continue;
+            }
+
+            // Calculate base actions per hour
+            const baseTimeCost = actionDetail.baseTimeCost; // in nanoseconds
+            const timeInSeconds = baseTimeCost / 1e9;
+            const actionsPerHour = 3600 / timeInSeconds;
+
+            // Calculate items per hour
+            const itemsPerHour = actionsPerHour * action.dropRate;
+
+            // For rare drops (< 1%), store items/day instead for better readability
+            // For regular drops (>= 1%), store items/hr
+            if (action.dropRate < 0.01) {
+                action.itemsPerDay = itemsPerHour * 24;
+                action.isRareDrop = true;
+            } else {
+                action.itemsPerHour = itemsPerHour;
+                action.isRareDrop = false;
             }
         }
 
@@ -750,6 +773,18 @@ class TooltipPrices {
 
         // Check if we already injected (prevent duplicates)
         if (tooltipText.querySelector('.market-gathering-injected')) {
+            return;
+        }
+
+        // Filter out rare drops if setting is disabled
+        const showRareDrops = config.getSetting('itemTooltip_gatheringRareDrops');
+        let zoneActions = gatheringData.zoneActions;
+        if (!showRareDrops) {
+            zoneActions = zoneActions.filter(action => !action.isRareDrop);
+        }
+
+        // Skip if no actions to show
+        if (gatheringData.soloActions.length === 0 && zoneActions.length === 0) {
             return;
         }
 
@@ -779,15 +814,26 @@ class TooltipPrices {
         }
 
         // Zone actions section
-        if (gatheringData.zoneActions.length > 0) {
+        if (zoneActions.length > 0) {
             html += '<div style="font-size: 0.9em; margin-left: 8px;">';
-            html += '<div style="font-weight: 500; margin-bottom: 2px;">Also found in:</div>';
+            html += '<div style="font-weight: 500; margin-bottom: 2px;">Found in:</div>';
 
-            for (const action of gatheringData.zoneActions) {
-                const itemsPerHourStr = action.itemsPerHour ? Math.round(action.itemsPerHour) : '?';
-                const dropRatePercent = (action.dropRate * 100).toFixed(1);
+            for (const action of zoneActions) {
+                // Use more decimal places for very rare drops (< 0.1%)
+                const percentValue = action.dropRate * 100;
+                const dropRatePercent = percentValue < 0.1 ? percentValue.toFixed(4) : percentValue.toFixed(1);
 
-                html += `<div style="margin-left: 8px;">• ${action.actionName}: ${itemsPerHourStr} items/hr (${dropRatePercent}% drop)</div>`;
+                // Show items/day for rare drops (< 1%), items/hr for regular drops
+                let itemsDisplay;
+                if (action.isRareDrop) {
+                    const itemsPerDayStr = action.itemsPerDay ? action.itemsPerDay.toFixed(2) : '?';
+                    itemsDisplay = `${itemsPerDayStr} items/day`;
+                } else {
+                    const itemsPerHourStr = action.itemsPerHour ? Math.round(action.itemsPerHour) : '?';
+                    itemsDisplay = `${itemsPerHourStr} items/hr`;
+                }
+
+                html += `<div style="margin-left: 8px;">• ${action.actionName}: ${itemsDisplay} (${dropRatePercent}% drop)</div>`;
             }
 
             html += '</div>';

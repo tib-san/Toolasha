@@ -39,6 +39,7 @@ class Config {
         this.COLOR_BORDER = "#444444";      // Border color
         this.COLOR_GOLD = "#ffa500";        // Gold/currency color
         this.COLOR_ACCENT = "#22c55e";      // Script accent color (green)
+        this.COLOR_REMAINING_XP = "#FFFFFF"; // Remaining XP text color
 
         // Legacy color constants (mapped to COLOR_ACCENT)
         this.SCRIPT_COLOR_MAIN = this.COLOR_ACCENT;
@@ -439,6 +440,7 @@ class Config {
         this.COLOR_BORDER = this.getSettingValue('color_border', "#444444");
         this.COLOR_GOLD = this.getSettingValue('color_gold', "#ffa500");
         this.COLOR_ACCENT = this.getSettingValue('color_accent', "#22c55e");
+        this.COLOR_REMAINING_XP = this.getSettingValue('color_remaining_xp', "#FFFFFF");
 
         // Set legacy SCRIPT_COLOR_MAIN to accent color
         this.SCRIPT_COLOR_MAIN = this.COLOR_ACCENT;

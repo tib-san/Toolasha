@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.903
+// @version      0.4.904
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB, and sentientmilk for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name.
 // @license      CC-BY-NC-SA-4.0
@@ -459,6 +459,22 @@
                     default: false,
                     help: 'When enabled, shows base/materials/protection breakdown for each consumed item in Philosopher\'s Mirror calculations',
                     dependencies: ['enhanceSim']
+                },
+                itemTooltip_gathering: {
+                    id: 'itemTooltip_gathering',
+                    label: 'Show gathering sources and profit',
+                    type: 'checkbox',
+                    default: true,
+                    dependencies: ['itemTooltip_profit'],
+                    help: 'Shows gathering actions that produce this item (foraging, woodcutting, milking)'
+                },
+                itemTooltip_gatheringRareDrops: {
+                    id: 'itemTooltip_gatheringRareDrops',
+                    label: 'Show rare drops from gathering',
+                    type: 'checkbox',
+                    default: true,
+                    dependencies: ['itemTooltip_gathering'],
+                    help: 'Shows rare find drops from gathering zones (e.g., Thread of Expertise from Asteroid Belt)'
                 }
             }
         },
@@ -934,6 +950,13 @@
                     type: 'color',
                     default: '#22c55e',
                     help: 'Primary accent color for script UI elements (buttons, headers, zone numbers, XP percentages, etc.)'
+                },
+                color_remaining_xp: {
+                    id: 'color_remaining_xp',
+                    label: 'Remaining XP Text',
+                    type: 'color',
+                    default: '#FFFFFF',
+                    help: 'Color for remaining XP text below skill bars in left navigation'
                 }
             }
         }
@@ -1144,6 +1167,7 @@
             this.COLOR_BORDER = "#444444";      // Border color
             this.COLOR_GOLD = "#ffa500";        // Gold/currency color
             this.COLOR_ACCENT = "#22c55e";      // Script accent color (green)
+            this.COLOR_REMAINING_XP = "#FFFFFF"; // Remaining XP text color
 
             // Legacy color constants (mapped to COLOR_ACCENT)
             this.SCRIPT_COLOR_MAIN = this.COLOR_ACCENT;
@@ -1544,6 +1568,7 @@
             this.COLOR_BORDER = this.getSettingValue('color_border', "#444444");
             this.COLOR_GOLD = this.getSettingValue('color_gold', "#ffa500");
             this.COLOR_ACCENT = this.getSettingValue('color_accent', "#22c55e");
+            this.COLOR_REMAINING_XP = this.getSettingValue('color_remaining_xp', "#FFFFFF");
 
             // Set legacy SCRIPT_COLOR_MAIN to accent color
             this.SCRIPT_COLOR_MAIN = this.COLOR_ACCENT;
@@ -7463,7 +7488,7 @@
             }
 
             // Check for gathering sources (Foraging, Woodcutting, Milking)
-            if (config.getSetting('itemTooltip_profit') && enhancementLevel === 0) {
+            if (config.getSetting('itemTooltip_gathering') && enhancementLevel === 0) {
                 const gatheringData = await this.findGatheringSources(itemHrid);
                 if (gatheringData && (gatheringData.soloActions.length > 0 || gatheringData.zoneActions.length > 0)) {
                     this.injectGatheringDisplay(tooltipElement, gatheringData, isCollectionTooltip);
@@ -7936,7 +7961,18 @@
                     for (const drop of action.dropTable) {
                         if (drop.itemHrid === itemHrid) {
                             foundInDrop = true;
-                            dropRate = drop.rate;
+                            dropRate = drop.dropRate;
+                            break;
+                        }
+                    }
+                }
+
+                // Check rare drop table (rare finds from production actions)
+                if (!foundInDrop && action.rareDropTable) {
+                    for (const drop of action.rareDropTable) {
+                        if (drop.itemHrid === itemHrid) {
+                            foundInDrop = true;
+                            dropRate = drop.dropRate;
                             break;
                         }
                     }
@@ -7984,15 +8020,27 @@
 
             // Calculate items/hr for zone actions (no profit)
             for (const action of zoneActions) {
-                const profitData = await calculateGatheringProfit(action.actionHrid);
-                if (profitData) {
-                    // Find this specific item in the outputs
-                    const output = profitData.baseOutputs?.find(o =>
-                        o.itemHrid === itemHrid || o.name === gameData.itemDetailMap[itemHrid]?.name
-                    );
-                    if (output) {
-                        action.itemsPerHour = output.itemsPerHour || 0;
-                    }
+                const actionDetail = gameData.actionDetailMap[action.actionHrid];
+                if (!actionDetail) {
+                    continue;
+                }
+
+                // Calculate base actions per hour
+                const baseTimeCost = actionDetail.baseTimeCost; // in nanoseconds
+                const timeInSeconds = baseTimeCost / 1e9;
+                const actionsPerHour = 3600 / timeInSeconds;
+
+                // Calculate items per hour
+                const itemsPerHour = actionsPerHour * action.dropRate;
+
+                // For rare drops (< 1%), store items/day instead for better readability
+                // For regular drops (>= 1%), store items/hr
+                if (action.dropRate < 0.01) {
+                    action.itemsPerDay = itemsPerHour * 24;
+                    action.isRareDrop = true;
+                } else {
+                    action.itemsPerHour = itemsPerHour;
+                    action.isRareDrop = false;
                 }
             }
 
@@ -8017,6 +8065,18 @@
 
             // Check if we already injected (prevent duplicates)
             if (tooltipText.querySelector('.market-gathering-injected')) {
+                return;
+            }
+
+            // Filter out rare drops if setting is disabled
+            const showRareDrops = config.getSetting('itemTooltip_gatheringRareDrops');
+            let zoneActions = gatheringData.zoneActions;
+            if (!showRareDrops) {
+                zoneActions = zoneActions.filter(action => !action.isRareDrop);
+            }
+
+            // Skip if no actions to show
+            if (gatheringData.soloActions.length === 0 && zoneActions.length === 0) {
                 return;
             }
 
@@ -8046,15 +8106,26 @@
             }
 
             // Zone actions section
-            if (gatheringData.zoneActions.length > 0) {
+            if (zoneActions.length > 0) {
                 html += '<div style="font-size: 0.9em; margin-left: 8px;">';
-                html += '<div style="font-weight: 500; margin-bottom: 2px;">Also found in:</div>';
+                html += '<div style="font-weight: 500; margin-bottom: 2px;">Found in:</div>';
 
-                for (const action of gatheringData.zoneActions) {
-                    const itemsPerHourStr = action.itemsPerHour ? Math.round(action.itemsPerHour) : '?';
-                    const dropRatePercent = (action.dropRate * 100).toFixed(1);
+                for (const action of zoneActions) {
+                    // Use more decimal places for very rare drops (< 0.1%)
+                    const percentValue = action.dropRate * 100;
+                    const dropRatePercent = percentValue < 0.1 ? percentValue.toFixed(4) : percentValue.toFixed(1);
 
-                    html += `<div style="margin-left: 8px;">• ${action.actionName}: ${itemsPerHourStr} items/hr (${dropRatePercent}% drop)</div>`;
+                    // Show items/day for rare drops (< 1%), items/hr for regular drops
+                    let itemsDisplay;
+                    if (action.isRareDrop) {
+                        const itemsPerDayStr = action.itemsPerDay ? action.itemsPerDay.toFixed(2) : '?';
+                        itemsDisplay = `${itemsPerDayStr} items/day`;
+                    } else {
+                        const itemsPerHourStr = action.itemsPerHour ? Math.round(action.itemsPerHour) : '?';
+                        itemsDisplay = `${itemsPerHourStr} items/hr`;
+                    }
+
+                    html += `<div style="margin-left: 8px;">• ${action.actionName}: ${itemsDisplay} (${dropRatePercent}% drop)</div>`;
                 }
 
                 html += '</div>';
@@ -19518,27 +19589,12 @@
                 xpDisplay.textContent = `${numberFormatter(remainingXP)} XP left`;
                 xpDisplay.style.cssText = `
                 font-size: 11px;
-                color: #FFFFFF;
+                color: ${config.COLOR_REMAINING_XP};
                 display: block;
                 margin-top: -8px;
                 text-align: center;
                 width: 100%;
                 font-weight: 600;
-                text-shadow:
-                    0 0 4px rgba(0, 0, 0, 1),
-                    0 0 8px rgba(0, 0, 0, 1),
-                    2px 2px 0 rgba(0, 0, 0, 1),
-                    -2px -2px 0 rgba(0, 0, 0, 1),
-                    2px -2px 0 rgba(0, 0, 0, 1),
-                    -2px 2px 0 rgba(0, 0, 0, 1),
-                    0 0 12px rgba(138, 43, 226, 0.8);
-                font-family: 'Arial', sans-serif;
-                background: linear-gradient(90deg,
-                    transparent,
-                    rgba(75, 0, 130, 0.18),
-                    transparent);
-                padding: 1px 0;
-                letter-spacing: 0.3px;
                 pointer-events: none;
             `;
 

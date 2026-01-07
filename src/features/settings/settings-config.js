@@ -148,6 +148,22 @@ export const settingsGroups = {
                 default: false,
                 help: 'When enabled, shows base/materials/protection breakdown for each consumed item in Philosopher\'s Mirror calculations',
                 dependencies: ['enhanceSim']
+            },
+            itemTooltip_gathering: {
+                id: 'itemTooltip_gathering',
+                label: 'Show gathering sources and profit',
+                type: 'checkbox',
+                default: true,
+                dependencies: ['itemTooltip_profit'],
+                help: 'Shows gathering actions that produce this item (foraging, woodcutting, milking)'
+            },
+            itemTooltip_gatheringRareDrops: {
+                id: 'itemTooltip_gatheringRareDrops',
+                label: 'Show rare drops from gathering',
+                type: 'checkbox',
+                default: true,
+                dependencies: ['itemTooltip_gathering'],
+                help: 'Shows rare find drops from gathering zones (e.g., Thread of Expertise from Asteroid Belt)'
             }
         }
     },
@@ -623,6 +639,13 @@ export const settingsGroups = {
                 type: 'color',
                 default: '#22c55e',
                 help: 'Primary accent color for script UI elements (buttons, headers, zone numbers, XP percentages, etc.)'
+            },
+            color_remaining_xp: {
+                id: 'color_remaining_xp',
+                label: 'Remaining XP Text',
+                type: 'color',
+                default: '#FFFFFF',
+                help: 'Color for remaining XP text below skill bars in left navigation'
             }
         }
     }
