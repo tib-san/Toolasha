@@ -47,10 +47,10 @@ class TaskSorter {
      * Watch for task panel to appear
      */
     watchTaskPanel() {
-        // Register observer for task panel header
-        this.unregisterObserver = domObserver.onSelector(
+        // Register observer for task panel header (watch for the class name, not the selector)
+        this.unregisterObserver = domObserver.onClass(
             'TaskSorter',
-            GAME.TASK_PANEL,
+            'TasksPanel_taskSlotCount',  // Just the class name, not [class*="..."]
             (headerElement) => {
                 this.addSortButton(headerElement);
             }
