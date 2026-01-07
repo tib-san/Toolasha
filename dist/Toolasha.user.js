@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.901
+// @version      0.4.902
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB, and sentientmilk for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Special thanks to Zaeter for the name.
 // @license      CC-BY-NC-SA-4.0
@@ -737,6 +737,21 @@
                     label: 'Show combat zone index numbers on tasks',
                     type: 'checkbox',
                     default: true
+                },
+                taskIcons: {
+                    id: 'taskIcons',
+                    label: 'Show visual icons on task cards',
+                    type: 'checkbox',
+                    default: true,
+                    help: 'Displays semi-transparent item/monster icons on task cards'
+                },
+                taskIconsDungeons: {
+                    id: 'taskIconsDungeons',
+                    label: 'Show dungeon icons on combat tasks',
+                    type: 'checkbox',
+                    default: false,
+                    dependencies: ['taskIcons'],
+                    help: 'Shows which dungeons contain the monster (requires Task Icons enabled)'
                 }
             }
         },
@@ -18718,6 +18733,26 @@
                 }
             );
             this.observers.push(unregisterTask);
+
+            // Watch for task rerolls via WebSocket
+            const questsHandler = (data) => {
+                if (!data.endCharacterQuests) {
+                    return;
+                }
+
+                // Wait for game to update DOM before updating icons
+                setTimeout(() => {
+                    this.clearAllProcessedMarkers();
+                    this.processAllTaskCards();
+                }, 250);
+            };
+
+            webSocketHook.on('quests_updated', questsHandler);
+
+            // Store handler for cleanup
+            this.observers.push(() => {
+                webSocketHook.off('quests_updated', questsHandler);
+            });
         }
 
         /**
@@ -18762,6 +18797,21 @@
                     // Mark card as processed with current task name
                     card.setAttribute('data-mwi-task-processed', taskName);
                 }
+            });
+        }
+
+        /**
+         * Clear all processed markers to force icon refresh
+         */
+        clearAllProcessedMarkers() {
+            const taskList = document.querySelector(GAME.TASK_LIST);
+            if (!taskList) {
+                return;
+            }
+
+            const taskCards = taskList.querySelectorAll(GAME.TASK_CARD);
+            taskCards.forEach(card => {
+                card.removeAttribute('data-mwi-task-processed');
             });
         }
 
@@ -19165,10 +19215,8 @@
             // After sorting, React may re-render task cards and remove our icons
             // Clear the processed markers and force icon re-processing
             if (config.isFeatureEnabled('taskIcons')) {
-                // Clear processed markers so icons get re-added
-                taskCards.forEach(card => {
-                    card.removeAttribute('data-mwi-task-processed');
-                });
+                // Use taskIcons module's method to clear markers
+                taskIcons.clearAllProcessedMarkers();
 
                 // Trigger icon re-processing
                 // Use setTimeout to ensure React has finished any re-rendering

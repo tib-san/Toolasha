@@ -7,6 +7,7 @@ import { GAME } from '../../utils/selectors.js';
 import config from '../../core/config.js';
 import dataManager from '../../core/data-manager.js';
 import domObserver from '../../core/dom-observer.js';
+import webSocketHook from '../../core/websocket.js';
 
 class TaskIcons {
     constructor() {
@@ -112,6 +113,26 @@ class TaskIcons {
             }
         );
         this.observers.push(unregisterTask);
+
+        // Watch for task rerolls via WebSocket
+        const questsHandler = (data) => {
+            if (!data.endCharacterQuests) {
+                return;
+            }
+
+            // Wait for game to update DOM before updating icons
+            setTimeout(() => {
+                this.clearAllProcessedMarkers();
+                this.processAllTaskCards();
+            }, 250);
+        };
+
+        webSocketHook.on('quests_updated', questsHandler);
+
+        // Store handler for cleanup
+        this.observers.push(() => {
+            webSocketHook.off('quests_updated', questsHandler);
+        });
     }
 
     /**
@@ -156,6 +177,21 @@ class TaskIcons {
                 // Mark card as processed with current task name
                 card.setAttribute('data-mwi-task-processed', taskName);
             }
+        });
+    }
+
+    /**
+     * Clear all processed markers to force icon refresh
+     */
+    clearAllProcessedMarkers() {
+        const taskList = document.querySelector(GAME.TASK_LIST);
+        if (!taskList) {
+            return;
+        }
+
+        const taskCards = taskList.querySelectorAll(GAME.TASK_CARD);
+        taskCards.forEach(card => {
+            card.removeAttribute('data-mwi-task-processed');
         });
     }
 

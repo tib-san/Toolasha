@@ -155,10 +155,8 @@ class TaskSorter {
         // After sorting, React may re-render task cards and remove our icons
         // Clear the processed markers and force icon re-processing
         if (config.isFeatureEnabled('taskIcons')) {
-            // Clear processed markers so icons get re-added
-            taskCards.forEach(card => {
-                card.removeAttribute('data-mwi-task-processed');
-            });
+            // Use taskIcons module's method to clear markers
+            taskIcons.clearAllProcessedMarkers();
 
             // Trigger icon re-processing
             // Use setTimeout to ensure React has finished any re-rendering

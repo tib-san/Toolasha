@@ -426,6 +426,21 @@ export const settingsGroups = {
                 label: 'Show combat zone index numbers on tasks',
                 type: 'checkbox',
                 default: true
+            },
+            taskIcons: {
+                id: 'taskIcons',
+                label: 'Show visual icons on task cards',
+                type: 'checkbox',
+                default: true,
+                help: 'Displays semi-transparent item/monster icons on task cards'
+            },
+            taskIconsDungeons: {
+                id: 'taskIconsDungeons',
+                label: 'Show dungeon icons on combat tasks',
+                type: 'checkbox',
+                default: false,
+                dependencies: ['taskIcons'],
+                help: 'Shows which dungeons contain the monster (requires Task Icons enabled)'
             }
         }
     },
