@@ -150,6 +150,13 @@ class Config {
                 description: 'Shows gear score on profile',
                 settingKey: 'combatScore'
             },
+            dungeonTracker: {
+                enabled: true,
+                name: 'Dungeon Tracker',
+                category: 'Combat',
+                description: 'Real-time dungeon progress tracking in top bar with wave times, statistics, and party chat completion messages',
+                settingKey: 'dungeonTracker'
+            },
             combatSimIntegration: {
                 enabled: true,
                 name: 'Combat Simulator Integration',

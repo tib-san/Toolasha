@@ -415,6 +415,13 @@ export const settingsGroups = {
                 label: 'Profile panel: Show gear score',
                 type: 'checkbox',
                 default: true
+            },
+            dungeonTracker: {
+                id: 'dungeonTracker',
+                label: 'Dungeon Tracker: Real-time progress tracking',
+                type: 'checkbox',
+                default: true,
+                help: 'Shows live dungeon progress in top bar with wave times, statistics, and sends completion summary to party chat'
             }
         }
     },

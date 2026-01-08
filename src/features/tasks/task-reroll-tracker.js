@@ -8,6 +8,7 @@ import config from '../../core/config.js';
 import domObserver from '../../core/dom-observer.js';
 import webSocketHook from '../../core/websocket.js';
 import dataManager from '../../core/data-manager.js';
+import storage from '../../core/storage.js';
 import { GAME, TOOLASHA } from '../../utils/selectors.js';
 
 class TaskRerollTracker {
@@ -15,6 +16,7 @@ class TaskRerollTracker {
         this.taskRerollData = new Map(); // key: taskId, value: { coinRerollCount, cowbellRerollCount }
         this.unregisterHandlers = [];
         this.isInitialized = false;
+        this.storeName = 'rerollSpending';
     }
 
     /**
@@ -23,6 +25,9 @@ class TaskRerollTracker {
     async initialize() {
         if (this.isInitialized) return;
 
+        // Load saved data from IndexedDB
+        await this.loadFromStorage();
+
         // Register WebSocket listener
         this.registerWebSocketListeners();
 
@@ -30,6 +35,41 @@ class TaskRerollTracker {
         this.registerDOMObservers();
 
         this.isInitialized = true;
+    }
+
+    /**
+     * Load task reroll data from IndexedDB
+     */
+    async loadFromStorage() {
+        try {
+            const savedData = await storage.getJSON('taskRerollData', this.storeName, {});
+
+            // Convert saved object back to Map
+            for (const [taskId, data] of Object.entries(savedData)) {
+                this.taskRerollData.set(parseInt(taskId), data);
+            }
+
+            console.log(`[Task Reroll Tracker] Loaded ${this.taskRerollData.size} tasks from storage`);
+        } catch (error) {
+            console.error('[Task Reroll Tracker] Failed to load from storage:', error);
+        }
+    }
+
+    /**
+     * Save task reroll data to IndexedDB
+     */
+    async saveToStorage() {
+        try {
+            // Convert Map to plain object for storage
+            const dataToSave = {};
+            for (const [taskId, data] of this.taskRerollData.entries()) {
+                dataToSave[taskId] = data;
+            }
+
+            await storage.setJSON('taskRerollData', dataToSave, this.storeName, true);
+        } catch (error) {
+            console.error('[Task Reroll Tracker] Failed to save to storage:', error);
+        }
     }
 
     /**
@@ -42,6 +82,35 @@ class TaskRerollTracker {
     }
 
     /**
+     * Clean up old task data that's no longer active
+     * Keeps only tasks that are currently in characterQuests
+     */
+    cleanupOldTasks() {
+        if (!dataManager.characterData || !dataManager.characterData.characterQuests) {
+            return;
+        }
+
+        const activeTaskIds = new Set(
+            dataManager.characterData.characterQuests.map(quest => quest.id)
+        );
+
+        let hasChanges = false;
+
+        // Remove tasks that are no longer active
+        for (const taskId of this.taskRerollData.keys()) {
+            if (!activeTaskIds.has(taskId)) {
+                this.taskRerollData.delete(taskId);
+                hasChanges = true;
+            }
+        }
+
+        if (hasChanges) {
+            console.log(`[Task Reroll Tracker] Cleaned up ${this.taskRerollData.size} inactive tasks`);
+            this.saveToStorage();
+        }
+    }
+
+    /**
      * Register WebSocket message listeners
      */
     registerWebSocketListeners() {
@@ -50,15 +119,38 @@ class TaskRerollTracker {
                 return;
             }
 
+            let hasChanges = false;
+
             // Update our task reroll data from server data
             for (const quest of data.endCharacterQuests) {
-                this.taskRerollData.set(quest.id, {
-                    coinRerollCount: quest.coinRerollCount || 0,
-                    cowbellRerollCount: quest.cowbellRerollCount || 0,
-                    monsterHrid: quest.monsterHrid || '',
-                    actionHrid: quest.actionHrid || '',
-                    goalCount: quest.goalCount || 0
-                });
+                const existingData = this.taskRerollData.get(quest.id);
+                const newCoinCount = quest.coinRerollCount || 0;
+                const newCowbellCount = quest.cowbellRerollCount || 0;
+
+                // Only update if counts increased or task is new
+                if (!existingData ||
+                    newCoinCount > existingData.coinRerollCount ||
+                    newCowbellCount > existingData.cowbellRerollCount) {
+
+                    this.taskRerollData.set(quest.id, {
+                        coinRerollCount: Math.max(existingData?.coinRerollCount || 0, newCoinCount),
+                        cowbellRerollCount: Math.max(existingData?.cowbellRerollCount || 0, newCowbellCount),
+                        monsterHrid: quest.monsterHrid || '',
+                        actionHrid: quest.actionHrid || '',
+                        goalCount: quest.goalCount || 0
+                    });
+                    hasChanges = true;
+                }
+            }
+
+            // Save to storage if data changed
+            if (hasChanges) {
+                this.saveToStorage();
+            }
+
+            // Clean up old tasks periodically (every 10th update)
+            if (Math.random() < 0.1) {
+                this.cleanupOldTasks();
             }
 
             // Wait for game to update DOM before updating displays
@@ -80,16 +172,37 @@ class TaskRerollTracker {
                 return;
             }
 
+            let hasChanges = false;
+
             // Load all quest data into the map
             for (const quest of data.characterQuests) {
-                this.taskRerollData.set(quest.id, {
-                    coinRerollCount: quest.coinRerollCount || 0,
-                    cowbellRerollCount: quest.cowbellRerollCount || 0,
-                    monsterHrid: quest.monsterHrid || '',
-                    actionHrid: quest.actionHrid || '',
-                    goalCount: quest.goalCount || 0
-                });
+                const existingData = this.taskRerollData.get(quest.id);
+                const newCoinCount = quest.coinRerollCount || 0;
+                const newCowbellCount = quest.cowbellRerollCount || 0;
+
+                // Only update if counts increased or task is new
+                if (!existingData ||
+                    newCoinCount > existingData.coinRerollCount ||
+                    newCowbellCount > existingData.cowbellRerollCount) {
+
+                    this.taskRerollData.set(quest.id, {
+                        coinRerollCount: Math.max(existingData?.coinRerollCount || 0, newCoinCount),
+                        cowbellRerollCount: Math.max(existingData?.cowbellRerollCount || 0, newCowbellCount),
+                        monsterHrid: quest.monsterHrid || '',
+                        actionHrid: quest.actionHrid || '',
+                        goalCount: quest.goalCount || 0
+                    });
+                    hasChanges = true;
+                }
             }
+
+            // Save to storage if data changed
+            if (hasChanges) {
+                this.saveToStorage();
+            }
+
+            // Clean up old tasks after loading character data
+            this.cleanupOldTasks();
 
             // Wait for DOM to be ready before updating displays
             setTimeout(() => {

@@ -41,7 +41,7 @@
             this.db = null;
             this.available = false;
             this.dbName = 'ToolashaDB';
-            this.dbVersion = 2;
+            this.dbVersion = 3; // Bumped for dungeonRuns store
             this.saveDebounceTimers = new Map(); // Per-key debounce timers
             this.SAVE_DEBOUNCE_DELAY = 3000; // 3 seconds
         }
@@ -91,6 +91,11 @@
                     // Create rerollSpending store if it doesn't exist (for task reroll tracker)
                     if (!db.objectStoreNames.contains('rerollSpending')) {
                         db.createObjectStore('rerollSpending');
+                    }
+
+                    // Create dungeonRuns store if it doesn't exist (for dungeon tracker)
+                    if (!db.objectStoreNames.contains('dungeonRuns')) {
+                        db.createObjectStore('dungeonRuns');
                     }
                 };
             });
@@ -726,6 +731,13 @@
                     label: 'Profile panel: Show gear score',
                     type: 'checkbox',
                     default: true
+                },
+                dungeonTracker: {
+                    id: 'dungeonTracker',
+                    label: 'Dungeon Tracker: Real-time progress tracking',
+                    type: 'checkbox',
+                    default: true,
+                    help: 'Shows live dungeon progress in top bar with wave times, statistics, and sends completion summary to party chat'
                 }
             }
         },
@@ -1277,6 +1289,13 @@
                     category: 'Combat',
                     description: 'Shows gear score on profile',
                     settingKey: 'combatScore'
+                },
+                dungeonTracker: {
+                    enabled: true,
+                    name: 'Dungeon Tracker',
+                    category: 'Combat',
+                    description: 'Real-time dungeon progress tracking in top bar with wave times, statistics, and party chat completion messages',
+                    settingKey: 'dungeonTracker'
                 },
                 combatSimIntegration: {
                     enabled: true,
@@ -18536,6 +18555,7 @@
             this.taskRerollData = new Map(); // key: taskId, value: { coinRerollCount, cowbellRerollCount }
             this.unregisterHandlers = [];
             this.isInitialized = false;
+            this.storeName = 'rerollSpending';
         }
 
         /**
@@ -18544,6 +18564,9 @@
         async initialize() {
             if (this.isInitialized) return;
 
+            // Load saved data from IndexedDB
+            await this.loadFromStorage();
+
             // Register WebSocket listener
             this.registerWebSocketListeners();
 
@@ -18551,6 +18574,41 @@
             this.registerDOMObservers();
 
             this.isInitialized = true;
+        }
+
+        /**
+         * Load task reroll data from IndexedDB
+         */
+        async loadFromStorage() {
+            try {
+                const savedData = await storage.getJSON('taskRerollData', this.storeName, {});
+
+                // Convert saved object back to Map
+                for (const [taskId, data] of Object.entries(savedData)) {
+                    this.taskRerollData.set(parseInt(taskId), data);
+                }
+
+                console.log(`[Task Reroll Tracker] Loaded ${this.taskRerollData.size} tasks from storage`);
+            } catch (error) {
+                console.error('[Task Reroll Tracker] Failed to load from storage:', error);
+            }
+        }
+
+        /**
+         * Save task reroll data to IndexedDB
+         */
+        async saveToStorage() {
+            try {
+                // Convert Map to plain object for storage
+                const dataToSave = {};
+                for (const [taskId, data] of this.taskRerollData.entries()) {
+                    dataToSave[taskId] = data;
+                }
+
+                await storage.setJSON('taskRerollData', dataToSave, this.storeName, true);
+            } catch (error) {
+                console.error('[Task Reroll Tracker] Failed to save to storage:', error);
+            }
         }
 
         /**
@@ -18563,6 +18621,35 @@
         }
 
         /**
+         * Clean up old task data that's no longer active
+         * Keeps only tasks that are currently in characterQuests
+         */
+        cleanupOldTasks() {
+            if (!dataManager.characterData || !dataManager.characterData.characterQuests) {
+                return;
+            }
+
+            const activeTaskIds = new Set(
+                dataManager.characterData.characterQuests.map(quest => quest.id)
+            );
+
+            let hasChanges = false;
+
+            // Remove tasks that are no longer active
+            for (const taskId of this.taskRerollData.keys()) {
+                if (!activeTaskIds.has(taskId)) {
+                    this.taskRerollData.delete(taskId);
+                    hasChanges = true;
+                }
+            }
+
+            if (hasChanges) {
+                console.log(`[Task Reroll Tracker] Cleaned up ${this.taskRerollData.size} inactive tasks`);
+                this.saveToStorage();
+            }
+        }
+
+        /**
          * Register WebSocket message listeners
          */
         registerWebSocketListeners() {
@@ -18571,15 +18658,38 @@
                     return;
                 }
 
+                let hasChanges = false;
+
                 // Update our task reroll data from server data
                 for (const quest of data.endCharacterQuests) {
-                    this.taskRerollData.set(quest.id, {
-                        coinRerollCount: quest.coinRerollCount || 0,
-                        cowbellRerollCount: quest.cowbellRerollCount || 0,
-                        monsterHrid: quest.monsterHrid || '',
-                        actionHrid: quest.actionHrid || '',
-                        goalCount: quest.goalCount || 0
-                    });
+                    const existingData = this.taskRerollData.get(quest.id);
+                    const newCoinCount = quest.coinRerollCount || 0;
+                    const newCowbellCount = quest.cowbellRerollCount || 0;
+
+                    // Only update if counts increased or task is new
+                    if (!existingData ||
+                        newCoinCount > existingData.coinRerollCount ||
+                        newCowbellCount > existingData.cowbellRerollCount) {
+
+                        this.taskRerollData.set(quest.id, {
+                            coinRerollCount: Math.max(existingData?.coinRerollCount || 0, newCoinCount),
+                            cowbellRerollCount: Math.max(existingData?.cowbellRerollCount || 0, newCowbellCount),
+                            monsterHrid: quest.monsterHrid || '',
+                            actionHrid: quest.actionHrid || '',
+                            goalCount: quest.goalCount || 0
+                        });
+                        hasChanges = true;
+                    }
+                }
+
+                // Save to storage if data changed
+                if (hasChanges) {
+                    this.saveToStorage();
+                }
+
+                // Clean up old tasks periodically (every 10th update)
+                if (Math.random() < 0.1) {
+                    this.cleanupOldTasks();
                 }
 
                 // Wait for game to update DOM before updating displays
@@ -18601,16 +18711,37 @@
                     return;
                 }
 
+                let hasChanges = false;
+
                 // Load all quest data into the map
                 for (const quest of data.characterQuests) {
-                    this.taskRerollData.set(quest.id, {
-                        coinRerollCount: quest.coinRerollCount || 0,
-                        cowbellRerollCount: quest.cowbellRerollCount || 0,
-                        monsterHrid: quest.monsterHrid || '',
-                        actionHrid: quest.actionHrid || '',
-                        goalCount: quest.goalCount || 0
-                    });
+                    const existingData = this.taskRerollData.get(quest.id);
+                    const newCoinCount = quest.coinRerollCount || 0;
+                    const newCowbellCount = quest.cowbellRerollCount || 0;
+
+                    // Only update if counts increased or task is new
+                    if (!existingData ||
+                        newCoinCount > existingData.coinRerollCount ||
+                        newCowbellCount > existingData.cowbellRerollCount) {
+
+                        this.taskRerollData.set(quest.id, {
+                            coinRerollCount: Math.max(existingData?.coinRerollCount || 0, newCoinCount),
+                            cowbellRerollCount: Math.max(existingData?.cowbellRerollCount || 0, newCowbellCount),
+                            monsterHrid: quest.monsterHrid || '',
+                            actionHrid: quest.actionHrid || '',
+                            goalCount: quest.goalCount || 0
+                        });
+                        hasChanges = true;
+                    }
                 }
+
+                // Save to storage if data changed
+                if (hasChanges) {
+                    this.saveToStorage();
+                }
+
+                // Clean up old tasks after loading character data
+                this.cleanupOldTasks();
 
                 // Wait for DOM to be ready before updating displays
                 setTimeout(() => {
@@ -25092,6 +25223,1287 @@
     const emptyQueueNotification = new EmptyQueueNotification();
 
     /**
+     * Dungeon Tracker Storage
+     * Manages IndexedDB storage for dungeon run history
+     */
+
+
+    const TIERS = [0, 1, 2];
+
+    // Hardcoded max waves for each dungeon (fallback if maxCount is 0)
+    const DUNGEON_MAX_WAVES = {
+        '/actions/combat/chimerical_den': 50,
+        '/actions/combat/sinister_circus': 60,
+        '/actions/combat/enchanted_fortress': 65,
+        '/actions/combat/pirate_cove': 65
+    };
+
+    class DungeonTrackerStorage {
+        constructor() {
+            this.storeName = 'dungeonRuns';
+        }
+
+        /**
+         * Get dungeon+tier key
+         * @param {string} dungeonHrid - Dungeon action HRID
+         * @param {number} tier - Difficulty tier (0-2)
+         * @returns {string} Storage key
+         */
+        getDungeonKey(dungeonHrid, tier) {
+            return `${dungeonHrid}::T${tier}`;
+        }
+
+        /**
+         * Get dungeon info from game data
+         * @param {string} dungeonHrid - Dungeon action HRID
+         * @returns {Object|null} Dungeon info or null
+         */
+        getDungeonInfo(dungeonHrid) {
+            const actionDetails = dataManager.getActionDetails(dungeonHrid);
+            if (!actionDetails) {
+                return null;
+            }
+
+            // Extract name from HRID (e.g., "/actions/combat/chimerical_den" -> "Chimerical Den")
+            const namePart = dungeonHrid.split('/').pop();
+            const name = namePart
+                .split('_')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+
+            // Get max waves from nested combatZoneInfo.dungeonInfo.maxWaves
+            let maxWaves = actionDetails.combatZoneInfo?.dungeonInfo?.maxWaves || 0;
+
+            // Fallback to hardcoded values if not found in game data
+            if (maxWaves === 0 && DUNGEON_MAX_WAVES[dungeonHrid]) {
+                maxWaves = DUNGEON_MAX_WAVES[dungeonHrid];
+            }
+
+            return {
+                name: actionDetails.name || name,
+                maxWaves: maxWaves
+            };
+        }
+
+        /**
+         * Save a completed dungeon run
+         * @param {Object} run - Run data
+         * @param {string} run.dungeonHrid - Dungeon action HRID
+         * @param {number} run.tier - Difficulty tier
+         * @param {number} run.startTime - Run start timestamp (ms)
+         * @param {number} run.endTime - Run end timestamp (ms)
+         * @param {number} run.totalTime - Total run time (ms)
+         * @param {number} run.avgWaveTime - Average wave time (ms)
+         * @param {number} run.fastestWave - Fastest wave time (ms)
+         * @param {number} run.slowestWave - Slowest wave time (ms)
+         * @param {number} run.wavesCompleted - Number of waves completed
+         * @param {Array<number>} run.waveTimes - Individual wave times (ms)
+         * @returns {Promise<boolean>} Success status
+         */
+        async saveRun(run) {
+            const key = this.getDungeonKey(run.dungeonHrid, run.tier);
+
+            // Get existing runs for this dungeon+tier
+            const existingRuns = await storage.getJSON(key, this.storeName, []);
+
+            // Add new run to front of list
+            existingRuns.unshift(run);
+
+            // Save updated list (no limit - store all runs)
+            return storage.setJSON(key, existingRuns, this.storeName, true);
+        }
+
+        /**
+         * Get run history for a dungeon+tier
+         * @param {string} dungeonHrid - Dungeon action HRID
+         * @param {number} tier - Difficulty tier
+         * @param {number} limit - Max runs to return (0 = all)
+         * @returns {Promise<Array>} Run history
+         */
+        async getRunHistory(dungeonHrid, tier, limit = 0) {
+            const key = this.getDungeonKey(dungeonHrid, tier);
+            const runs = await storage.getJSON(key, this.storeName, []);
+
+            if (limit > 0 && runs.length > limit) {
+                return runs.slice(0, limit);
+            }
+
+            return runs;
+        }
+
+        /**
+         * Get statistics for a dungeon+tier
+         * @param {string} dungeonHrid - Dungeon action HRID
+         * @param {number} tier - Difficulty tier
+         * @returns {Promise<Object>} Statistics
+         */
+        async getStats(dungeonHrid, tier) {
+            const runs = await this.getRunHistory(dungeonHrid, tier);
+
+            if (runs.length === 0) {
+                return {
+                    totalRuns: 0,
+                    avgTime: 0,
+                    fastestTime: 0,
+                    slowestTime: 0,
+                    avgWaveTime: 0
+                };
+            }
+
+            const totalTime = runs.reduce((sum, run) => sum + run.totalTime, 0);
+            const avgTime = totalTime / runs.length;
+            const fastestTime = Math.min(...runs.map(r => r.totalTime));
+            const slowestTime = Math.max(...runs.map(r => r.totalTime));
+
+            const totalAvgWaveTime = runs.reduce((sum, run) => sum + run.avgWaveTime, 0);
+            const avgWaveTime = totalAvgWaveTime / runs.length;
+
+            return {
+                totalRuns: runs.length,
+                avgTime,
+                fastestTime,
+                slowestTime,
+                avgWaveTime
+            };
+        }
+
+        /**
+         * Get last N runs for a dungeon+tier
+         * @param {string} dungeonHrid - Dungeon action HRID
+         * @param {number} tier - Difficulty tier
+         * @param {number} count - Number of runs to return
+         * @returns {Promise<Array>} Last N runs
+         */
+        async getLastRuns(dungeonHrid, tier, count = 10) {
+            return this.getRunHistory(dungeonHrid, tier, count);
+        }
+
+        /**
+         * Get personal best for a dungeon+tier
+         * @param {string} dungeonHrid - Dungeon action HRID
+         * @param {number} tier - Difficulty tier
+         * @returns {Promise<Object|null>} Personal best run or null
+         */
+        async getPersonalBest(dungeonHrid, tier) {
+            const runs = await this.getRunHistory(dungeonHrid, tier);
+
+            if (runs.length === 0) {
+                return null;
+            }
+
+            // Find fastest run
+            return runs.reduce((best, run) => {
+                if (!best || run.totalTime < best.totalTime) {
+                    return run;
+                }
+                return best;
+            }, null);
+        }
+
+        /**
+         * Delete all run history for a dungeon+tier
+         * @param {string} dungeonHrid - Dungeon action HRID
+         * @param {number} tier - Difficulty tier
+         * @returns {Promise<boolean>} Success status
+         */
+        async clearHistory(dungeonHrid, tier) {
+            const key = this.getDungeonKey(dungeonHrid, tier);
+            return storage.delete(key, this.storeName);
+        }
+
+        /**
+         * Get all dungeon+tier combinations with stored data
+         * @returns {Promise<Array>} Array of {dungeonHrid, tier, runCount}
+         */
+        async getAllDungeonStats() {
+            const results = [];
+
+            // Get all dungeon actions from game data
+            const initData = dataManager.getInitClientData();
+            if (!initData?.actionDetailMap) {
+                return results;
+            }
+
+            // Find all dungeon actions (combat actions with maxCount field)
+            const dungeonHrids = Object.entries(initData.actionDetailMap)
+                .filter(([hrid, details]) =>
+                    hrid.startsWith('/actions/combat/') &&
+                    details.maxCount !== undefined
+                )
+                .map(([hrid]) => hrid);
+
+            // Check each dungeon+tier combination
+            for (const dungeonHrid of dungeonHrids) {
+                for (const tier of TIERS) {
+                    const runs = await this.getRunHistory(dungeonHrid, tier);
+                    if (runs.length > 0) {
+                        const dungeonInfo = this.getDungeonInfo(dungeonHrid);
+                        results.push({
+                            dungeonHrid,
+                            tier,
+                            dungeonName: dungeonInfo?.name || 'Unknown',
+                            runCount: runs.length
+                        });
+                    }
+                }
+            }
+
+            return results;
+        }
+    }
+
+    // Create and export singleton instance
+    const dungeonTrackerStorage = new DungeonTrackerStorage();
+
+    /**
+     * Dungeon Tracker Core
+     * Tracks dungeon progress in real-time using WebSocket messages
+     */
+
+
+    class DungeonTracker {
+        constructor() {
+            this.isTracking = false;
+            this.currentRun = null;
+            this.waveStartTime = null;
+            this.waveTimes = [];
+            this.updateCallbacks = [];
+            this.pendingDungeonInfo = null; // Store dungeon info before tracking starts
+        }
+
+        /**
+         * Initialize dungeon tracker
+         */
+        initialize() {
+            // Listen for new_battle messages (wave start)
+            webSocketHook.on('new_battle', (data) => this.onNewBattle(data));
+
+            // Listen for action_completed messages (wave complete)
+            webSocketHook.on('action_completed', (data) => this.onActionCompleted(data));
+
+            // Listen for actions_updated to detect flee/cancel
+            webSocketHook.on('actions_updated', (data) => this.onActionsUpdated(data));
+        }
+
+        /**
+         * Handle actions_updated message (detect flee/cancel and dungeon start)
+         * @param {Object} data - actions_updated message data
+         */
+        onActionsUpdated(data) {
+            // Check if any dungeon action was added or removed
+            if (data.endCharacterActions) {
+                for (const action of data.endCharacterActions) {
+                    // Check if this is a dungeon action
+                    if (action.actionHrid?.startsWith('/actions/combat/') &&
+                        action.wave !== undefined) {
+
+                        if (action.isDone === false) {
+                            // Dungeon action added to queue - store info for when new_battle fires
+                            this.pendingDungeonInfo = {
+                                dungeonHrid: action.actionHrid,
+                                tier: action.difficultyTier
+                            };
+
+                            // If already tracking (somehow), update immediately
+                            if (this.isTracking && !this.currentRun.dungeonHrid) {
+                                this.currentRun.dungeonHrid = action.actionHrid;
+                                this.currentRun.tier = action.difficultyTier;
+
+                                const dungeonInfo = dungeonTrackerStorage.getDungeonInfo(action.actionHrid);
+                                if (dungeonInfo) {
+                                    this.currentRun.maxWaves = dungeonInfo.maxWaves;
+                                    this.notifyUpdate();
+                                }
+                            }
+                        } else if (action.isDone === true && this.isTracking && this.currentRun) {
+                            // Dungeon action marked as done (completion or flee)
+
+                            // If we don't have dungeon info yet, grab it from this action
+                            if (!this.currentRun.dungeonHrid) {
+                                this.currentRun.dungeonHrid = action.actionHrid;
+                                this.currentRun.tier = action.difficultyTier;
+
+                                const dungeonInfo = dungeonTrackerStorage.getDungeonInfo(action.actionHrid);
+                                if (dungeonInfo) {
+                                    this.currentRun.maxWaves = dungeonInfo.maxWaves;
+                                    // Update UI with the name before resetting
+                                    this.notifyUpdate();
+                                }
+                            }
+
+                            // Check if this was a successful completion or early exit
+                            const allWavesCompleted = this.currentRun.maxWaves &&
+                                                      this.currentRun.wavesCompleted >= this.currentRun.maxWaves;
+
+                            if (!allWavesCompleted) {
+                                // Early exit (fled, died, or failed)
+                                this.resetTracking();
+                            }
+                            // If it was a successful completion, action_completed will handle it
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        /**
+         * Handle new_battle message (wave start)
+         * @param {Object} data - new_battle message data
+         */
+        onNewBattle(data) {
+            // Only track if we have wave data
+            if (data.wave === undefined) {
+                return;
+            }
+
+            // Wave 0 = first wave = dungeon start
+            if (data.wave === 0) {
+                this.startDungeon(data);
+            } else if (!this.isTracking) {
+                // Mid-dungeon start - initialize tracking anyway
+                this.startDungeon(data);
+            } else {
+                // Subsequent wave (already tracking)
+                this.startWave(data);
+            }
+        }
+
+        /**
+         * Start tracking a new dungeon run
+         * @param {Object} data - new_battle message data
+         */
+        startDungeon(data) {
+            // Get dungeon info - prioritize pending info from actions_updated
+            let dungeonHrid = null;
+            let tier = null;
+            let maxWaves = null;
+
+            if (this.pendingDungeonInfo) {
+                // Use info from actions_updated message
+                dungeonHrid = this.pendingDungeonInfo.dungeonHrid;
+                tier = this.pendingDungeonInfo.tier;
+
+                const dungeonInfo = dungeonTrackerStorage.getDungeonInfo(dungeonHrid);
+                if (dungeonInfo) {
+                    maxWaves = dungeonInfo.maxWaves;
+                }
+
+                // Clear pending info
+                this.pendingDungeonInfo = null;
+            }
+
+            this.isTracking = true;
+            this.waveStartTime = new Date(data.combatStartTime);
+            this.waveTimes = [];
+
+            this.currentRun = {
+                dungeonHrid: dungeonHrid,
+                tier: tier,
+                startTime: this.waveStartTime.getTime(),
+                currentWave: data.wave, // Use actual wave number (1-indexed)
+                maxWaves: maxWaves,
+                wavesCompleted: 0 // No waves completed yet (will update as waves complete)
+            };
+
+            this.notifyUpdate();
+        }
+
+        /**
+         * Start tracking a new wave
+         * @param {Object} data - new_battle message data
+         */
+        startWave(data) {
+            if (!this.isTracking) {
+                return;
+            }
+
+            // Update current wave
+            this.waveStartTime = new Date(data.combatStartTime);
+            this.currentRun.currentWave = data.wave;
+
+            this.notifyUpdate();
+        }
+
+        /**
+         * Handle action_completed message (wave complete)
+         * @param {Object} data - action_completed message data
+         */
+        onActionCompleted(data) {
+            if (!this.isTracking) {
+                return;
+            }
+
+            const action = data.endCharacterAction;
+
+            // Only process dungeon actions
+            if (!action.actionHrid || !action.actionHrid.startsWith('/actions/combat/')) {
+                return;
+            }
+
+            // Ignore non-dungeon combat (zones don't have maxCount or wave field)
+            if (action.wave === undefined) {
+                return;
+            }
+
+            // Set dungeon info if not already set (fallback for mid-dungeon starts)
+            if (!this.currentRun.dungeonHrid) {
+                this.currentRun.dungeonHrid = action.actionHrid;
+                this.currentRun.tier = action.difficultyTier;
+
+                const dungeonInfo = dungeonTrackerStorage.getDungeonInfo(action.actionHrid);
+                if (dungeonInfo) {
+                    this.currentRun.maxWaves = dungeonInfo.maxWaves;
+                }
+
+                // Notify update now that we have dungeon name
+                this.notifyUpdate();
+            }
+
+            // Calculate wave time
+            const waveEndTime = Date.now();
+            const waveTime = waveEndTime - this.waveStartTime.getTime();
+            this.waveTimes.push(waveTime);
+
+            // Update waves completed (action.wave is already 1-indexed)
+            this.currentRun.wavesCompleted = action.wave;
+
+            console.log(`[Dungeon Tracker] Wave ${action.wave} completed in ${(waveTime / 1000).toFixed(1)}s`);
+
+            // Check if dungeon is complete
+            if (action.isDone) {
+                // Check if this was a successful completion (all waves done) or early exit
+                const allWavesCompleted = this.currentRun.maxWaves &&
+                                          this.currentRun.wavesCompleted >= this.currentRun.maxWaves;
+
+                if (allWavesCompleted) {
+                    // Successful completion
+                    this.completeDungeon();
+                } else {
+                    // Early exit (fled, died, or failed)
+                    this.resetTracking();
+                }
+            } else {
+                this.notifyUpdate();
+            }
+        }
+
+        /**
+         * Complete the current dungeon run
+         */
+        async completeDungeon() {
+            if (!this.currentRun || !this.isTracking) {
+                return;
+            }
+
+            const endTime = Date.now();
+            const totalTime = endTime - this.currentRun.startTime;
+
+            // Calculate statistics
+            const avgWaveTime = this.waveTimes.reduce((sum, time) => sum + time, 0) / this.waveTimes.length;
+            const fastestWave = Math.min(...this.waveTimes);
+            const slowestWave = Math.max(...this.waveTimes);
+
+            // Build complete run object
+            const completedRun = {
+                dungeonHrid: this.currentRun.dungeonHrid,
+                tier: this.currentRun.tier,
+                startTime: this.currentRun.startTime,
+                endTime,
+                totalTime,
+                avgWaveTime,
+                fastestWave,
+                slowestWave,
+                wavesCompleted: this.currentRun.wavesCompleted,
+                waveTimes: [...this.waveTimes]
+            };
+
+            // Save to storage
+            await dungeonTrackerStorage.saveRun(completedRun);
+
+            console.log('[Dungeon Tracker] Dungeon completed:', completedRun);
+
+            // Notify completion
+            this.notifyCompletion(completedRun);
+
+            // Reset state
+            this.resetTracking();
+        }
+
+        /**
+         * Reset tracking state (on completion, flee, or death)
+         */
+        resetTracking() {
+            this.isTracking = false;
+            this.currentRun = null;
+            this.waveStartTime = null;
+            this.waveTimes = [];
+            this.pendingDungeonInfo = null;
+            this.notifyUpdate();
+        }
+
+        /**
+         * Get current run state
+         * @returns {Object|null} Current run state or null
+         */
+        getCurrentRun() {
+            if (!this.isTracking || !this.currentRun) {
+                return null;
+            }
+
+            // Calculate current elapsed time
+            const now = Date.now();
+            const totalElapsed = now - this.currentRun.startTime;
+            const currentWaveElapsed = now - this.waveStartTime.getTime();
+
+            // Calculate average wave time so far
+            const avgWaveTime = this.waveTimes.length > 0
+                ? this.waveTimes.reduce((sum, time) => sum + time, 0) / this.waveTimes.length
+                : 0;
+
+            // Calculate ETA
+            const remainingWaves = this.currentRun.maxWaves - this.currentRun.wavesCompleted;
+            const estimatedTimeRemaining = avgWaveTime > 0 ? avgWaveTime * remainingWaves : 0;
+
+            // Calculate fastest/slowest wave times
+            const fastestWave = this.waveTimes.length > 0 ? Math.min(...this.waveTimes) : 0;
+            const slowestWave = this.waveTimes.length > 0 ? Math.max(...this.waveTimes) : 0;
+
+            return {
+                dungeonHrid: this.currentRun.dungeonHrid,
+                dungeonName: this.currentRun.dungeonHrid
+                    ? dungeonTrackerStorage.getDungeonInfo(this.currentRun.dungeonHrid)?.name
+                    : 'Unknown',
+                tier: this.currentRun.tier,
+                currentWave: this.currentRun.currentWave, // Already 1-indexed from new_battle message
+                maxWaves: this.currentRun.maxWaves,
+                wavesCompleted: this.currentRun.wavesCompleted,
+                totalElapsed,
+                currentWaveElapsed,
+                avgWaveTime,
+                fastestWave,
+                slowestWave,
+                estimatedTimeRemaining
+            };
+        }
+
+        /**
+         * Register a callback for run updates
+         * @param {Function} callback - Callback function
+         */
+        onUpdate(callback) {
+            this.updateCallbacks.push(callback);
+        }
+
+        /**
+         * Notify all registered callbacks of an update
+         */
+        notifyUpdate() {
+            for (const callback of this.updateCallbacks) {
+                try {
+                    callback(this.getCurrentRun());
+                } catch (error) {
+                    console.error('[Dungeon Tracker] Update callback error:', error);
+                }
+            }
+        }
+
+        /**
+         * Notify all registered callbacks of completion
+         * @param {Object} completedRun - Completed run data
+         */
+        notifyCompletion(completedRun) {
+            for (const callback of this.updateCallbacks) {
+                try {
+                    callback(null, completedRun);
+                } catch (error) {
+                    console.error('[Dungeon Tracker] Completion callback error:', error);
+                }
+            }
+        }
+
+        /**
+         * Check if currently tracking a dungeon
+         * @returns {boolean} True if tracking
+         */
+        isTrackingDungeon() {
+            return this.isTracking;
+        }
+    }
+
+    // Create and export singleton instance
+    const dungeonTracker = new DungeonTracker();
+
+    /**
+     * Dungeon Tracker UI
+     * Displays dungeon progress in the top bar
+     */
+
+
+    class DungeonTrackerUI {
+        constructor() {
+            this.container = null;
+            this.updateInterval = null;
+            this.isCollapsed = false;
+            this.isDragging = false;
+            this.dragOffset = { x: 0, y: 0 };
+            this.position = null; // { x, y } or null for default
+        }
+
+        /**
+         * Initialize UI
+         */
+        async initialize() {
+            // Load saved state
+            await this.loadState();
+
+            // Create UI elements
+            this.createUI();
+
+            // Register for dungeon tracker updates
+            dungeonTracker.onUpdate((currentRun, completedRun) => {
+                if (completedRun) {
+                    // Dungeon completed
+                    this.hide();
+                } else if (currentRun) {
+                    // Dungeon in progress
+                    this.show();
+                    this.update(currentRun);
+                } else {
+                    // No active dungeon
+                    this.hide();
+                }
+            });
+
+            // Start update loop (updates current wave time every second)
+            this.startUpdateLoop();
+        }
+
+        /**
+         * Load saved state from storage
+         */
+        async loadState() {
+            const savedState = await storage.getJSON('dungeonTracker_uiState', 'settings', null);
+            if (savedState) {
+                this.isCollapsed = savedState.isCollapsed || false;
+                this.position = savedState.position || null;
+            }
+        }
+
+        /**
+         * Save current state to storage
+         */
+        async saveState() {
+            await storage.setJSON('dungeonTracker_uiState', {
+                isCollapsed: this.isCollapsed,
+                position: this.position
+            }, 'settings', true);
+        }
+
+        /**
+         * Create UI elements
+         */
+        createUI() {
+            // Create container
+            this.container = document.createElement('div');
+            this.container.id = 'mwi-dungeon-tracker';
+
+            // Apply saved position or default
+            this.updatePosition();
+
+            // Add HTML structure
+            this.container.innerHTML = `
+            <div id="mwi-dt-header" style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 6px 10px;
+                background: #2d3748;
+                border-radius: 6px 6px 0 0;
+                cursor: move;
+                user-select: none;
+            ">
+                <span id="mwi-dt-dungeon-name" style="font-weight: bold; font-size: 14px; color: #4a9eff;">
+                    Loading...
+                </span>
+                <div style="display: flex; gap: 8px;">
+                    <span id="mwi-dt-total-time" style="font-size: 13px; color: #aaa;">
+                        00:00
+                    </span>
+                    <button id="mwi-dt-collapse-btn" style="
+                        background: none;
+                        border: none;
+                        color: #aaa;
+                        cursor: pointer;
+                        font-size: 16px;
+                        padding: 0 4px;
+                        line-height: 1;
+                    " title="Collapse/Expand">▼</button>
+                </div>
+            </div>
+            <div id="mwi-dt-content" style="padding: 12px 20px; display: flex; flex-direction: column; gap: 8px;">
+                <!-- Wave counter and percentage -->
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span id="mwi-dt-wave-counter" style="font-size: 13px;">
+                        Wave 1/50
+                    </span>
+                    <span id="mwi-dt-wave-percent" style="font-size: 13px; color: #4a9eff;">
+                        (0%)
+                    </span>
+                </div>
+
+                <!-- Progress bar -->
+                <div style="background: #333; border-radius: 4px; height: 20px; position: relative; overflow: hidden;">
+                    <div id="mwi-dt-progress-bar" style="
+                        background: linear-gradient(90deg, #4a9eff 0%, #6eb5ff 100%);
+                        height: 100%;
+                        width: 0%;
+                        transition: width 0.3s ease;
+                    "></div>
+                    <div style="
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 11px;
+                        font-weight: bold;
+                        text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+                    " id="mwi-dt-progress-text">0%</div>
+                </div>
+
+                <!-- Statistics row -->
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 11px; color: #ccc;">
+                    <div style="text-align: center;">
+                        <div style="color: #aaa; font-size: 10px;">Current Wave</div>
+                        <div id="mwi-dt-current-wave-time" style="color: #fff; font-weight: bold;">00:00</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: #aaa; font-size: 10px;">Avg Wave</div>
+                        <div id="mwi-dt-avg-wave-time" style="color: #fff; font-weight: bold;">00:00</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: #aaa; font-size: 10px;">ETA</div>
+                        <div id="mwi-dt-eta" style="color: #4a9eff; font-weight: bold;">--:--</div>
+                    </div>
+                </div>
+
+                <!-- Fastest/Slowest row -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 11px; color: #ccc; padding-top: 4px; border-top: 1px solid #444;">
+                    <div style="text-align: center;">
+                        <div style="color: #aaa; font-size: 10px;">Fastest</div>
+                        <div id="mwi-dt-fastest-wave" style="color: #5fda5f; font-weight: bold;">--:--</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: #aaa; font-size: 10px;">Slowest</div>
+                        <div id="mwi-dt-slowest-wave" style="color: #ff6b6b; font-weight: bold;">--:--</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+            // Add to page
+            document.body.appendChild(this.container);
+
+            // Setup dragging
+            this.setupDragging();
+
+            // Setup collapse button
+            this.setupCollapseButton();
+
+            // Apply initial collapsed state
+            if (this.isCollapsed) {
+                this.applyCollapsedState();
+            }
+        }
+
+        /**
+         * Update container position and styling
+         */
+        updatePosition() {
+            const baseStyle = `
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            background: rgba(0, 0, 0, 0.85);
+            border: 2px solid #4a9eff;
+            border-radius: 8px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        `;
+
+            if (this.position) {
+                // Custom position (user dragged it)
+                this.container.style.cssText = `
+                ${baseStyle}
+                top: ${this.position.y}px;
+                left: ${this.position.x}px;
+                min-width: ${this.isCollapsed ? '250px' : '400px'};
+            `;
+            } else if (this.isCollapsed) {
+                // Collapsed: top-left (near action time display)
+                this.container.style.cssText = `
+                ${baseStyle}
+                top: 10px;
+                left: 10px;
+                min-width: 250px;
+            `;
+            } else {
+                // Expanded: top-center
+                this.container.style.cssText = `
+                ${baseStyle}
+                top: 10px;
+                left: 50%;
+                transform: translateX(-50%);
+                min-width: 400px;
+            `;
+            }
+        }
+
+        /**
+         * Setup dragging functionality
+         */
+        setupDragging() {
+            const header = this.container.querySelector('#mwi-dt-header');
+            if (!header) return;
+
+            header.addEventListener('mousedown', (e) => {
+                // Don't drag if clicking collapse button
+                if (e.target.id === 'mwi-dt-collapse-btn') return;
+
+                this.isDragging = true;
+                const rect = this.container.getBoundingClientRect();
+                this.dragOffset = {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+                header.style.cursor = 'grabbing';
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!this.isDragging) return;
+
+                const x = e.clientX - this.dragOffset.x;
+                const y = e.clientY - this.dragOffset.y;
+
+                // Save position (disables default centering)
+                this.position = { x, y };
+
+                // Apply position
+                this.container.style.left = `${x}px`;
+                this.container.style.top = `${y}px`;
+                this.container.style.transform = 'none'; // Disable centering transform
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (this.isDragging) {
+                    this.isDragging = false;
+                    const header = this.container.querySelector('#mwi-dt-header');
+                    if (header) header.style.cursor = 'move';
+                    this.saveState();
+                }
+            });
+        }
+
+        /**
+         * Setup collapse button
+         */
+        setupCollapseButton() {
+            const collapseBtn = this.container.querySelector('#mwi-dt-collapse-btn');
+            if (!collapseBtn) return;
+
+            collapseBtn.addEventListener('click', () => {
+                this.toggleCollapse();
+            });
+        }
+
+        /**
+         * Toggle collapse state
+         */
+        toggleCollapse() {
+            this.isCollapsed = !this.isCollapsed;
+
+            if (this.isCollapsed) {
+                this.applyCollapsedState();
+            } else {
+                this.applyExpandedState();
+            }
+
+            // If no custom position, update to new default position
+            if (!this.position) {
+                this.updatePosition();
+            } else {
+                // Just update width for custom positions
+                this.container.style.minWidth = this.isCollapsed ? '250px' : '400px';
+            }
+
+            this.saveState();
+        }
+
+        /**
+         * Apply collapsed state appearance
+         */
+        applyCollapsedState() {
+            const content = this.container.querySelector('#mwi-dt-content');
+            const collapseBtn = this.container.querySelector('#mwi-dt-collapse-btn');
+
+            if (content) content.style.display = 'none';
+            if (collapseBtn) collapseBtn.textContent = '▲';
+        }
+
+        /**
+         * Apply expanded state appearance
+         */
+        applyExpandedState() {
+            const content = this.container.querySelector('#mwi-dt-content');
+            const collapseBtn = this.container.querySelector('#mwi-dt-collapse-btn');
+
+            if (content) content.style.display = 'flex';
+            if (collapseBtn) collapseBtn.textContent = '▼';
+        }
+
+        /**
+         * Update UI with current run data
+         * @param {Object} run - Current run state
+         */
+        update(run) {
+            if (!run || !this.container) {
+                return;
+            }
+
+            // Update dungeon name and tier
+            const dungeonName = document.getElementById('mwi-dt-dungeon-name');
+            if (dungeonName) {
+                if (run.dungeonName && run.tier !== null) {
+                    dungeonName.textContent = `${run.dungeonName} (T${run.tier})`;
+                } else {
+                    dungeonName.textContent = 'Dungeon Loading...';
+                }
+            }
+
+            // Update total time
+            const totalTime = document.getElementById('mwi-dt-total-time');
+            if (totalTime) {
+                totalTime.textContent = this.formatTime(run.totalElapsed);
+            }
+
+            // Update wave counter
+            const waveCounter = document.getElementById('mwi-dt-wave-counter');
+            if (waveCounter && run.maxWaves) {
+                const newText = `Wave ${run.currentWave}/${run.maxWaves}`;
+                waveCounter.textContent = newText;
+            }
+
+            // Update wave percentage
+            const wavePercent = document.getElementById('mwi-dt-wave-percent');
+            if (wavePercent && run.maxWaves) {
+                const percent = Math.round((run.currentWave / run.maxWaves) * 100);
+                wavePercent.textContent = `(${percent}%)`;
+            }
+
+            // Update progress bar
+            const progressBar = document.getElementById('mwi-dt-progress-bar');
+            const progressText = document.getElementById('mwi-dt-progress-text');
+            if (progressBar && progressText && run.maxWaves) {
+                const percent = Math.round((run.currentWave / run.maxWaves) * 100);
+                progressBar.style.width = `${percent}%`;
+                progressText.textContent = `${percent}%`;
+            }
+
+            // Update current wave time
+            const currentWaveTime = document.getElementById('mwi-dt-current-wave-time');
+            if (currentWaveTime) {
+                currentWaveTime.textContent = this.formatTime(run.currentWaveElapsed);
+            }
+
+            // Update average wave time
+            const avgWaveTime = document.getElementById('mwi-dt-avg-wave-time');
+            if (avgWaveTime) {
+                avgWaveTime.textContent = run.avgWaveTime > 0 ? this.formatTime(run.avgWaveTime) : '--:--';
+            }
+
+            // Update ETA
+            const eta = document.getElementById('mwi-dt-eta');
+            if (eta) {
+                eta.textContent = run.estimatedTimeRemaining > 0 ? this.formatTime(run.estimatedTimeRemaining) : '--:--';
+            }
+
+            // Update fastest wave
+            const fastestWave = document.getElementById('mwi-dt-fastest-wave');
+            if (fastestWave) {
+                fastestWave.textContent = run.fastestWave > 0 ? this.formatTime(run.fastestWave) : '--:--';
+            }
+
+            // Update slowest wave
+            const slowestWave = document.getElementById('mwi-dt-slowest-wave');
+            if (slowestWave) {
+                slowestWave.textContent = run.slowestWave > 0 ? this.formatTime(run.slowestWave) : '--:--';
+            }
+        }
+
+        /**
+         * Show the UI
+         */
+        show() {
+            if (this.container) {
+                this.container.style.display = 'block';
+            }
+        }
+
+        /**
+         * Hide the UI
+         */
+        hide() {
+            if (this.container) {
+                this.container.style.display = 'none';
+            }
+        }
+
+        /**
+         * Start the update loop (updates current wave time every second)
+         */
+        startUpdateLoop() {
+            // Clear existing interval
+            if (this.updateInterval) {
+                clearInterval(this.updateInterval);
+            }
+
+            // Update every second
+            this.updateInterval = setInterval(() => {
+                const currentRun = dungeonTracker.getCurrentRun();
+                if (currentRun) {
+                    this.update(currentRun);
+                }
+            }, 1000);
+        }
+
+        /**
+         * Format time in milliseconds to MM:SS
+         * @param {number} ms - Time in milliseconds
+         * @returns {string} Formatted time
+         */
+        formatTime(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+    }
+
+    // Create and export singleton instance
+    const dungeonTrackerUI = new DungeonTrackerUI();
+
+    /**
+     * Dungeon Tracker Party Chat
+     * Sends dungeon completion messages to party chat
+     */
+
+
+    class DungeonTrackerPartyChat {
+        constructor() {
+            this.enabled = true;
+        }
+
+        /**
+         * Initialize party chat module
+         */
+        initialize() {
+            // Register for dungeon tracker updates
+            dungeonTracker.onUpdate((currentRun, completedRun) => {
+                if (completedRun) {
+                    this.sendCompletionMessage(completedRun);
+                }
+            });
+
+            console.log('[Dungeon Tracker Party Chat] Initialized');
+        }
+
+        /**
+         * Send completion message to party chat
+         * @param {Object} run - Completed run data
+         */
+        async sendCompletionMessage(run) {
+            if (!this.enabled) {
+                return;
+            }
+
+            try {
+                // Get dungeon info
+                const dungeonInfo = dungeonTrackerStorage.getDungeonInfo(run.dungeonHrid);
+                if (!dungeonInfo) {
+                    console.warn('[Dungeon Tracker Party Chat] Unknown dungeon:', run.dungeonHrid);
+                    return;
+                }
+
+                // Get previous runs for comparison
+                const lastRuns = await dungeonTrackerStorage.getLastRuns(run.dungeonHrid, run.tier, 10);
+                const stats = await dungeonTrackerStorage.getStats(run.dungeonHrid, run.tier);
+                const pb = await dungeonTrackerStorage.getPersonalBest(run.dungeonHrid, run.tier);
+
+                // Build message
+                const message = this.buildMessage(run, dungeonInfo, lastRuns, stats, pb);
+
+                // Send to party chat
+                this.sendToPartyChat(message);
+
+            } catch (error) {
+                console.error('[Dungeon Tracker Party Chat] Error sending message:', error);
+            }
+        }
+
+        /**
+         * Build completion message
+         * @param {Object} run - Completed run
+         * @param {Object} dungeonInfo - Dungeon info
+         * @param {Array} lastRuns - Last 10 runs
+         * @param {Object} stats - Statistics
+         * @param {Object} pb - Personal best run
+         * @returns {string} Message text
+         */
+        buildMessage(run, dungeonInfo, lastRuns, stats, pb) {
+            const dungeonName = dungeonInfo.name;
+            const tier = run.tier;
+            const totalTime = this.formatTime(run.totalTime);
+            const avgWaveTime = this.formatTime(run.avgWaveTime);
+
+            let message = `[Toolasha] ${dungeonName} T${tier} completed in ${totalTime} (avg ${avgWaveTime}/wave)`;
+
+            // Compare to last run
+            if (lastRuns.length > 1) {
+                const lastRun = lastRuns[1]; // Index 0 is the current run
+                const timeDiff = run.totalTime - lastRun.totalTime;
+                const faster = timeDiff < 0;
+                const diffStr = this.formatTime(Math.abs(timeDiff));
+
+                if (faster) {
+                    message += ` | ${diffStr} faster than last`;
+                } else {
+                    message += ` | ${diffStr} slower than last`;
+                }
+            }
+
+            // Compare to average
+            if (stats.totalRuns > 1) {
+                const avgDiff = run.totalTime - stats.avgTime;
+                const faster = avgDiff < 0;
+                const diffStr = this.formatTime(Math.abs(avgDiff));
+
+                if (faster) {
+                    message += ` | ${diffStr} faster than avg`;
+                } else {
+                    message += ` | ${diffStr} slower than avg`;
+                }
+            }
+
+            // Check if personal best
+            if (pb && run.totalTime === pb.totalTime) {
+                message += ' | 🏆 NEW PB!';
+            } else if (pb) {
+                const pbDiff = run.totalTime - pb.totalTime;
+                const diffStr = this.formatTime(pbDiff);
+                message += ` | PB: ${this.formatTime(pb.totalTime)} (+${diffStr})`;
+            }
+
+            return message;
+        }
+
+        /**
+         * Send message to party chat
+         * @param {string} message - Message text
+         */
+        sendToPartyChat(message) {
+            try {
+                // Find chat input
+                const chatInput = document.querySelector('textarea[placeholder="Type a message..."]');
+                if (!chatInput) {
+                    console.warn('[Dungeon Tracker Party Chat] Chat input not found');
+                    return;
+                }
+
+                // Get the React fiber key for the input
+                const fiberKey = Object.keys(chatInput).find(key => key.startsWith('__react'));
+                if (!fiberKey) {
+                    console.warn('[Dungeon Tracker Party Chat] React fiber not found');
+                    return;
+                }
+
+                // Set the input value
+                chatInput.value = message;
+
+                // Trigger React onChange event
+                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                    window.HTMLTextAreaElement.prototype,
+                    'value'
+                ).set;
+                nativeInputValueSetter.call(chatInput, message);
+
+                // Dispatch input event
+                const inputEvent = new Event('input', { bubbles: true });
+                chatInput.dispatchEvent(inputEvent);
+
+                // Wait a bit, then find and click the send button
+                setTimeout(() => {
+                    // Find send button (look for button near the chat input)
+                    const sendButton = chatInput.parentElement?.querySelector('button[type="submit"]') ||
+                                       chatInput.closest('form')?.querySelector('button[type="submit"]') ||
+                                       document.querySelector('button[aria-label="Send message"]');
+
+                    if (sendButton) {
+                        sendButton.click();
+                        console.log('[Dungeon Tracker Party Chat] Message sent:', message);
+                    } else {
+                        console.warn('[Dungeon Tracker Party Chat] Send button not found, message typed but not sent');
+                    }
+                }, 100);
+
+            } catch (error) {
+                console.error('[Dungeon Tracker Party Chat] Error sending to chat:', error);
+            }
+        }
+
+        /**
+         * Format time in milliseconds to MM:SS
+         * @param {number} ms - Time in milliseconds
+         * @returns {string} Formatted time
+         */
+        formatTime(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        /**
+         * Enable party chat messages
+         */
+        enable() {
+            this.enabled = true;
+        }
+
+        /**
+         * Disable party chat messages
+         */
+        disable() {
+            this.enabled = false;
+        }
+
+        /**
+         * Check if party chat messages are enabled
+         * @returns {boolean} Enabled status
+         */
+        isEnabled() {
+            return this.enabled;
+        }
+    }
+
+    // Create and export singleton instance
+    const dungeonTrackerPartyChat = new DungeonTrackerPartyChat();
+
+    /**
      * Feature Registry
      * Centralized feature initialization system
      */
@@ -25271,6 +26683,19 @@
             name: 'Combat Score',
             category: 'Combat',
             initialize: () => combatScore.initialize(),
+            async: false
+        },
+        {
+            key: 'dungeonTracker',
+            name: 'Dungeon Tracker',
+            category: 'Combat',
+            initialize: () => {
+                console.log('[Feature Registry] Initializing Dungeon Tracker...');
+                dungeonTracker.initialize();
+                dungeonTrackerUI.initialize();
+                dungeonTrackerPartyChat.initialize();
+                console.log('[Feature Registry] Dungeon Tracker initialization complete');
+            },
             async: false
         },
 

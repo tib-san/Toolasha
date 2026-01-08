@@ -9,7 +9,7 @@ class Storage {
         this.db = null;
         this.available = false;
         this.dbName = 'ToolashaDB';
-        this.dbVersion = 2;
+        this.dbVersion = 3; // Bumped for dungeonRuns store
         this.saveDebounceTimers = new Map(); // Per-key debounce timers
         this.SAVE_DEBOUNCE_DELAY = 3000; // 3 seconds
     }
@@ -59,6 +59,11 @@ class Storage {
                 // Create rerollSpending store if it doesn't exist (for task reroll tracker)
                 if (!db.objectStoreNames.contains('rerollSpending')) {
                     db.createObjectStore('rerollSpending');
+                }
+
+                // Create dungeonRuns store if it doesn't exist (for dungeon tracker)
+                if (!db.objectStoreNames.contains('dungeonRuns')) {
+                    db.createObjectStore('dungeonRuns');
                 }
             };
         });

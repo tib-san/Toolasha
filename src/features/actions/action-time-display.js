@@ -414,10 +414,14 @@ class ActionTimeDisplay {
             remainingActions = Infinity;
         }
 
-        // Calculate total time
-        // Note: Efficiency does NOT reduce time - it only increases outputs
-        // The queue count represents ACTIONS to perform, not outputs wanted
-        const totalTimeSeconds = remainingActions * actionTime;
+        // Calculate average actions per attempt from efficiency
+        const guaranteedActions = 1 + Math.floor(totalEfficiency / 100);
+        const chanceForExtra = totalEfficiency % 100;
+        const avgActionsPerAttempt = guaranteedActions + (chanceForExtra / 100);
+
+        // Calculate actual attempts needed (time-consuming operations)
+        const actualAttempts = Math.ceil(remainingActions / avgActionsPerAttempt);
+        const totalTimeSeconds = actualAttempts * actionTime;
 
         // Calculate completion time
         const completionTime = new Date();
@@ -855,7 +859,15 @@ class ActionTimeDisplay {
                                 if (materialLimit !== null) {
                                     // Material-limited infinite action - calculate time
                                     const count = materialLimit;
-                                    const totalTime = count * actionTime;
+
+                                    // Calculate average actions per attempt from efficiency
+                                    const guaranteedActions = 1 + Math.floor(totalEfficiency / 100);
+                                    const chanceForExtra = totalEfficiency % 100;
+                                    const avgActionsPerAttempt = guaranteedActions + (chanceForExtra / 100);
+
+                                    // Calculate actual attempts needed
+                                    const actualAttempts = Math.ceil(count / avgActionsPerAttempt);
+                                    const totalTime = actualAttempts * actionTime;
                                     accumulatedTime += totalTime;
                                 }
                             } else {
@@ -866,8 +878,16 @@ class ActionTimeDisplay {
                             const count = currentAction.maxCount - currentAction.currentCount;
                             const timeData = this.calculateActionTime(actionDetails);
                             if (timeData) {
-                                const { actionTime } = timeData;
-                                const totalTime = count * actionTime;
+                                const { actionTime, totalEfficiency } = timeData;
+
+                                // Calculate average actions per attempt from efficiency
+                                const guaranteedActions = 1 + Math.floor(totalEfficiency / 100);
+                                const chanceForExtra = totalEfficiency % 100;
+                                const avgActionsPerAttempt = guaranteedActions + (chanceForExtra / 100);
+
+                                // Calculate actual attempts needed
+                                const actualAttempts = Math.ceil(count / avgActionsPerAttempt);
+                                const totalTime = actualAttempts * actionTime;
                                 accumulatedTime += totalTime;
                             }
                         }
@@ -948,12 +968,18 @@ class ActionTimeDisplay {
                 }
 
                 // Calculate total time for this action
-                // Efficiency doesn't affect time - queue count is ACTIONS, not outputs
                 let totalTime;
                 if (isTrulyInfinite) {
                     totalTime = Infinity;
                 } else {
-                    totalTime = count * actionTime;
+                    // Calculate average actions per attempt from efficiency
+                    const guaranteedActions = 1 + Math.floor(totalEfficiency / 100);
+                    const chanceForExtra = totalEfficiency % 100;
+                    const avgActionsPerAttempt = guaranteedActions + (chanceForExtra / 100);
+
+                    // Calculate actual attempts needed
+                    const actualAttempts = Math.ceil(count / avgActionsPerAttempt);
+                    totalTime = actualAttempts * actionTime;
                     accumulatedTime += totalTime;
                 }
 
