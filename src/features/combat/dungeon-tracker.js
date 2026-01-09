@@ -267,6 +267,11 @@ class DungeonTracker {
             this.pendingDungeonInfo = null;
         }
 
+        // Don't start tracking if we don't have dungeon info (not a dungeon)
+        if (!dungeonHrid) {
+            return;
+        }
+
         this.isTracking = true;
         this.currentBattleId = data.battleId; // Store battleId for persistence
         this.waveStartTime = new Date(data.combatStartTime);

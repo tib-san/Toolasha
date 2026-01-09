@@ -25779,6 +25779,11 @@
                 this.pendingDungeonInfo = null;
             }
 
+            // Don't start tracking if we don't have dungeon info (not a dungeon)
+            if (!dungeonHrid) {
+                return;
+            }
+
             this.isTracking = true;
             this.currentBattleId = data.battleId; // Store battleId for persistence
             this.waveStartTime = new Date(data.combatStartTime);
@@ -28359,7 +28364,7 @@
         const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
         targetWindow.Toolasha = {
-            version: '0.4.907',
+            version: '0.4.908',
 
             // Feature toggle API (for users to manage settings via console)
             features: {
