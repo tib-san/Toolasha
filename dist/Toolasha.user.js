@@ -11254,8 +11254,19 @@
             // Get community buff efficiency (if requested)
             let communityEfficiency = 0;
             if (includeCommunityBuff) {
-                const communityBuffLevel = dataManager.getCommunityBuffLevel('/community_buff_types/production_efficiency');
-                communityEfficiency = communityBuffLevel ? (0.14 + ((communityBuffLevel - 1) * 0.003)) * 100 : 0;
+                // Production Efficiency buff only applies to production skills
+                const productionSkills = [
+                    '/action_types/brewing',
+                    '/action_types/cheesesmithing',
+                    '/action_types/cooking',
+                    '/action_types/crafting',
+                    '/action_types/tailoring'
+                ];
+
+                if (productionSkills.includes(actionDetails.type)) {
+                    const communityBuffLevel = dataManager.getCommunityBuffLevel('/community_buff_types/production_efficiency');
+                    communityEfficiency = communityBuffLevel ? (0.14 + ((communityBuffLevel - 1) * 0.003)) * 100 : 0;
+                }
             }
 
             // Total efficiency (stack all components additively)
