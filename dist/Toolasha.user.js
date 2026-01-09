@@ -19715,30 +19715,26 @@
                 // Try to find skill name - handle both navigation bar and combat skill displays
                 let skillName = null;
 
-                // Method 1: Navigation bar structure (left nav)
-                const navLink = progressBar.closest('[class*="NavigationBar_navigationLink"]');
-                if (navLink) {
-                    const skillNameElement = navLink.querySelector('[class*="NavigationBar_label"]');
-                    if (skillNameElement) {
-                        skillName = skillNameElement.textContent.trim();
+                // Check if we're in a sub-skills container (combat skills)
+                const subSkillsContainer = progressBar.closest('[class*="NavigationBar_subSkills"]');
+
+                if (subSkillsContainer) {
+                    // We're in combat sub-skills - look for label in immediate parent structure
+                    // The label should be in a sibling or nearby element, not in the parent navigationLink
+                    const navContainer = progressBar.closest('[class*="NavigationBar_nav"]');
+                    if (navContainer) {
+                        const skillNameElement = navContainer.querySelector('[class*="NavigationBar_label"]');
+                        if (skillNameElement) {
+                            skillName = skillNameElement.textContent.trim();
+                        }
                     }
-                }
-
-                // Method 2: Check for combat skills by looking at surrounding text
-                // Combat skills might be displayed differently, search parent structure
-                if (!skillName) {
-                    // Look for skill name in parent elements or siblings
-                    const parent = progressBar.closest('div');
-                    if (parent) {
-                        // Search for common combat skill names in the DOM tree
-                        const combatSkills = ['Attack', 'Defense', 'Stamina', 'Intelligence', 'Melee', 'Ranged', 'Magic'];
-                        const textContent = parent.textContent;
-
-                        for (const skill of combatSkills) {
-                            if (textContent.includes(skill)) {
-                                skillName = skill;
-                                break;
-                            }
+                } else {
+                    // Regular skill (not a sub-skill) - use standard navigation link approach
+                    const navLink = progressBar.closest('[class*="NavigationBar_navigationLink"]');
+                    if (navLink) {
+                        const skillNameElement = navLink.querySelector('[class*="NavigationBar_label"]');
+                        if (skillNameElement) {
+                            skillName = skillNameElement.textContent.trim();
                         }
                     }
                 }
@@ -19790,11 +19786,15 @@
 
             // Get character skills data
             const characterData = dataManager.characterData;
-            if (!characterData || !characterData.characterSkills) return null;
+            if (!characterData || !characterData.characterSkills) {
+                return null;
+            }
 
             // Find the skill
             const skill = characterData.characterSkills.find(s => s.skillHrid === skillHrid);
-            if (!skill) return null;
+            if (!skill) {
+                return null;
+            }
 
             // Get level experience table
             const gameData = dataManager.getInitClientData();
@@ -28359,7 +28359,7 @@
         const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
         targetWindow.Toolasha = {
-            version: '0.4.843',
+            version: '0.4.907',
 
             // Feature toggle API (for users to manage settings via console)
             features: {
