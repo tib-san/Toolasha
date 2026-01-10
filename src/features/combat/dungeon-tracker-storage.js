@@ -179,6 +179,29 @@ class DungeonTrackerStorage {
     }
 
     /**
+     * Delete a specific run from history
+     * @param {string} dungeonHrid - Dungeon action HRID
+     * @param {number} tier - Difficulty tier
+     * @param {number} runIndex - Index of run to delete (0 = most recent)
+     * @returns {Promise<boolean>} Success status
+     */
+    async deleteRun(dungeonHrid, tier, runIndex) {
+        const key = this.getDungeonKey(dungeonHrid, tier);
+        const runs = await storage.getJSON(key, this.storeName, []);
+
+        if (runIndex < 0 || runIndex >= runs.length) {
+            console.warn('[Dungeon Tracker Storage] Invalid run index:', runIndex);
+            return false;
+        }
+
+        // Remove the run at the specified index
+        runs.splice(runIndex, 1);
+
+        // Save updated list
+        return storage.setJSON(key, runs, this.storeName, true);
+    }
+
+    /**
      * Delete all run history for a dungeon+tier
      * @param {string} dungeonHrid - Dungeon action HRID
      * @param {number} tier - Difficulty tier
