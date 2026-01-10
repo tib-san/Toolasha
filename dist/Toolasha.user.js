@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.911
+// @version      0.4.912
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB, and sentientmilk for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Thank you to Steez for testing and helping me figure out where I'm wrong! Special thanks to Zaeter for the name.
 // @license      CC-BY-NC-SA-4.0
@@ -41,7 +41,7 @@
             this.db = null;
             this.available = false;
             this.dbName = 'ToolashaDB';
-            this.dbVersion = 3; // Bumped for dungeonRuns store
+            this.dbVersion = 4; // Bumped for combatExport store
             this.saveDebounceTimers = new Map(); // Per-key debounce timers
             this.SAVE_DEBOUNCE_DELAY = 3000; // 3 seconds
         }
@@ -96,6 +96,11 @@
                     // Create dungeonRuns store if it doesn't exist (for dungeon tracker)
                     if (!db.objectStoreNames.contains('dungeonRuns')) {
                         db.createObjectStore('dungeonRuns');
+                    }
+
+                    // Create combatExport store if it doesn't exist (for combat sim/milkonomy exports)
+                    if (!db.objectStoreNames.contains('combatExport')) {
+                        db.createObjectStore('combatExport');
                     }
                 };
             });
@@ -746,6 +751,13 @@
                     type: 'checkbox',
                     default: true,
                     help: 'Shows live dungeon progress in top bar with wave times, statistics, and sends completion summary to party chat'
+                },
+                combatSummary: {
+                    id: 'combatSummary',
+                    label: 'Combat Summary: Show detailed statistics on return',
+                    type: 'checkbox',
+                    default: true,
+                    help: 'Displays encounters/hour, revenue, experience rates when returning from combat'
                 }
             }
         },
@@ -1721,6 +1733,7 @@
      * Uses WebSocket constructor wrapper for better performance than MessageEvent.prototype.data hooking
      */
 
+
     class WebSocketHook {
         constructor() {
             this.isHooked = false;
@@ -1763,6 +1776,7 @@
         /**
          * Install the WebSocket hook
          * MUST be called before WebSocket connection is established
+         * Uses MessageEvent.prototype.data hook (same method as MWI Tools)
          */
         install() {
             if (this.isHooked) {
@@ -1770,62 +1784,47 @@
                 return;
             }
 
-            console.log('[WebSocket Hook] Installing hook at:', new Date().toISOString());
+            console.log('[WebSocket Hook] Installing MessageEvent hook at:', new Date().toISOString());
 
-            // Capture hook instance for listener closure
+            // Capture hook instance for closure
             const hookInstance = this;
 
             // Get target window - unsafeWindow in Firefox, window in Chrome/Chromium
-            const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+            typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
-            // Get original WebSocket from game's context
-            const OriginalWebSocket = targetWindow.WebSocket;
+            // Hook MessageEvent.prototype.data (same as MWI Tools)
+            const dataProperty = Object.getOwnPropertyDescriptor(MessageEvent.prototype, "data");
+            const originalGet = dataProperty.get;
 
-            // Create wrapper class
-            class WrappedWebSocket extends OriginalWebSocket {
-                constructor(...args) {
-                    super(...args);
+            dataProperty.get = function hookedGet() {
+                const socket = this.currentTarget;
 
-                    // Only hook MWI game server WebSocket
-                    if (this.url.startsWith("wss://api.milkywayidle.com/ws") ||
-                        this.url.startsWith("wss://api-test.milkywayidle.com/ws")) {
-
-                        console.log('[WebSocket Hook] Subscribing to game WebSocket');
-
-                        // Add message listener - fires exactly once per message
-                        this.addEventListener("message", (event) => {
-                            hookInstance.processMessage(event.data);
-                        });
-                    }
+                // Only hook WebSocket messages
+                if (!(socket instanceof WebSocket)) {
+                    return originalGet.call(this);
                 }
-            }
 
-            // Preserve static properties (required by game's connection health check)
-            // Use Object.defineProperty because class properties are read-only by default
-            Object.defineProperty(WrappedWebSocket, 'CONNECTING', {
-                value: OriginalWebSocket.CONNECTING,
-                writable: false,
-                enumerable: true,
-                configurable: true
-            });
-            Object.defineProperty(WrappedWebSocket, 'OPEN', {
-                value: OriginalWebSocket.OPEN,
-                writable: false,
-                enumerable: true,
-                configurable: true
-            });
-            Object.defineProperty(WrappedWebSocket, 'CLOSED', {
-                value: OriginalWebSocket.CLOSED,
-                writable: false,
-                enumerable: true,
-                configurable: true
-            });
+                // Only hook MWI game server
+                if (socket.url.indexOf("api.milkywayidle.com/ws") === -1 &&
+                    socket.url.indexOf("api-test.milkywayidle.com/ws") === -1) {
+                    return originalGet.call(this);
+                }
 
-            // Replace window.WebSocket in game's context
-            targetWindow.WebSocket = WrappedWebSocket;
+                const message = originalGet.call(this);
+
+                // Anti-loop: define data property so we don't hook our own access
+                Object.defineProperty(this, "data", { value: message });
+
+                // Process message in our hook
+                hookInstance.processMessage(message);
+
+                return message;
+            };
+
+            Object.defineProperty(MessageEvent.prototype, "data", dataProperty);
 
             this.isHooked = true;
-            console.log('[WebSocket Hook] Hook successfully installed');
+            console.log('[WebSocket Hook] MessageEvent hook successfully installed');
         }
 
         /**
@@ -1892,12 +1891,14 @@
                 // Save profile shares (when opening party member profiles)
                 if (messageType === 'profile_shared') {
                     const parsed = JSON.parse(message);
-                    let profileList = JSON.parse(await this.loadFromStorage('toolasha_profile_export_list', '[]'));
 
                     // Extract character info
                     parsed.characterID = parsed.profile.characterSkills[0].characterID;
                     parsed.characterName = parsed.profile.sharableCharacter.name;
                     parsed.timestamp = Date.now();
+
+                    // Load existing profile list from IndexedDB
+                    let profileList = await storage.get('profileList', 'combatExport', []);
 
                     // Remove old entry for same character
                     profileList = profileList.filter(p => p.characterID !== parsed.characterID);
@@ -1910,7 +1911,12 @@
                         profileList.pop();
                     }
 
-                    await this.saveToStorage('toolasha_profile_export_list', JSON.stringify(profileList));
+                    // Save updated profile list to IndexedDB
+                    await storage.set('profileList', profileList, 'combatExport', true);
+
+                    // Save current profile ID (for profile export button)
+                    await storage.set('currentProfileId', parsed.characterID, 'combatExport', true);
+
                     console.log('[Toolasha] Profile saved for Combat Sim export:', parsed.characterName);
                 }
             } catch (error) {
@@ -11686,7 +11692,60 @@
             }
 
             const { actionTime, totalEfficiency } = stats;
-            const actionsPerHour = 3600 / actionTime;
+            const baseActionsPerHour = 3600 / actionTime;
+
+            // Calculate average actions per attempt from efficiency
+            const guaranteedActions = 1 + Math.floor(totalEfficiency / 100);
+            const chanceForExtra = totalEfficiency % 100;
+            const avgActionsPerAttempt = guaranteedActions + (chanceForExtra / 100);
+
+            // Calculate actions per hour WITH efficiency (total action completions including free repeats)
+            const actionsPerHourWithEfficiency = baseActionsPerHour * avgActionsPerAttempt;
+
+            // Calculate items per hour based on action type
+            let itemsPerHour;
+
+            // Gathering action types (need special handling for dropTable)
+            const GATHERING_TYPES = [
+                '/action_types/foraging',
+                '/action_types/woodcutting',
+                '/action_types/milking'
+            ];
+
+            if (actionDetails.dropTable && actionDetails.dropTable.length > 0 && GATHERING_TYPES.includes(actionDetails.type)) {
+                // Gathering action - use dropTable with gathering quantity bonus
+                const mainDrop = actionDetails.dropTable[0];
+                const baseAvgAmount = (mainDrop.minCount + mainDrop.maxCount) / 2;
+
+                // Calculate gathering quantity bonus (same as gathering-profit.js)
+                const activeDrinks = dataManager.getActionDrinkSlots(actionDetails.type);
+                const drinkConcentration = getDrinkConcentration(equipment, itemDetailMap);
+                const gatheringTea = parseGatheringBonus(activeDrinks, itemDetailMap, drinkConcentration);
+
+                // Community buff
+                const communityBuffLevel = dataManager.getCommunityBuffLevel('/community_buff_types/gathering_quantity');
+                const communityGathering = communityBuffLevel ? 0.2 + ((communityBuffLevel - 1) * 0.005) : 0;
+
+                // Achievement buffs
+                const achievementBuffs = dataManager.getAchievementBuffs(actionDetails.type);
+                const achievementGathering = achievementBuffs.gatheringQuantity || 0;
+
+                // Total gathering bonus (all additive)
+                const totalGathering = gatheringTea + communityGathering + achievementGathering;
+
+                // Apply gathering bonus to average amount
+                const avgAmountPerAction = baseAvgAmount * (1 + totalGathering);
+
+                // Items per hour = actions × drop rate × avg amount × efficiency
+                itemsPerHour = baseActionsPerHour * mainDrop.dropRate * avgAmountPerAction * avgActionsPerAttempt;
+            } else if (actionDetails.outputItems && actionDetails.outputItems.length > 0) {
+                // Production action - use outputItems
+                const outputAmount = actionDetails.outputItems[0].count || 1;
+                itemsPerHour = baseActionsPerHour * outputAmount * avgActionsPerAttempt;
+            } else {
+                // Fallback - no items produced
+                itemsPerHour = actionsPerHourWithEfficiency;
+            }
 
             // Calculate material limit for infinite actions
             let materialLimit = null;
@@ -11730,11 +11789,6 @@
             } else {
                 remainingActions = Infinity;
             }
-
-            // Calculate average actions per attempt from efficiency
-            const guaranteedActions = 1 + Math.floor(totalEfficiency / 100);
-            const chanceForExtra = totalEfficiency % 100;
-            const avgActionsPerAttempt = guaranteedActions + (chanceForExtra / 100);
 
             // Calculate actual attempts needed (time-consuming operations)
             const actualAttempts = Math.ceil(remainingActions / avgActionsPerAttempt);
@@ -11791,11 +11845,8 @@
             // Time per action and actions/hour
             statsToAppend.push(`${actionTime.toFixed(2)}s/action`);
 
-            // Calculate items per hour with efficiency (reuse avgActionsPerAttempt from time calculation above)
-            const itemsPerHour = actionsPerHour * avgActionsPerAttempt;
-
-            // Show both actions/hr and items/hr
-            statsToAppend.push(`${actionsPerHour.toFixed(0)} actions/hr (${itemsPerHour.toFixed(0)} items/hr)`);
+            // Show both actions/hr (with efficiency) and items/hr (actual item output)
+            statsToAppend.push(`${actionsPerHourWithEfficiency.toFixed(0)} actions/hr (${itemsPerHour.toFixed(0)} items/hr)`);
 
             // Append to game's div (with marker for cleanup)
             this.appendStatsToActionName(actionNameElement, statsToAppend.join(' · '));
@@ -15802,8 +15853,7 @@
      */
     async function getProfileList() {
         try {
-            const data = await webSocketHook.loadFromStorage('toolasha_profile_export_list', '[]');
-            return JSON.parse(data);
+            return await storage.get('profileList', 'combatExport', []);
         } catch (error) {
             console.error('[Combat Sim Export] Failed to get profile list:', error);
             return [];
@@ -16082,9 +16132,10 @@
 
     /**
      * Construct full export object (solo or party)
+     * @param {string|null} externalProfileId - Optional profile ID (for viewing other players' profiles)
      * @returns {Object} Export object with player data, IDs, positions, and zone info
      */
-    async function constructExportObject() {
+    async function constructExportObject(externalProfileId = null) {
         const characterObj = await getCharacterData$1();
         if (!characterObj) {
             return null;
@@ -16097,6 +16148,38 @@
         // Blank player template (as string, like MCS)
         const BLANK = '{"player":{"attackLevel":1,"magicLevel":1,"meleeLevel":1,"rangedLevel":1,"defenseLevel":1,"staminaLevel":1,"intelligenceLevel":1,"equipment":[]},"food":{"/action_types/combat":[{"itemHrid":""},{"itemHrid":""},{"itemHrid":""}]},"drinks":{"/action_types/combat":[{"itemHrid":""},{"itemHrid":""},{"itemHrid":""}]},"abilities":[{"abilityHrid":"","level":"1"},{"abilityHrid":"","level":"1"},{"abilityHrid":"","level":"1"},{"abilityHrid":"","level":"1"},{"abilityHrid":"","level":"1"}],"triggerMap":{},"houseRooms":{"/house_rooms/dairy_barn":0,"/house_rooms/garden":0,"/house_rooms/log_shed":0,"/house_rooms/forge":0,"/house_rooms/workshop":0,"/house_rooms/sewing_parlor":0,"/house_rooms/kitchen":0,"/house_rooms/brewery":0,"/house_rooms/laboratory":0,"/house_rooms/observatory":0,"/house_rooms/dining_room":0,"/house_rooms/library":0,"/house_rooms/dojo":0,"/house_rooms/gym":0,"/house_rooms/armory":0,"/house_rooms/archery_range":0,"/house_rooms/mystical_study":0},"achievements":{}}';
 
+        // Check if exporting another player's profile
+        if (externalProfileId && externalProfileId !== characterObj.character.id) {
+            console.log('[Combat Sim Export] Exporting external profile:', externalProfileId);
+
+            // Find the profile in storage
+            const profile = profileList.find(p => p.characterID === externalProfileId);
+            if (!profile) {
+                console.error('[Combat Sim Export] Profile not found for:', externalProfileId);
+                return null; // Profile not in cache
+            }
+
+            // Export the other player as a solo player
+            const exportObj = {};
+            exportObj[1] = JSON.stringify(constructPartyPlayer(profile, clientObj, battleObj));
+
+            // Fill other slots with blanks
+            for (let i = 2; i <= 5; i++) {
+                exportObj[i] = BLANK;
+            }
+
+            return {
+                exportObj,
+                playerIDs: [profile.characterName, 'Player 2', 'Player 3', 'Player 4', 'Player 5'],
+                importedPlayerPositions: [true, false, false, false, false],
+                zone: '/actions/combat/fly',
+                isZoneDungeon: false,
+                difficultyTier: 0,
+                isParty: false
+            };
+        }
+
+        // Export YOUR data (solo or party) - existing logic below
         const exportObj = {};
         for (let i = 1; i <= 5; i++) {
             exportObj[i] = BLANK;
@@ -16468,13 +16551,21 @@
 
     /**
      * Construct Milkonomy export object
+     * @param {string|null} externalProfileId - Optional profile ID (for viewing other players' profiles)
      * @returns {Object|null} Milkonomy export data or null
      */
-    async function constructMilkonomyExport() {
+    async function constructMilkonomyExport(externalProfileId = null) {
         try {
             const characterData = await getCharacterData();
             if (!characterData) {
                 console.error('[Milkonomy Export] No character data available');
+                return null;
+            }
+
+            // Check if trying to export external profile
+            if (externalProfileId && externalProfileId !== characterData.character?.id) {
+                console.error('[Milkonomy Export] External profile export not supported');
+                alert('Milkonomy export is only available for your own profile.\n\nTo export another player:\n1. Use Combat Sim Export instead\n2. Or copy their profile link and open it separately');
                 return null;
             }
 
@@ -16943,7 +17034,11 @@
             const originalBg = button.style.background;
 
             try {
-                const exportData = await constructExportObject();
+                // Get current profile ID (if viewing someone else's profile)
+                const currentProfileId = await storage.get('currentProfileId', 'combatExport', null);
+
+                // Get export data (pass profile ID if viewing external profile)
+                const exportData = await constructExportObject(currentProfileId);
                 if (!exportData) {
                     button.textContent = '✗ No Data';
                     button.style.background = '${config.COLOR_LOSS}';
@@ -16984,7 +17079,11 @@
             const originalBg = button.style.background;
 
             try {
-                const exportData = await constructMilkonomyExport();
+                // Get current profile ID (if viewing someone else's profile)
+                const currentProfileId = await storage.get('currentProfileId', 'combatExport', null);
+
+                // Get export data (pass profile ID if viewing external profile)
+                const exportData = await constructMilkonomyExport(currentProfileId);
                 if (!exportData) {
                     button.textContent = '✗ No Data';
                     button.style.background = '${config.COLOR_LOSS}';
@@ -26745,6 +26844,242 @@
     const dungeonTrackerPartyChat = new DungeonTrackerPartyChat();
 
     /**
+     * Combat Summary Module
+     * Shows detailed statistics when returning from combat
+     */
+
+
+    /**
+     * CombatSummary class manages combat completion statistics display
+     */
+    class CombatSummary {
+        constructor() {
+            this.isActive = false;
+        }
+
+        /**
+         * Initialize combat summary feature
+         */
+        initialize() {
+            // Check if feature is enabled
+            if (!config.getSetting('combatSummary')) {
+                console.log('[Combat Summary] Feature disabled in settings');
+                return;
+            }
+
+            console.log('[Combat Summary] Initializing...');
+
+            // Listen for battle_unit_fetched WebSocket message
+            webSocketHook.on('battle_unit_fetched', (data) => {
+                this.handleBattleSummary(data);
+            });
+
+            this.isActive = true;
+            console.log('[Combat Summary] Initialized successfully');
+        }
+
+        /**
+         * Handle battle completion and display summary
+         * @param {Object} message - WebSocket message data
+         */
+        async handleBattleSummary(message) {
+            // Validate message structure
+            if (!message || !message.unit) {
+                console.warn('[Combat Summary] Invalid message structure:', message);
+                return;
+            }
+
+            // Ensure market data is loaded
+            if (!marketAPI.isLoaded()) {
+                const marketData = await marketAPI.fetch();
+                if (!marketData) {
+                    console.error('[Combat Summary] Market data not available');
+                    return;
+                }
+            }
+
+            // Calculate total revenue from loot (with null check)
+            let totalPriceAsk = 0;
+            let totalPriceBid = 0;
+
+            if (message.unit.totalLootMap) {
+                for (const loot of Object.values(message.unit.totalLootMap)) {
+                    const itemCount = loot.count;
+
+                    // Coins are revenue at face value (1 coin = 1 gold)
+                    if (loot.itemHrid === '/items/coin') {
+                        totalPriceAsk += itemCount;
+                        totalPriceBid += itemCount;
+                    } else {
+                        // Other items: get market price
+                        const prices = marketAPI.getPrice(loot.itemHrid);
+                        if (prices) {
+                            totalPriceAsk += prices.ask * itemCount;
+                            totalPriceBid += prices.bid * itemCount;
+                        } else {
+                            console.log('[Combat Summary] No market price for:', loot.itemHrid);
+                        }
+                    }
+                }
+            } else {
+                console.warn('[Combat Summary] No totalLootMap in message');
+            }
+
+            // Calculate total experience (with null check)
+            let totalSkillsExp = 0;
+            if (message.unit.totalSkillExperienceMap) {
+                for (const exp of Object.values(message.unit.totalSkillExperienceMap)) {
+                    totalSkillsExp += exp;
+                }
+            } else {
+                console.warn('[Combat Summary] No totalSkillExperienceMap in message');
+            }
+
+            // Wait for battle panel to appear and inject summary
+            let tryTimes = 0;
+            this.findAndInjectSummary(message, totalPriceAsk, totalPriceBid, totalSkillsExp, tryTimes);
+        }
+
+        /**
+         * Find battle panel and inject summary stats
+         * @param {Object} message - WebSocket message data
+         * @param {number} totalPriceAsk - Total loot value at ask price
+         * @param {number} totalPriceBid - Total loot value at bid price
+         * @param {number} totalSkillsExp - Total experience gained
+         * @param {number} tryTimes - Retry counter
+         */
+        findAndInjectSummary(message, totalPriceAsk, totalPriceBid, totalSkillsExp, tryTimes) {
+            tryTimes++;
+
+            // Find the experience section parent
+            const elem = document.querySelector('[class*="BattlePanel_gainedExp"]')?.parentElement;
+
+            if (elem) {
+                // Get primary text color from settings
+                const textColor = config.getSetting('color_text_primary') || config.COLOR_TEXT_PRIMARY;
+
+                // Parse combat duration and battle count
+                let battleDurationSec = null;
+                const combatInfoElement = document.querySelector('[class*="BattlePanel_combatInfo"]');
+
+                if (combatInfoElement) {
+                    const matches = combatInfoElement.innerHTML.match(
+                        /Combat Duration: (?:(\d+)d\s*)?(?:(\d+)h\s*)?(?:(\d+)m\s*)?(?:(\d+)s).*?Battles: (\d+).*?Deaths: (\d+)/
+                    );
+
+                    if (matches) {
+                        const days = parseInt(matches[1], 10) || 0;
+                        const hours = parseInt(matches[2], 10) || 0;
+                        const minutes = parseInt(matches[3], 10) || 0;
+                        const seconds = parseInt(matches[4], 10) || 0;
+                        const battles = parseInt(matches[5], 10) - 1; // Exclude current battle
+
+                        battleDurationSec = days * 86400 + hours * 3600 + minutes * 60 + seconds;
+
+                        // Calculate encounters per hour
+                        const encountersPerHour = ((battles / battleDurationSec) * 3600).toFixed(1);
+
+                        elem.insertAdjacentHTML(
+                            'beforeend',
+                            `<div id="mwi-combat-encounters" style="color: ${textColor};">Encounters/hour: ${encountersPerHour}</div>`
+                        );
+                    }
+                }
+
+                // Total revenue
+                document.querySelector('div#mwi-combat-encounters')?.insertAdjacentHTML(
+                    'afterend',
+                    `<div id="mwi-combat-revenue" style="color: ${textColor};">Total revenue: ${formatWithSeparator(Math.round(totalPriceAsk))} / ${formatWithSeparator(Math.round(totalPriceBid))}</div>`
+                );
+
+                // Per-hour revenue
+                if (battleDurationSec) {
+                    const revenuePerHourAsk = totalPriceAsk / (battleDurationSec / 3600);
+                    const revenuePerHourBid = totalPriceBid / (battleDurationSec / 3600);
+
+                    document.querySelector('div#mwi-combat-revenue')?.insertAdjacentHTML(
+                        'afterend',
+                        `<div id="mwi-combat-revenue-hour" style="color: ${textColor};">Revenue/hour: ${formatWithSeparator(Math.round(revenuePerHourAsk))} / ${formatWithSeparator(Math.round(revenuePerHourBid))}</div>`
+                    );
+
+                    // Per-day revenue
+                    document.querySelector('div#mwi-combat-revenue-hour')?.insertAdjacentHTML(
+                        'afterend',
+                        `<div id="mwi-combat-revenue-day" style="color: ${textColor};">Revenue/day: ${formatWithSeparator(Math.round(revenuePerHourAsk * 24))} / ${formatWithSeparator(Math.round(revenuePerHourBid * 24))}</div>`
+                    );
+                }
+
+                // Total experience
+                document.querySelector('div#mwi-combat-revenue-day')?.insertAdjacentHTML(
+                    'afterend',
+                    `<div id="mwi-combat-total-exp" style="color: ${textColor};">Total exp: ${formatWithSeparator(Math.round(totalSkillsExp))}</div>`
+                );
+
+                // Per-hour experience breakdowns
+                if (battleDurationSec) {
+                    const totalExpPerHour = totalSkillsExp / (battleDurationSec / 3600);
+
+                    // Insert total exp/hour first
+                    document.querySelector('div#mwi-combat-total-exp')?.insertAdjacentHTML(
+                        'afterend',
+                        `<div id="mwi-combat-total-exp-hour" style="color: ${textColor};">Total exp/hour: ${formatWithSeparator(Math.round(totalExpPerHour))}</div>`
+                    );
+
+                    // Individual skill exp/hour
+                    const skills = [
+                        { skillHrid: '/skills/attack', name: 'Attack' },
+                        { skillHrid: '/skills/magic', name: 'Magic' },
+                        { skillHrid: '/skills/ranged', name: 'Ranged' },
+                        { skillHrid: '/skills/defense', name: 'Defense' },
+                        { skillHrid: '/skills/melee', name: 'Melee' },
+                        { skillHrid: '/skills/intelligence', name: 'Intelligence' },
+                        { skillHrid: '/skills/stamina', name: 'Stamina' }
+                    ];
+
+                    let lastElement = document.querySelector('div#mwi-combat-total-exp-hour');
+
+                    // Only show individual skill exp if we have the data
+                    if (message.unit.totalSkillExperienceMap) {
+                        for (const skill of skills) {
+                            const expGained = message.unit.totalSkillExperienceMap[skill.skillHrid];
+                            if (expGained && lastElement) {
+                                const expPerHour = expGained / (battleDurationSec / 3600);
+                                lastElement.insertAdjacentHTML(
+                                    'afterend',
+                                    `<div style="color: ${textColor};">${skill.name} exp/hour: ${formatWithSeparator(Math.round(expPerHour))}</div>`
+                                );
+                                // Update lastElement to the newly inserted div
+                                lastElement = lastElement.nextElementSibling;
+                            }
+                        }
+                    }
+                } else {
+                    console.warn('[Combat Summary] Unable to display hourly stats due to null battleDurationSec');
+                }
+
+            } else if (tryTimes <= 10) {
+                // Retry if element not found
+                setTimeout(() => {
+                    this.findAndInjectSummary(message, totalPriceAsk, totalPriceBid, totalSkillsExp, tryTimes);
+                }, 200);
+            } else {
+                console.error('[Combat Summary] Battle panel not found after 10 tries');
+            }
+        }
+
+        /**
+         * Disable the combat summary feature
+         */
+        disable() {
+            this.isActive = false;
+            // Note: WebSocket listeners remain registered (no cleanup needed for settings toggle)
+        }
+    }
+
+    // Create and export singleton instance
+    const combatSummary = new CombatSummary();
+
+    /**
      * Feature Registry
      * Centralized feature initialization system
      */
@@ -26937,6 +27272,13 @@
                 dungeonTrackerPartyChat.initialize();
                 console.log('[Feature Registry] Dungeon Tracker initialization complete');
             },
+            async: false
+        },
+        {
+            key: 'combatSummary',
+            name: 'Combat Summary',
+            category: 'Combat',
+            initialize: () => combatSummary.initialize(),
             async: false
         },
 
@@ -28396,7 +28738,7 @@
         const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
         targetWindow.Toolasha = {
-            version: '0.4.911',
+            version: '0.4.912',
 
             // Feature toggle API (for users to manage settings via console)
             features: {

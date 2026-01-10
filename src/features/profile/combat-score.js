@@ -4,6 +4,7 @@
  */
 
 import config from '../../core/config.js';
+import storage from '../../core/storage.js';
 import webSocketHook from '../../core/websocket.js';
 import { calculateCombatScore } from './score-calculator.js';
 import { numberFormatter } from '../../utils/formatters.js';
@@ -373,7 +374,11 @@ class CombatScore {
         const originalBg = button.style.background;
 
         try {
-            const exportData = await constructExportObject();
+            // Get current profile ID (if viewing someone else's profile)
+            const currentProfileId = await storage.get('currentProfileId', 'combatExport', null);
+
+            // Get export data (pass profile ID if viewing external profile)
+            const exportData = await constructExportObject(currentProfileId);
             if (!exportData) {
                 button.textContent = '✗ No Data';
                 button.style.background = '${config.COLOR_LOSS}';
@@ -414,7 +419,11 @@ class CombatScore {
         const originalBg = button.style.background;
 
         try {
-            const exportData = await constructMilkonomyExport();
+            // Get current profile ID (if viewing someone else's profile)
+            const currentProfileId = await storage.get('currentProfileId', 'combatExport', null);
+
+            // Get export data (pass profile ID if viewing external profile)
+            const exportData = await constructMilkonomyExport(currentProfileId);
             if (!exportData) {
                 button.textContent = '✗ No Data';
                 button.style.background = '${config.COLOR_LOSS}';

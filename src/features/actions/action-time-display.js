@@ -16,7 +16,7 @@ import config from '../../core/config.js';
 import { calculateActionStats } from '../../utils/action-calculator.js';
 import { timeReadable } from '../../utils/formatters.js';
 import domObserver from '../../core/dom-observer.js';
-import { parseArtisanBonus, getDrinkConcentration } from '../../utils/tea-parser.js';
+import { parseArtisanBonus, getDrinkConcentration, parseGatheringBonus } from '../../utils/tea-parser.js';
 
 /**
  * ActionTimeDisplay class manages the time display panel and queue tooltips
@@ -369,7 +369,60 @@ class ActionTimeDisplay {
         }
 
         const { actionTime, totalEfficiency } = stats;
-        const actionsPerHour = 3600 / actionTime;
+        const baseActionsPerHour = 3600 / actionTime;
+
+        // Calculate average actions per attempt from efficiency
+        const guaranteedActions = 1 + Math.floor(totalEfficiency / 100);
+        const chanceForExtra = totalEfficiency % 100;
+        const avgActionsPerAttempt = guaranteedActions + (chanceForExtra / 100);
+
+        // Calculate actions per hour WITH efficiency (total action completions including free repeats)
+        const actionsPerHourWithEfficiency = baseActionsPerHour * avgActionsPerAttempt;
+
+        // Calculate items per hour based on action type
+        let itemsPerHour;
+
+        // Gathering action types (need special handling for dropTable)
+        const GATHERING_TYPES = [
+            '/action_types/foraging',
+            '/action_types/woodcutting',
+            '/action_types/milking'
+        ];
+
+        if (actionDetails.dropTable && actionDetails.dropTable.length > 0 && GATHERING_TYPES.includes(actionDetails.type)) {
+            // Gathering action - use dropTable with gathering quantity bonus
+            const mainDrop = actionDetails.dropTable[0];
+            const baseAvgAmount = (mainDrop.minCount + mainDrop.maxCount) / 2;
+
+            // Calculate gathering quantity bonus (same as gathering-profit.js)
+            const activeDrinks = dataManager.getActionDrinkSlots(actionDetails.type);
+            const drinkConcentration = getDrinkConcentration(equipment, itemDetailMap);
+            const gatheringTea = parseGatheringBonus(activeDrinks, itemDetailMap, drinkConcentration);
+
+            // Community buff
+            const communityBuffLevel = dataManager.getCommunityBuffLevel('/community_buff_types/gathering_quantity');
+            const communityGathering = communityBuffLevel ? 0.2 + ((communityBuffLevel - 1) * 0.005) : 0;
+
+            // Achievement buffs
+            const achievementBuffs = dataManager.getAchievementBuffs(actionDetails.type);
+            const achievementGathering = achievementBuffs.gatheringQuantity || 0;
+
+            // Total gathering bonus (all additive)
+            const totalGathering = gatheringTea + communityGathering + achievementGathering;
+
+            // Apply gathering bonus to average amount
+            const avgAmountPerAction = baseAvgAmount * (1 + totalGathering);
+
+            // Items per hour = actions × drop rate × avg amount × efficiency
+            itemsPerHour = baseActionsPerHour * mainDrop.dropRate * avgAmountPerAction * avgActionsPerAttempt;
+        } else if (actionDetails.outputItems && actionDetails.outputItems.length > 0) {
+            // Production action - use outputItems
+            const outputAmount = actionDetails.outputItems[0].count || 1;
+            itemsPerHour = baseActionsPerHour * outputAmount * avgActionsPerAttempt;
+        } else {
+            // Fallback - no items produced
+            itemsPerHour = actionsPerHourWithEfficiency;
+        }
 
         // Calculate material limit for infinite actions
         let materialLimit = null;
@@ -413,11 +466,6 @@ class ActionTimeDisplay {
         } else {
             remainingActions = Infinity;
         }
-
-        // Calculate average actions per attempt from efficiency
-        const guaranteedActions = 1 + Math.floor(totalEfficiency / 100);
-        const chanceForExtra = totalEfficiency % 100;
-        const avgActionsPerAttempt = guaranteedActions + (chanceForExtra / 100);
 
         // Calculate actual attempts needed (time-consuming operations)
         const actualAttempts = Math.ceil(remainingActions / avgActionsPerAttempt);
@@ -474,11 +522,8 @@ class ActionTimeDisplay {
         // Time per action and actions/hour
         statsToAppend.push(`${actionTime.toFixed(2)}s/action`);
 
-        // Calculate items per hour with efficiency (reuse avgActionsPerAttempt from time calculation above)
-        const itemsPerHour = actionsPerHour * avgActionsPerAttempt;
-
-        // Show both actions/hr and items/hr
-        statsToAppend.push(`${actionsPerHour.toFixed(0)} actions/hr (${itemsPerHour.toFixed(0)} items/hr)`);
+        // Show both actions/hr (with efficiency) and items/hr (actual item output)
+        statsToAppend.push(`${actionsPerHourWithEfficiency.toFixed(0)} actions/hr (${itemsPerHour.toFixed(0)} items/hr)`);
 
         // Append to game's div (with marker for cleanup)
         this.appendStatsToActionName(actionNameElement, statsToAppend.join(' · '));

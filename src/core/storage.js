@@ -9,7 +9,7 @@ class Storage {
         this.db = null;
         this.available = false;
         this.dbName = 'ToolashaDB';
-        this.dbVersion = 3; // Bumped for dungeonRuns store
+        this.dbVersion = 4; // Bumped for combatExport store
         this.saveDebounceTimers = new Map(); // Per-key debounce timers
         this.SAVE_DEBOUNCE_DELAY = 3000; // 3 seconds
     }
@@ -64,6 +64,11 @@ class Storage {
                 // Create dungeonRuns store if it doesn't exist (for dungeon tracker)
                 if (!db.objectStoreNames.contains('dungeonRuns')) {
                     db.createObjectStore('dungeonRuns');
+                }
+
+                // Create combatExport store if it doesn't exist (for combat sim/milkonomy exports)
+                if (!db.objectStoreNames.contains('combatExport')) {
+                    db.createObjectStore('combatExport');
                 }
             };
         });

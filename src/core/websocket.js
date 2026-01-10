@@ -5,6 +5,8 @@
  * Uses WebSocket constructor wrapper for better performance than MessageEvent.prototype.data hooking
  */
 
+import storage from './storage.js';
+
 class WebSocketHook {
     constructor() {
         this.isHooked = false;
@@ -47,6 +49,7 @@ class WebSocketHook {
     /**
      * Install the WebSocket hook
      * MUST be called before WebSocket connection is established
+     * Uses MessageEvent.prototype.data hook (same method as MWI Tools)
      */
     install() {
         if (this.isHooked) {
@@ -54,62 +57,47 @@ class WebSocketHook {
             return;
         }
 
-        console.log('[WebSocket Hook] Installing hook at:', new Date().toISOString());
+        console.log('[WebSocket Hook] Installing MessageEvent hook at:', new Date().toISOString());
 
-        // Capture hook instance for listener closure
+        // Capture hook instance for closure
         const hookInstance = this;
 
         // Get target window - unsafeWindow in Firefox, window in Chrome/Chromium
         const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
-        // Get original WebSocket from game's context
-        const OriginalWebSocket = targetWindow.WebSocket;
+        // Hook MessageEvent.prototype.data (same as MWI Tools)
+        const dataProperty = Object.getOwnPropertyDescriptor(MessageEvent.prototype, "data");
+        const originalGet = dataProperty.get;
 
-        // Create wrapper class
-        class WrappedWebSocket extends OriginalWebSocket {
-            constructor(...args) {
-                super(...args);
+        dataProperty.get = function hookedGet() {
+            const socket = this.currentTarget;
 
-                // Only hook MWI game server WebSocket
-                if (this.url.startsWith("wss://api.milkywayidle.com/ws") ||
-                    this.url.startsWith("wss://api-test.milkywayidle.com/ws")) {
-
-                    console.log('[WebSocket Hook] Subscribing to game WebSocket');
-
-                    // Add message listener - fires exactly once per message
-                    this.addEventListener("message", (event) => {
-                        hookInstance.processMessage(event.data);
-                    });
-                }
+            // Only hook WebSocket messages
+            if (!(socket instanceof WebSocket)) {
+                return originalGet.call(this);
             }
-        }
 
-        // Preserve static properties (required by game's connection health check)
-        // Use Object.defineProperty because class properties are read-only by default
-        Object.defineProperty(WrappedWebSocket, 'CONNECTING', {
-            value: OriginalWebSocket.CONNECTING,
-            writable: false,
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(WrappedWebSocket, 'OPEN', {
-            value: OriginalWebSocket.OPEN,
-            writable: false,
-            enumerable: true,
-            configurable: true
-        });
-        Object.defineProperty(WrappedWebSocket, 'CLOSED', {
-            value: OriginalWebSocket.CLOSED,
-            writable: false,
-            enumerable: true,
-            configurable: true
-        });
+            // Only hook MWI game server
+            if (socket.url.indexOf("api.milkywayidle.com/ws") === -1 &&
+                socket.url.indexOf("api-test.milkywayidle.com/ws") === -1) {
+                return originalGet.call(this);
+            }
 
-        // Replace window.WebSocket in game's context
-        targetWindow.WebSocket = WrappedWebSocket;
+            const message = originalGet.call(this);
+
+            // Anti-loop: define data property so we don't hook our own access
+            Object.defineProperty(this, "data", { value: message });
+
+            // Process message in our hook
+            hookInstance.processMessage(message);
+
+            return message;
+        };
+
+        Object.defineProperty(MessageEvent.prototype, "data", dataProperty);
 
         this.isHooked = true;
-        console.log('[WebSocket Hook] Hook successfully installed');
+        console.log('[WebSocket Hook] MessageEvent hook successfully installed');
     }
 
     /**
@@ -176,12 +164,14 @@ class WebSocketHook {
             // Save profile shares (when opening party member profiles)
             if (messageType === 'profile_shared') {
                 const parsed = JSON.parse(message);
-                let profileList = JSON.parse(await this.loadFromStorage('toolasha_profile_export_list', '[]'));
 
                 // Extract character info
                 parsed.characterID = parsed.profile.characterSkills[0].characterID;
                 parsed.characterName = parsed.profile.sharableCharacter.name;
                 parsed.timestamp = Date.now();
+
+                // Load existing profile list from IndexedDB
+                let profileList = await storage.get('profileList', 'combatExport', []);
 
                 // Remove old entry for same character
                 profileList = profileList.filter(p => p.characterID !== parsed.characterID);
@@ -194,7 +184,12 @@ class WebSocketHook {
                     profileList.pop();
                 }
 
-                await this.saveToStorage('toolasha_profile_export_list', JSON.stringify(profileList));
+                // Save updated profile list to IndexedDB
+                await storage.set('profileList', profileList, 'combatExport', true);
+
+                // Save current profile ID (for profile export button)
+                await storage.set('currentProfileId', parsed.characterID, 'combatExport', true);
+
                 console.log('[Toolasha] Profile saved for Combat Sim export:', parsed.characterName);
             }
         } catch (error) {

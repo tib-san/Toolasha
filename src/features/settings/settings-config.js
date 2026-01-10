@@ -430,6 +430,13 @@ export const settingsGroups = {
                 type: 'checkbox',
                 default: true,
                 help: 'Shows live dungeon progress in top bar with wave times, statistics, and sends completion summary to party chat'
+            },
+            combatSummary: {
+                id: 'combatSummary',
+                label: 'Combat Summary: Show detailed statistics on return',
+                type: 'checkbox',
+                default: true,
+                help: 'Displays encounters/hour, revenue, experience rates when returning from combat'
             }
         }
     },

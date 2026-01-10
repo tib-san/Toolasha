@@ -7,6 +7,7 @@
 
 import { constructExportObject } from './combat-sim-export.js';
 import config from '../../core/config.js';
+import storage from '../../core/storage.js';
 
 /**
  * Initialize profile export button
@@ -14,6 +15,7 @@ import config from '../../core/config.js';
 export function initialize() {
     console.log('[Profile Export] Initializing');
     waitForProfilePage();
+    observeProfileClosure();
 }
 
 /**
@@ -31,6 +33,25 @@ function waitForProfilePage() {
 
     // Keep checking - profile page can be opened/closed multiple times
     // Don't stop the interval since user may navigate away and come back
+}
+
+/**
+ * Observe profile page closure and clear current profile ID
+ */
+function observeProfileClosure() {
+    const observer = new MutationObserver(() => {
+        const profileTab = document.querySelector('div.SharableProfile_overviewTab__W4dCV');
+        if (!profileTab) {
+            // Profile closed - clear current profile ID
+            storage.set('currentProfileId', null, 'combatExport', true);
+        }
+    });
+
+    // Watch document body for changes
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
 }
 
 /**
@@ -83,15 +104,18 @@ function injectExportButton(container) {
  */
 async function handleExport(button) {
     try {
-        // Get export data
-        const exportData = await constructExportObject();
+        // Get current profile ID (if viewing someone else's profile)
+        const currentProfileId = await storage.get('currentProfileId', 'combatExport', null);
+
+        // Get export data (pass profile ID if viewing external profile)
+        const exportData = await constructExportObject(currentProfileId);
 
         if (!exportData) {
             button.textContent = '✗ No Data';
             button.style.backgroundColor = '#dc3545'; // Red
             setTimeout(() => resetButton(button), 3000);
             console.error('[Profile Export] No export data available');
-            alert('No character data found. Please:\n1. Refresh the game page\n2. Wait for it to fully load\n3. Try again');
+            alert('No character data found. Please:\n1. Refresh the game page\n2. Wait for it to fully load\n3. Try again\n\nIf viewing another player\'s profile, make sure you opened it in-game first.');
             return;
         }
 

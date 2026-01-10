@@ -5,6 +5,7 @@
 
 import dataManager from '../../core/data-manager.js';
 import webSocketHook from '../../core/websocket.js';
+import storage from '../../core/storage.js';
 
 /**
  * Get character data from storage
@@ -293,13 +294,21 @@ function getEquippedItem(equipmentMap, gameData, slotType) {
 
 /**
  * Construct Milkonomy export object
+ * @param {string|null} externalProfileId - Optional profile ID (for viewing other players' profiles)
  * @returns {Object|null} Milkonomy export data or null
  */
-export async function constructMilkonomyExport() {
+export async function constructMilkonomyExport(externalProfileId = null) {
     try {
         const characterData = await getCharacterData();
         if (!characterData) {
             console.error('[Milkonomy Export] No character data available');
+            return null;
+        }
+
+        // Check if trying to export external profile
+        if (externalProfileId && externalProfileId !== characterData.character?.id) {
+            console.error('[Milkonomy Export] External profile export not supported');
+            alert('Milkonomy export is only available for your own profile.\n\nTo export another player:\n1. Use Combat Sim Export instead\n2. Or copy their profile link and open it separately');
             return null;
         }
 

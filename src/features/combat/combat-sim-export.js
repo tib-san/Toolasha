@@ -6,6 +6,7 @@
  */
 
 import webSocketHook from '../../core/websocket.js';
+import storage from '../../core/storage.js';
 
 /**
  * Get saved character data from storage
@@ -69,8 +70,7 @@ async function getClientData() {
  */
 async function getProfileList() {
     try {
-        const data = await webSocketHook.loadFromStorage('toolasha_profile_export_list', '[]');
-        return JSON.parse(data);
+        return await storage.get('profileList', 'combatExport', []);
     } catch (error) {
         console.error('[Combat Sim Export] Failed to get profile list:', error);
         return [];
@@ -349,9 +349,10 @@ function constructPartyPlayer(profile, clientObj, battleObj) {
 
 /**
  * Construct full export object (solo or party)
+ * @param {string|null} externalProfileId - Optional profile ID (for viewing other players' profiles)
  * @returns {Object} Export object with player data, IDs, positions, and zone info
  */
-export async function constructExportObject() {
+export async function constructExportObject(externalProfileId = null) {
     const characterObj = await getCharacterData();
     if (!characterObj) {
         return null;
@@ -364,6 +365,38 @@ export async function constructExportObject() {
     // Blank player template (as string, like MCS)
     const BLANK = '{"player":{"attackLevel":1,"magicLevel":1,"meleeLevel":1,"rangedLevel":1,"defenseLevel":1,"staminaLevel":1,"intelligenceLevel":1,"equipment":[]},"food":{"/action_types/combat":[{"itemHrid":""},{"itemHrid":""},{"itemHrid":""}]},"drinks":{"/action_types/combat":[{"itemHrid":""},{"itemHrid":""},{"itemHrid":""}]},"abilities":[{"abilityHrid":"","level":"1"},{"abilityHrid":"","level":"1"},{"abilityHrid":"","level":"1"},{"abilityHrid":"","level":"1"},{"abilityHrid":"","level":"1"}],"triggerMap":{},"houseRooms":{"/house_rooms/dairy_barn":0,"/house_rooms/garden":0,"/house_rooms/log_shed":0,"/house_rooms/forge":0,"/house_rooms/workshop":0,"/house_rooms/sewing_parlor":0,"/house_rooms/kitchen":0,"/house_rooms/brewery":0,"/house_rooms/laboratory":0,"/house_rooms/observatory":0,"/house_rooms/dining_room":0,"/house_rooms/library":0,"/house_rooms/dojo":0,"/house_rooms/gym":0,"/house_rooms/armory":0,"/house_rooms/archery_range":0,"/house_rooms/mystical_study":0},"achievements":{}}';
 
+    // Check if exporting another player's profile
+    if (externalProfileId && externalProfileId !== characterObj.character.id) {
+        console.log('[Combat Sim Export] Exporting external profile:', externalProfileId);
+
+        // Find the profile in storage
+        const profile = profileList.find(p => p.characterID === externalProfileId);
+        if (!profile) {
+            console.error('[Combat Sim Export] Profile not found for:', externalProfileId);
+            return null; // Profile not in cache
+        }
+
+        // Export the other player as a solo player
+        const exportObj = {};
+        exportObj[1] = JSON.stringify(constructPartyPlayer(profile, clientObj, battleObj));
+
+        // Fill other slots with blanks
+        for (let i = 2; i <= 5; i++) {
+            exportObj[i] = BLANK;
+        }
+
+        return {
+            exportObj,
+            playerIDs: [profile.characterName, 'Player 2', 'Player 3', 'Player 4', 'Player 5'],
+            importedPlayerPositions: [true, false, false, false, false],
+            zone: '/actions/combat/fly',
+            isZoneDungeon: false,
+            difficultyTier: 0,
+            isParty: false
+        };
+    }
+
+    // Export YOUR data (solo or party) - existing logic below
     const exportObj = {};
     for (let i = 1; i <= 5; i++) {
         exportObj[i] = BLANK;
