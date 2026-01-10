@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.913
+// @version      0.4.914
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB, and sentientmilk for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Thank you to Steez for testing and helping me figure out where I'm wrong! Special thanks to Zaeter for the name.
 // @license      CC-BY-NC-SA-4.0
@@ -407,6 +407,14 @@
                     label: 'Show 24-hour average market prices',
                     type: 'checkbox',
                     default: true
+                },
+                itemTooltip_useKMBFormat: {
+                    id: 'itemTooltip_useKMBFormat',
+                    label: 'Use KMB format for prices (1.23M instead of 1,234,567)',
+                    type: 'checkbox',
+                    default: false,
+                    dependencies: ['itemTooltip_prices'],
+                    help: 'Display large numbers in item tooltips using K/M/B abbreviations with 2 decimal places'
                 },
                 itemTooltip_profit: {
                     id: 'itemTooltip_profit',
@@ -7347,6 +7355,16 @@
     const REGEX_COMMA = /,/g;
 
     /**
+     * Format price for tooltip display based on user setting
+     * @param {number} num - The number to format
+     * @returns {string} Formatted number
+     */
+    function formatTooltipPrice(num) {
+        const useKMB = config.getSetting('itemTooltip_useKMBFormat');
+        return useKMB ? networthFormatter(num) : numberFormatter(num);
+    }
+
+    /**
      * TooltipPrices class handles injecting market prices into item tooltips
      */
     class TooltipPrices {
@@ -7711,15 +7729,15 @@
             }
 
             // Format prices, using "-" for missing values
-            const askDisplay = price.ask > 0 ? numberFormatter(price.ask) : '-';
-            const bidDisplay = price.bid > 0 ? numberFormatter(price.bid) : '-';
+            const askDisplay = price.ask > 0 ? formatTooltipPrice(price.ask) : '-';
+            const bidDisplay = price.bid > 0 ? formatTooltipPrice(price.bid) : '-';
 
             // Calculate totals (only if both prices valid and amount > 1)
             let totalDisplay = '';
             if (amount > 1 && price.ask > 0 && price.bid > 0) {
                 const totalAsk = price.ask * amount;
                 const totalBid = price.bid * amount;
-                totalDisplay = ` (${numberFormatter(totalAsk)} / ${numberFormatter(totalBid)})`;
+                totalDisplay = ` (${formatTooltipPrice(totalAsk)} / ${formatTooltipPrice(totalBid)})`;
             }
 
             // Format: "Price: 1,200 / 950" or "Price: 1,200 / -" or "Price: - / 950"
@@ -7904,7 +7922,7 @@
             html += '<div style="font-size: 0.9em; margin-left: 8px;">';
 
             // Expected value (simple display)
-            html += `<div style="color: ${config.COLOR_TOOLTIP_PROFIT}; font-weight: bold;">Expected Return: ${numberFormatter(evData.expectedValue)}</div>`;
+            html += `<div style="color: ${config.COLOR_TOOLTIP_PROFIT}; font-weight: bold;">Expected Return: ${formatTooltipPrice(evData.expectedValue)}</div>`;
 
             html += '</div>'; // Close summary section
 
@@ -7939,7 +7957,7 @@
                         const dropRatePercent = (drop.dropRate * 100).toFixed(2);
 
                         // Show full drop breakdown
-                        html += `<div>• ${drop.itemName} (${dropRatePercent}%): ${drop.avgCount.toFixed(2)} avg → ${numberFormatter(drop.expectedValue)}</div>`;
+                        html += `<div>• ${drop.itemName} (${dropRatePercent}%): ${drop.avgCount.toFixed(2)} avg → ${formatTooltipPrice(drop.expectedValue)}</div>`;
                     }
                 }
 
@@ -7947,7 +7965,7 @@
 
                 // Show total
                 html += '<div style="border-top: 1px solid rgba(255,255,255,0.2); margin: 4px 0;"></div>';
-                html += `<div style="font-size: 0.9em; margin-left: 8px; font-weight: bold;">Total from ${evData.drops.length} drops: ${numberFormatter(evData.expectedValue)}</div>`;
+                html += `<div style="font-size: 0.9em; margin-left: 8px; font-weight: bold;">Total from ${evData.drops.length} drops: ${formatTooltipPrice(evData.expectedValue)}</div>`;
             }
 
             html += '</div>'; // Close main container
@@ -11694,9 +11712,9 @@
                 skills,
                 equipment,
                 itemDetailMap,
-                includeCommunityBuff: false,
+                includeCommunityBuff: true,
                 includeBreakdown: false,
-                floorActionLevel: false
+                floorActionLevel: true
             });
 
             if (!stats) {
@@ -11954,14 +11972,14 @@
             const equipment = dataManager.getEquipment();
             const itemDetailMap = dataManager.getInitClientData()?.itemDetailMap || {};
 
-            // Use shared calculator (no community buff, no breakdown, no floor for compatibility)
+            // Use shared calculator with same parameters as main display
             return calculateActionStats(actionDetails, {
                 skills,
                 equipment,
                 itemDetailMap,
-                includeCommunityBuff: false,
+                includeCommunityBuff: true,
                 includeBreakdown: false,
-                floorActionLevel: false
+                floorActionLevel: true
             });
         }
 
@@ -13034,9 +13052,10 @@
 
                     const queueCount = parseInt(inputValue) || 0;
                     if (queueCount > 0) {
-                        // Input is number of ACTIONS, not items
-                        // Total time = actions × time per action
-                        const totalSeconds = queueCount * actionTime;
+                        // Input is number of ACTIONS to complete (affected by efficiency)
+                        // Calculate actual attempts needed
+                        const actualAttempts = Math.ceil(queueCount / efficiencyMultiplier);
+                        const totalSeconds = actualAttempts * actionTime;
                         totalTimeLine.textContent = `Total time: ${timeReadable(totalSeconds)}`;
                     } else {
                         totalTimeLine.textContent = 'Total time: 0s';
@@ -13067,8 +13086,8 @@
                 });
 
                 // Create initial summary for Action Speed & Time
-                const actionsPerHour = (3600 / actionTime).toFixed(0);
-                const initialSummary = `${actionsPerHour}/hr | Total time: 0s`;
+                const actionsPerHourWithEfficiency = Math.round((3600 / actionTime) * efficiencyMultiplier);
+                const initialSummary = `${actionsPerHourWithEfficiency}/hr | Total time: 0s`;
 
                 speedSection = createCollapsibleSection(
                     '⏱',
@@ -13090,14 +13109,15 @@
                     if (speedSummaryDiv) {
                         const inputValue = numberInput.value;
                         if (inputValue === '∞') {
-                            speedSummaryDiv.textContent = `${actionsPerHour}/hr | Total time: ∞`;
+                            speedSummaryDiv.textContent = `${actionsPerHourWithEfficiency}/hr | Total time: ∞`;
                         } else {
                             const queueCount = parseInt(inputValue) || 0;
                             if (queueCount > 0) {
-                                const totalSeconds = queueCount * actionTime;
-                                speedSummaryDiv.textContent = `${actionsPerHour}/hr | Total time: ${timeReadable(totalSeconds)}`;
+                                const actualAttempts = Math.ceil(queueCount / efficiencyMultiplier);
+                                const totalSeconds = actualAttempts * actionTime;
+                                speedSummaryDiv.textContent = `${actionsPerHourWithEfficiency}/hr | Total time: ${timeReadable(totalSeconds)}`;
                             } else {
-                                speedSummaryDiv.textContent = `${actionsPerHour}/hr | Total time: 0s`;
+                                speedSummaryDiv.textContent = `${actionsPerHourWithEfficiency}/hr | Total time: 0s`;
                             }
                         }
                     }
@@ -13502,11 +13522,13 @@
                     const availableAmount = upgradeItem?.count || 0;
                     const baseRequirement = 1; // Upgrade items always require exactly 1
 
-                    // Apply Artisan reduction using expected value (average over many actions)
-                    const effectiveRequirement = baseRequirement * (1 - artisanBonus);
+                    // Apply Artisan reduction
+                    // Materials are consumed PER ACTION (not per attempt)
+                    // Efficiency gives bonus actions for FREE (no material cost)
+                    const materialsPerAction = baseRequirement * (1 - artisanBonus);
 
-                    if (effectiveRequirement > 0) {
-                        const possibleActions = Math.floor(availableAmount / effectiveRequirement);
+                    if (materialsPerAction > 0) {
+                        const possibleActions = Math.floor(availableAmount / materialsPerAction);
                         maxActions = Math.min(maxActions, possibleActions);
                     }
                 }
@@ -13521,19 +13543,24 @@
                         const availableAmount = allMatchingItems.reduce((total, item) => total + (item.count || 0), 0);
                         const baseRequirement = input.count;
 
-                        // Apply Artisan reduction using expected value (average over many actions)
-                        const effectiveRequirement = baseRequirement * (1 - artisanBonus);
+                        // Apply Artisan reduction
+                        // Materials are consumed PER ACTION (not per attempt)
+                        // Efficiency gives bonus actions for FREE (no material cost)
+                        const materialsPerAction = baseRequirement * (1 - artisanBonus);
 
-                        if (effectiveRequirement > 0) {
-                            const possibleActions = Math.floor(availableAmount / effectiveRequirement);
+                        if (materialsPerAction > 0) {
+                            const possibleActions = Math.floor(availableAmount / materialsPerAction);
                             maxActions = Math.min(maxActions, possibleActions);
                         }
                     }
                 }
 
                 // If we couldn't calculate (no materials found), return 0
-                // Otherwise return the calculated max (no artificial cap)
-                return maxActions === Infinity ? 0 : maxActions;
+                if (maxActions === Infinity) {
+                    return 0;
+                }
+
+                return maxActions;
             } catch (error) {
                 console.error('[MWI Tools] Error calculating max value:', error);
                 return 10000; // Safe fallback on error
@@ -14656,6 +14683,12 @@
                 return;
             }
 
+            // Get artisan bonus for material reduction calculation
+            const artisanBonus = this.getArtisanBonus(panel);
+
+            // Get base material requirements from action details
+            const baseMaterialRequirements = this.getBaseMaterialRequirements(panel);
+
             // Get inventory spans and input spans
             const inventorySpans = panel.querySelectorAll('[class*="SkillActionDetail_inventoryCount"]');
             const inputSpans = Array.from(panel.querySelectorAll('[class*="SkillActionDetail_inputCount"]'))
@@ -14676,49 +14709,148 @@
                     if (materialIndex >= inventorySpans.length || materialIndex >= inputSpans.length) return;
 
                     const invText = inventorySpans[materialIndex].textContent.trim();
-                    const inputText = inputSpans[materialIndex].textContent.trim();
+                    inputSpans[materialIndex].textContent.trim();
 
                     // Parse inventory amount (handle K/M suffixes)
                     const invValue = this.parseAmount(invText);
 
-                    // Parse per-action requirement (format: "X / Y")
-                    const match = inputText.match(/\/\s*([\d,\.]+)/);
-                    const perActionAmount = match ? this.parseAmount(match[1]) : 0;
-
-                    if (perActionAmount > 0) {
-                        const totalRequired = perActionAmount * numActions;
-                        const missing = Math.max(0, totalRequired - invValue);
-
-                        // Create display element
-                        const displaySpan = document.createElement('span');
-                        displaySpan.className = 'mwi-required-materials';
-                        displaySpan.style.cssText = `
-                        display: block;
-                        font-size: 0.85em;
-                        white-space: nowrap;
-                        overflow: hidden;
-                        text-overflow: ellipsis;
-                        margin-top: 2px;
-                    `;
-
-                        // Build text
-                        let text = `Required: ${numberFormatter(totalRequired)}`;
-                        if (missing > 0) {
-                            text += ` || Missing: ${numberFormatter(missing)}`;
-                            displaySpan.style.color = config.COLOR_LOSS; // Red
-                        } else {
-                            displaySpan.style.color = config.COLOR_WARNING; // Gold/orange
-                        }
-
-                        displaySpan.textContent = text;
-
-                        // Append to target container
-                        targetContainer.appendChild(displaySpan);
+                    // Get base requirement from action details (not from UI - UI rounds the value)
+                    const baseMaterialCount = baseMaterialRequirements[materialIndex];
+                    if (!baseMaterialCount || baseMaterialCount <= 0) {
+                        materialIndex++;
+                        return;
                     }
+
+                    // Apply artisan reduction to get actual materials per action
+                    // Materials are consumed PER ACTION
+                    // Efficiency gives bonus actions for FREE (no material cost)
+                    const materialsPerAction = baseMaterialCount * (1 - artisanBonus);
+
+                    // Calculate total materials needed for queued actions
+                    const totalRequired = Math.ceil(materialsPerAction * numActions);
+                    const missing = Math.max(0, totalRequired - invValue);
+
+                    // Create display element
+                    const displaySpan = document.createElement('span');
+                    displaySpan.className = 'mwi-required-materials';
+                    displaySpan.style.cssText = `
+                    display: block;
+                    font-size: 0.85em;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    margin-top: 2px;
+                `;
+
+                    // Build text
+                    let text = `Required: ${numberFormatter(totalRequired)}`;
+                    if (missing > 0) {
+                        text += ` || Missing: ${numberFormatter(missing)}`;
+                        displaySpan.style.color = config.COLOR_LOSS; // Missing materials
+                    } else {
+                        displaySpan.style.color = config.COLOR_PROFIT; // Sufficient materials
+                    }
+
+                    displaySpan.textContent = text;
+
+                    // Append to target container
+                    targetContainer.appendChild(displaySpan);
 
                     materialIndex++;
                 }
             });
+        }
+
+        /**
+         * Get base material requirements from action details
+         * @param {HTMLElement} panel - Action panel element
+         * @returns {Array<number>} Array of base material counts
+         */
+        getBaseMaterialRequirements(panel) {
+            try {
+                // Get action name from panel
+                const actionNameElement = panel.querySelector('[class*="SkillActionDetail_name"]');
+                if (!actionNameElement) {
+                    return [];
+                }
+
+                const actionName = actionNameElement.textContent.trim();
+
+                // Look up action details
+                const gameData = dataManager.getInitClientData();
+                if (!gameData || !gameData.actionDetailMap) {
+                    return [];
+                }
+
+                let actionDetails = null;
+                for (const [hrid, details] of Object.entries(gameData.actionDetailMap)) {
+                    if (details.name === actionName) {
+                        actionDetails = details;
+                        break;
+                    }
+                }
+
+                if (!actionDetails || !actionDetails.inputItems) {
+                    return [];
+                }
+
+                // Return array of base material counts in order
+                return actionDetails.inputItems.map(item => item.count || 0);
+
+            } catch (error) {
+                console.error('[Required Materials] Error getting base requirements:', error);
+                return [];
+            }
+        }
+
+        /**
+         * Get artisan bonus (material reduction) for the current action
+         * @param {HTMLElement} panel - Action panel element
+         * @returns {number} Artisan bonus (0-1 decimal, e.g., 0.1129 for 11.29% reduction)
+         */
+        getArtisanBonus(panel) {
+            try {
+                // Get action name from panel
+                const actionNameElement = panel.querySelector('[class*="SkillActionDetail_name"]');
+                if (!actionNameElement) {
+                    return 0;
+                }
+
+                const actionName = actionNameElement.textContent.trim();
+
+                // Look up action details
+                const gameData = dataManager.getInitClientData();
+                if (!gameData || !gameData.actionDetailMap) {
+                    return 0;
+                }
+
+                let actionDetails = null;
+                for (const [hrid, details] of Object.entries(gameData.actionDetailMap)) {
+                    if (details.name === actionName) {
+                        actionDetails = details;
+                        break;
+                    }
+                }
+
+                if (!actionDetails) {
+                    return 0;
+                }
+
+                // Get character data
+                const equipment = dataManager.getEquipment();
+                const itemDetailMap = gameData.itemDetailMap || {};
+
+                // Calculate artisan bonus (material reduction from Artisan Tea)
+                const drinkConcentration = getDrinkConcentration(equipment, itemDetailMap);
+                const activeDrinks = dataManager.getActionDrinkSlots(actionDetails.type);
+                const artisanBonus = parseArtisanBonus(activeDrinks, itemDetailMap, drinkConcentration);
+
+                return artisanBonus;
+
+            } catch (error) {
+                console.error('[Required Materials] Error calculating artisan bonus:', error);
+                return 0;
+            }
         }
 
         /**
@@ -28752,7 +28884,7 @@
         const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
         targetWindow.Toolasha = {
-            version: '0.4.913',
+            version: '0.4.914',
 
             // Feature toggle API (for users to manage settings via console)
             features: {

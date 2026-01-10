@@ -357,9 +357,9 @@ class ActionTimeDisplay {
             skills,
             equipment,
             itemDetailMap,
-            includeCommunityBuff: false,
+            includeCommunityBuff: true,
             includeBreakdown: false,
-            floorActionLevel: false
+            floorActionLevel: true
         });
 
         if (!stats) {
@@ -617,14 +617,14 @@ class ActionTimeDisplay {
         const equipment = dataManager.getEquipment();
         const itemDetailMap = dataManager.getInitClientData()?.itemDetailMap || {};
 
-        // Use shared calculator (no community buff, no breakdown, no floor for compatibility)
+        // Use shared calculator with same parameters as main display
         return calculateActionStats(actionDetails, {
             skills,
             equipment,
             itemDetailMap,
-            includeCommunityBuff: false,
+            includeCommunityBuff: true,
             includeBreakdown: false,
-            floorActionLevel: false
+            floorActionLevel: true
         });
     }
 

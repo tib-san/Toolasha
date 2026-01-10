@@ -7,6 +7,8 @@ import config from '../../core/config.js';
 import domObserver from '../../core/dom-observer.js';
 import { GAME } from '../../utils/selectors.js';
 import { numberFormatter } from '../../utils/formatters.js';
+import dataManager from '../../core/data-manager.js';
+import { parseArtisanBonus, getDrinkConcentration } from '../../utils/tea-parser.js';
 
 class RequiredMaterials {
     constructor() {
@@ -96,6 +98,12 @@ class RequiredMaterials {
             return;
         }
 
+        // Get artisan bonus for material reduction calculation
+        const artisanBonus = this.getArtisanBonus(panel);
+
+        // Get base material requirements from action details
+        const baseMaterialRequirements = this.getBaseMaterialRequirements(panel);
+
         // Get inventory spans and input spans
         const inventorySpans = panel.querySelectorAll('[class*="SkillActionDetail_inventoryCount"]');
         const inputSpans = Array.from(panel.querySelectorAll('[class*="SkillActionDetail_inputCount"]'))
@@ -121,44 +129,143 @@ class RequiredMaterials {
                 // Parse inventory amount (handle K/M suffixes)
                 const invValue = this.parseAmount(invText);
 
-                // Parse per-action requirement (format: "X / Y")
-                const match = inputText.match(/\/\s*([\d,\.]+)/);
-                const perActionAmount = match ? this.parseAmount(match[1]) : 0;
-
-                if (perActionAmount > 0) {
-                    const totalRequired = perActionAmount * numActions;
-                    const missing = Math.max(0, totalRequired - invValue);
-
-                    // Create display element
-                    const displaySpan = document.createElement('span');
-                    displaySpan.className = 'mwi-required-materials';
-                    displaySpan.style.cssText = `
-                        display: block;
-                        font-size: 0.85em;
-                        white-space: nowrap;
-                        overflow: hidden;
-                        text-overflow: ellipsis;
-                        margin-top: 2px;
-                    `;
-
-                    // Build text
-                    let text = `Required: ${numberFormatter(totalRequired)}`;
-                    if (missing > 0) {
-                        text += ` || Missing: ${numberFormatter(missing)}`;
-                        displaySpan.style.color = config.COLOR_LOSS; // Red
-                    } else {
-                        displaySpan.style.color = config.COLOR_WARNING; // Gold/orange
-                    }
-
-                    displaySpan.textContent = text;
-
-                    // Append to target container
-                    targetContainer.appendChild(displaySpan);
+                // Get base requirement from action details (not from UI - UI rounds the value)
+                const baseMaterialCount = baseMaterialRequirements[materialIndex];
+                if (!baseMaterialCount || baseMaterialCount <= 0) {
+                    materialIndex++;
+                    return;
                 }
+
+                // Apply artisan reduction to get actual materials per action
+                // Materials are consumed PER ACTION
+                // Efficiency gives bonus actions for FREE (no material cost)
+                const materialsPerAction = baseMaterialCount * (1 - artisanBonus);
+
+                // Calculate total materials needed for queued actions
+                const totalRequired = Math.ceil(materialsPerAction * numActions);
+                const missing = Math.max(0, totalRequired - invValue);
+
+                // Create display element
+                const displaySpan = document.createElement('span');
+                displaySpan.className = 'mwi-required-materials';
+                displaySpan.style.cssText = `
+                    display: block;
+                    font-size: 0.85em;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    margin-top: 2px;
+                `;
+
+                // Build text
+                let text = `Required: ${numberFormatter(totalRequired)}`;
+                if (missing > 0) {
+                    text += ` || Missing: ${numberFormatter(missing)}`;
+                    displaySpan.style.color = config.COLOR_LOSS; // Missing materials
+                } else {
+                    displaySpan.style.color = config.COLOR_PROFIT; // Sufficient materials
+                }
+
+                displaySpan.textContent = text;
+
+                // Append to target container
+                targetContainer.appendChild(displaySpan);
 
                 materialIndex++;
             }
         });
+    }
+
+    /**
+     * Get base material requirements from action details
+     * @param {HTMLElement} panel - Action panel element
+     * @returns {Array<number>} Array of base material counts
+     */
+    getBaseMaterialRequirements(panel) {
+        try {
+            // Get action name from panel
+            const actionNameElement = panel.querySelector('[class*="SkillActionDetail_name"]');
+            if (!actionNameElement) {
+                return [];
+            }
+
+            const actionName = actionNameElement.textContent.trim();
+
+            // Look up action details
+            const gameData = dataManager.getInitClientData();
+            if (!gameData || !gameData.actionDetailMap) {
+                return [];
+            }
+
+            let actionDetails = null;
+            for (const [hrid, details] of Object.entries(gameData.actionDetailMap)) {
+                if (details.name === actionName) {
+                    actionDetails = details;
+                    break;
+                }
+            }
+
+            if (!actionDetails || !actionDetails.inputItems) {
+                return [];
+            }
+
+            // Return array of base material counts in order
+            return actionDetails.inputItems.map(item => item.count || 0);
+
+        } catch (error) {
+            console.error('[Required Materials] Error getting base requirements:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Get artisan bonus (material reduction) for the current action
+     * @param {HTMLElement} panel - Action panel element
+     * @returns {number} Artisan bonus (0-1 decimal, e.g., 0.1129 for 11.29% reduction)
+     */
+    getArtisanBonus(panel) {
+        try {
+            // Get action name from panel
+            const actionNameElement = panel.querySelector('[class*="SkillActionDetail_name"]');
+            if (!actionNameElement) {
+                return 0;
+            }
+
+            const actionName = actionNameElement.textContent.trim();
+
+            // Look up action details
+            const gameData = dataManager.getInitClientData();
+            if (!gameData || !gameData.actionDetailMap) {
+                return 0;
+            }
+
+            let actionDetails = null;
+            for (const [hrid, details] of Object.entries(gameData.actionDetailMap)) {
+                if (details.name === actionName) {
+                    actionDetails = details;
+                    break;
+                }
+            }
+
+            if (!actionDetails) {
+                return 0;
+            }
+
+            // Get character data
+            const equipment = dataManager.getEquipment();
+            const itemDetailMap = gameData.itemDetailMap || {};
+
+            // Calculate artisan bonus (material reduction from Artisan Tea)
+            const drinkConcentration = getDrinkConcentration(equipment, itemDetailMap);
+            const activeDrinks = dataManager.getActionDrinkSlots(actionDetails.type);
+            const artisanBonus = parseArtisanBonus(activeDrinks, itemDetailMap, drinkConcentration);
+
+            return artisanBonus;
+
+        } catch (error) {
+            console.error('[Required Materials] Error calculating artisan bonus:', error);
+            return 0;
+        }
     }
 
     /**

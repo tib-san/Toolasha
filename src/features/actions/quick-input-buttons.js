@@ -276,9 +276,10 @@ class QuickInputButtons {
 
                 const queueCount = parseInt(inputValue) || 0;
                 if (queueCount > 0) {
-                    // Input is number of ACTIONS, not items
-                    // Total time = actions × time per action
-                    const totalSeconds = queueCount * actionTime;
+                    // Input is number of ACTIONS to complete (affected by efficiency)
+                    // Calculate actual attempts needed
+                    const actualAttempts = Math.ceil(queueCount / efficiencyMultiplier);
+                    const totalSeconds = actualAttempts * actionTime;
                     totalTimeLine.textContent = `Total time: ${timeReadable(totalSeconds)}`;
                 } else {
                     totalTimeLine.textContent = 'Total time: 0s';
@@ -309,8 +310,8 @@ class QuickInputButtons {
             });
 
             // Create initial summary for Action Speed & Time
-            const actionsPerHour = (3600 / actionTime).toFixed(0);
-            const initialSummary = `${actionsPerHour}/hr | Total time: 0s`;
+            const actionsPerHourWithEfficiency = Math.round((3600 / actionTime) * efficiencyMultiplier);
+            const initialSummary = `${actionsPerHourWithEfficiency}/hr | Total time: 0s`;
 
             speedSection = createCollapsibleSection(
                 '⏱',
@@ -332,14 +333,15 @@ class QuickInputButtons {
                 if (speedSummaryDiv) {
                     const inputValue = numberInput.value;
                     if (inputValue === '∞') {
-                        speedSummaryDiv.textContent = `${actionsPerHour}/hr | Total time: ∞`;
+                        speedSummaryDiv.textContent = `${actionsPerHourWithEfficiency}/hr | Total time: ∞`;
                     } else {
                         const queueCount = parseInt(inputValue) || 0;
                         if (queueCount > 0) {
-                            const totalSeconds = queueCount * actionTime;
-                            speedSummaryDiv.textContent = `${actionsPerHour}/hr | Total time: ${timeReadable(totalSeconds)}`;
+                            const actualAttempts = Math.ceil(queueCount / efficiencyMultiplier);
+                            const totalSeconds = actualAttempts * actionTime;
+                            speedSummaryDiv.textContent = `${actionsPerHourWithEfficiency}/hr | Total time: ${timeReadable(totalSeconds)}`;
                         } else {
-                            speedSummaryDiv.textContent = `${actionsPerHour}/hr | Total time: 0s`;
+                            speedSummaryDiv.textContent = `${actionsPerHourWithEfficiency}/hr | Total time: 0s`;
                         }
                     }
                 }
@@ -744,11 +746,13 @@ class QuickInputButtons {
                 const availableAmount = upgradeItem?.count || 0;
                 const baseRequirement = 1; // Upgrade items always require exactly 1
 
-                // Apply Artisan reduction using expected value (average over many actions)
-                const effectiveRequirement = baseRequirement * (1 - artisanBonus);
+                // Apply Artisan reduction
+                // Materials are consumed PER ACTION (not per attempt)
+                // Efficiency gives bonus actions for FREE (no material cost)
+                const materialsPerAction = baseRequirement * (1 - artisanBonus);
 
-                if (effectiveRequirement > 0) {
-                    const possibleActions = Math.floor(availableAmount / effectiveRequirement);
+                if (materialsPerAction > 0) {
+                    const possibleActions = Math.floor(availableAmount / materialsPerAction);
                     maxActions = Math.min(maxActions, possibleActions);
                 }
             }
@@ -763,19 +767,24 @@ class QuickInputButtons {
                     const availableAmount = allMatchingItems.reduce((total, item) => total + (item.count || 0), 0);
                     const baseRequirement = input.count;
 
-                    // Apply Artisan reduction using expected value (average over many actions)
-                    const effectiveRequirement = baseRequirement * (1 - artisanBonus);
+                    // Apply Artisan reduction
+                    // Materials are consumed PER ACTION (not per attempt)
+                    // Efficiency gives bonus actions for FREE (no material cost)
+                    const materialsPerAction = baseRequirement * (1 - artisanBonus);
 
-                    if (effectiveRequirement > 0) {
-                        const possibleActions = Math.floor(availableAmount / effectiveRequirement);
+                    if (materialsPerAction > 0) {
+                        const possibleActions = Math.floor(availableAmount / materialsPerAction);
                         maxActions = Math.min(maxActions, possibleActions);
                     }
                 }
             }
 
             // If we couldn't calculate (no materials found), return 0
-            // Otherwise return the calculated max (no artificial cap)
-            return maxActions === Infinity ? 0 : maxActions;
+            if (maxActions === Infinity) {
+                return 0;
+            }
+
+            return maxActions;
         } catch (error) {
             console.error('[MWI Tools] Error calculating max value:', error);
             return 10000; // Safe fallback on error

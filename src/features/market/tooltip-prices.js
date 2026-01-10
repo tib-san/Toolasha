@@ -11,7 +11,7 @@ import expectedValueCalculator from './expected-value-calculator.js';
 import { getEnhancingParams } from '../../utils/enhancement-config.js';
 import { calculateEnhancementPath, buildEnhancementTooltipHTML } from '../enhancement/tooltip-enhancement.js';
 import { calculateGatheringProfit } from '../actions/gathering-profit.js';
-import { numberFormatter, formatKMB } from '../../utils/formatters.js';
+import { numberFormatter, formatKMB, networthFormatter } from '../../utils/formatters.js';
 import dom from '../../utils/dom.js';
 import domObserver from '../../core/dom-observer.js';
 
@@ -20,6 +20,16 @@ const REGEX_ENHANCEMENT_LEVEL = /\+(\d+)$/;
 const REGEX_ENHANCEMENT_STRIP = /\s*\+\d+$/;
 const REGEX_AMOUNT = /x([\d,]+)|Amount:\s*([\d,]+)/i;
 const REGEX_COMMA = /,/g;
+
+/**
+ * Format price for tooltip display based on user setting
+ * @param {number} num - The number to format
+ * @returns {string} Formatted number
+ */
+function formatTooltipPrice(num) {
+    const useKMB = config.getSetting('itemTooltip_useKMBFormat');
+    return useKMB ? networthFormatter(num) : numberFormatter(num);
+}
 
 /**
  * TooltipPrices class handles injecting market prices into item tooltips
@@ -386,15 +396,15 @@ class TooltipPrices {
         }
 
         // Format prices, using "-" for missing values
-        const askDisplay = price.ask > 0 ? numberFormatter(price.ask) : '-';
-        const bidDisplay = price.bid > 0 ? numberFormatter(price.bid) : '-';
+        const askDisplay = price.ask > 0 ? formatTooltipPrice(price.ask) : '-';
+        const bidDisplay = price.bid > 0 ? formatTooltipPrice(price.bid) : '-';
 
         // Calculate totals (only if both prices valid and amount > 1)
         let totalDisplay = '';
         if (amount > 1 && price.ask > 0 && price.bid > 0) {
             const totalAsk = price.ask * amount;
             const totalBid = price.bid * amount;
-            totalDisplay = ` (${numberFormatter(totalAsk)} / ${numberFormatter(totalBid)})`;
+            totalDisplay = ` (${formatTooltipPrice(totalAsk)} / ${formatTooltipPrice(totalBid)})`;
         }
 
         // Format: "Price: 1,200 / 950" or "Price: 1,200 / -" or "Price: - / 950"
@@ -579,7 +589,7 @@ class TooltipPrices {
         html += '<div style="font-size: 0.9em; margin-left: 8px;">';
 
         // Expected value (simple display)
-        html += `<div style="color: ${config.COLOR_TOOLTIP_PROFIT}; font-weight: bold;">Expected Return: ${numberFormatter(evData.expectedValue)}</div>`;
+        html += `<div style="color: ${config.COLOR_TOOLTIP_PROFIT}; font-weight: bold;">Expected Return: ${formatTooltipPrice(evData.expectedValue)}</div>`;
 
         html += '</div>'; // Close summary section
 
@@ -614,7 +624,7 @@ class TooltipPrices {
                     const dropRatePercent = (drop.dropRate * 100).toFixed(2);
 
                     // Show full drop breakdown
-                    html += `<div>• ${drop.itemName} (${dropRatePercent}%): ${drop.avgCount.toFixed(2)} avg → ${numberFormatter(drop.expectedValue)}</div>`;
+                    html += `<div>• ${drop.itemName} (${dropRatePercent}%): ${drop.avgCount.toFixed(2)} avg → ${formatTooltipPrice(drop.expectedValue)}</div>`;
                 }
             }
 
@@ -622,7 +632,7 @@ class TooltipPrices {
 
             // Show total
             html += '<div style="border-top: 1px solid rgba(255,255,255,0.2); margin: 4px 0;"></div>';
-            html += `<div style="font-size: 0.9em; margin-left: 8px; font-weight: bold;">Total from ${evData.drops.length} drops: ${numberFormatter(evData.expectedValue)}</div>`;
+            html += `<div style="font-size: 0.9em; margin-left: 8px; font-weight: bold;">Total from ${evData.drops.length} drops: ${formatTooltipPrice(evData.expectedValue)}</div>`;
         }
 
         html += '</div>'; // Close main container
