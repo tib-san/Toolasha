@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.915
+// @version      0.4.917
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB, and sentientmilk for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Thank you to Steez for testing and helping me figure out where I'm wrong! Special thanks to Zaeter for the name.
 // @license      CC-BY-NC-SA-4.0
@@ -1895,6 +1895,11 @@
                 const data = JSON.parse(message);
                 const messageType = data.type;
 
+                // Debug: Log profile-related messages
+                if (messageType && messageType.includes('profile')) {
+                    console.log('[WebSocket Hook] Profile-related message:', messageType);
+                }
+
                 // Save critical data to GM storage for Combat Sim export
                 this.saveCombatSimData(messageType, message);
 
@@ -1949,15 +1954,38 @@
 
                 // Save profile shares (when opening party member profiles)
                 if (messageType === 'profile_shared') {
+                    console.log('[Toolasha] profile_shared message received!', message.substring(0, 200) + '...');
                     const parsed = JSON.parse(message);
 
-                    // Extract character info
-                    parsed.characterID = parsed.profile.characterSkills[0].characterID;
-                    parsed.characterName = parsed.profile.sharableCharacter.name;
+                    console.log('[Toolasha] Profile structure:', {
+                        hasProfile: !!parsed.profile,
+                        hasSharableChar: !!parsed.profile?.sharableCharacter,
+                        sharableCharId: parsed.profile?.sharableCharacter?.id,
+                        sharableCharName: parsed.profile?.sharableCharacter?.name,
+                        hasCharSkills: !!parsed.profile?.characterSkills,
+                        firstSkillCharId: parsed.profile?.characterSkills?.[0]?.characterID,
+                        hasCharacter: !!parsed.profile?.character,
+                        characterId: parsed.profile?.character?.id
+                    });
+
+                    // Extract character info - try multiple sources for ID
+                    parsed.characterID = parsed.profile.sharableCharacter?.id ||
+                                        parsed.profile.characterSkills?.[0]?.characterID ||
+                                        parsed.profile.character?.id;
+                    parsed.characterName = parsed.profile.sharableCharacter?.name || 'Unknown';
                     parsed.timestamp = Date.now();
 
-                    // Load existing profile list from IndexedDB
-                    let profileList = await storage.get('profileList', 'combatExport', []);
+                    console.log('[Toolasha] Extracted characterID:', parsed.characterID, 'characterName:', parsed.characterName);
+
+                    // Validate we got a character ID
+                    if (!parsed.characterID) {
+                        console.error('[Toolasha] Failed to extract characterID from profile:', parsed);
+                        return;
+                    }
+
+                    // Load existing profile list from GM storage (cross-origin accessible)
+                    const profileListJson = await this.loadFromStorage('toolasha_profile_list', '[]');
+                    let profileList = JSON.parse(profileListJson);
 
                     // Remove old entry for same character
                     profileList = profileList.filter(p => p.characterID !== parsed.characterID);
@@ -1970,11 +1998,8 @@
                         profileList.pop();
                     }
 
-                    // Save updated profile list to IndexedDB
-                    await storage.set('profileList', profileList, 'combatExport', true);
-
-                    // Save current profile ID (for profile export button)
-                    await storage.set('currentProfileId', parsed.characterID, 'combatExport', true);
+                    // Save updated profile list to GM storage (matches pattern of other combat sim data)
+                    await this.saveToStorage('toolasha_profile_list', JSON.stringify(profileList));
 
                     console.log('[Toolasha] Profile saved for Combat Sim export:', parsed.characterName);
                 }
@@ -16050,7 +16075,9 @@
      */
     async function getProfileList() {
         try {
-            return await storage.get('profileList', 'combatExport', []);
+            // Read from GM storage (cross-origin accessible, matches pattern of other combat sim data)
+            const profileListJson = await webSocketHook.loadFromStorage('toolasha_profile_list', '[]');
+            return JSON.parse(profileListJson);
         } catch (error) {
             console.error('[Combat Sim Export] Failed to get profile list:', error);
             return [];
@@ -16417,6 +16444,12 @@
             let slotIndex = 1;
             for (const member of Object.values(characterObj.partyInfo.partySlotMap)) {
                 if (member.characterID) {
+                    console.log('[Combat Sim Export] Party member:', {
+                        memberCharID: member.characterID,
+                        memberCharIDType: typeof member.characterID,
+                        isYou: member.characterID === characterObj.character.id
+                    });
+
                     if (member.characterID === characterObj.character.id) {
                         // This is you
                         exportObj[slotIndex] = JSON.stringify(constructSelfPlayer(characterObj, clientObj));
@@ -16424,14 +16457,22 @@
                         importedPlayerPositions[slotIndex - 1] = true;
                     } else {
                         // Party member - try to get from profile list
+                        console.log('[Combat Sim Export] Looking for profile with ID:', member.characterID);
+                        console.log('[Combat Sim Export] Available profiles:', profileList.map(p => ({
+                            id: p.characterID,
+                            type: typeof p.characterID,
+                            name: p.characterName
+                        })));
+
                         const profile = profileList.find(p => p.characterID === member.characterID);
                         if (profile) {
+                            console.log('[Combat Sim Export] Profile found:', profile.characterName);
                             exportObj[slotIndex] = JSON.stringify(constructPartyPlayer(profile, clientObj, battleObj));
                             playerIDs[slotIndex - 1] = profile.characterName;
                             importedPlayerPositions[slotIndex - 1] = true;
                         } else {
+                            console.warn('[Combat Sim Export] No profile found for party member', member.characterID, '- profiles have:', profileList.map(p => p.characterID));
                             playerIDs[slotIndex - 1] = 'Open profile in game';
-                            console.warn(`[Combat Sim Export] No profile found for party member ${member.characterID}. Open their profile in-game to capture data.`);
                         }
                     }
                     slotIndex++;
@@ -26107,8 +26148,6 @@
             };
 
             console.log('[Dungeon Tracker] Restored state - firstTimestamp:', this.firstKeyCountTimestamp, 'lastTimestamp:', this.lastKeyCountTimestamp);
-            console.log('[Dungeon Tracker] DEBUG - Restored startTime:', saved.startTime);
-            console.log('[Dungeon Tracker] DEBUG - Restored wavesCompleted:', saved.wavesCompleted);
 
             this.notifyUpdate();
             return true;
@@ -26126,13 +26165,8 @@
          * Initialize dungeon tracker
          */
         async initialize() {
-            console.log('[Dungeon Tracker] Initializing with WebSocket hooks...');
-
             // Get character ID from URL for data isolation
             this.characterId = this.getCharacterIdFromURL();
-            if (this.characterId) {
-                console.log('[Dungeon Tracker] Character ID:', this.characterId);
-            }
 
             // Listen for new_battle messages (wave start)
             webSocketHook.on('new_battle', (data) => this.onNewBattle(data));
@@ -26145,8 +26179,6 @@
 
             // Listen for party chat messages (for server-validated duration and battle started)
             webSocketHook.on('chat_message_received', (data) => this.onChatMessage(data));
-
-            console.log('[Dungeon Tracker] WebSocket hooks registered');
 
             // Check for active dungeon on page load and try to restore state
             setTimeout(() => this.checkForActiveDungeon(), 1000);
@@ -26200,8 +26232,6 @@
                 };
 
                 console.log('[Dungeon Tracker] Restored on page load - firstTimestamp:', this.firstKeyCountTimestamp, 'lastTimestamp:', this.lastKeyCountTimestamp);
-                console.log('[Dungeon Tracker] DEBUG - Page load restored startTime:', saved.startTime);
-                console.log('[Dungeon Tracker] DEBUG - Page load restored wavesCompleted:', saved.wavesCompleted);
 
                 // Trigger UI update to show immediately
                 this.notifyUpdate();
@@ -26229,8 +26259,6 @@
 
                 // FIRST: Try to find messages in memory (most reliable)
                 if (this.recentChatMessages.length > 0) {
-                    console.log('[Dungeon Tracker] Scanning', this.recentChatMessages.length, 'messages from memory');
-
                     for (const message of this.recentChatMessages) {
                         // Look for "Battle started" messages
                         if (message.m === 'systemChatMessage.partyBattleStarted') {
@@ -26262,10 +26290,7 @@
 
                 // FALLBACK: If no messages in memory, scan DOM (for messages that arrived before script loaded)
                 if (!latestKeyCountsMap) {
-                    console.log('[Dungeon Tracker] No messages in memory, falling back to DOM scan');
-
                     const messages = document.querySelectorAll('[class^="ChatMessage_chatMessage"]');
-                    console.log('[Dungeon Tracker] DEBUG - scanExistingChatMessages found', messages.length, 'total chat messages in DOM');
 
                     // Scan all messages to find Battle started and most recent key counts
                     for (const msg of messages) {
@@ -26336,7 +26361,6 @@
 
                 // Update current run with the most recent key counts found
                 if (latestKeyCountsMap && this.currentRun) {
-                    console.log('[Dungeon Tracker] DEBUG - Found key counts in chat, setting timestamps');
                     this.currentRun.keyCountsMap = latestKeyCountsMap;
 
                     // Set firstKeyCountTimestamp and lastKeyCountTimestamp from DOM scan
@@ -26344,11 +26368,9 @@
                     if (this.firstKeyCountTimestamp === null) {
                         if (battleStartedFound && this.battleStartedTimestamp) {
                             // Use battle started as anchor point, key counts as first run timestamp
-                            console.log('[Dungeon Tracker] Setting first/last timestamps from Battle started and Key counts');
                             this.firstKeyCountTimestamp = latestTimestamp;
                             this.lastKeyCountTimestamp = latestTimestamp;
                         } else if (latestTimestamp) {
-                            console.log('[Dungeon Tracker] Setting first/last timestamps from DOM scan:', new Date(latestTimestamp).toISOString());
                             this.firstKeyCountTimestamp = latestTimestamp;
                             this.lastKeyCountTimestamp = latestTimestamp;
                         }
@@ -26367,8 +26389,6 @@
                     this.saveInProgressRun(); // Persist to IndexedDB
                 } else if (!this.currentRun) {
                     console.warn('[Dungeon Tracker] Current run is null, cannot update');
-                } else {
-                    console.log('[Dungeon Tracker] DEBUG - No key counts messages found in chat scan');
                 }
             } catch (error) {
                 console.error('[Dungeon Tracker] Error scanning existing messages:', error);
@@ -26387,7 +26407,6 @@
                     if (this.isDungeonAction(action.actionHrid)) {
 
                         if (action.isDone === false) {
-                            console.log('[Dungeon Tracker] actions_updated: Dungeon action added to queue:', action.actionHrid, 'T' + action.difficultyTier);
                             // Dungeon action added to queue - store info for when new_battle fires
                             this.pendingDungeonInfo = {
                                 dungeonHrid: action.actionHrid,
@@ -26396,7 +26415,6 @@
 
                             // If already tracking (somehow), update immediately
                             if (this.isTracking && !this.currentRun.dungeonHrid) {
-                                console.log('[Dungeon Tracker] Already tracking but no dungeonHrid, updating from actions_updated');
                                 this.currentRun.dungeonHrid = action.actionHrid;
                                 this.currentRun.tier = action.difficultyTier;
 
@@ -26407,12 +26425,10 @@
                                 }
                             }
                         } else if (action.isDone === true && this.isTracking && this.currentRun) {
-                            console.log('[Dungeon Tracker] actions_updated: Dungeon action marked as done');
                             // Dungeon action marked as done (completion or flee)
 
                             // If we don't have dungeon info yet, grab it from this action
                             if (!this.currentRun.dungeonHrid) {
-                                console.log('[Dungeon Tracker] Populating dungeon info from actions_updated before reset');
                                 this.currentRun.dungeonHrid = action.actionHrid;
                                 this.currentRun.tier = action.difficultyTier;
 
@@ -26429,7 +26445,7 @@
                                                       this.currentRun.wavesCompleted >= this.currentRun.maxWaves;
 
                             if (!allWavesCompleted) {
-                                console.log('[Dungeon Tracker] actions_updated: Early exit (fled/died), resetting');
+                                console.log('[Dungeon Tracker] Early exit (fled/died), resetting');
                                 // Early exit (fled, died, or failed)
                                 this.resetTracking();
                             }
@@ -26525,14 +26541,12 @@
          * @param {Object} message - Message object
          */
         onPartyFailed(timestamp, message) {
-            console.log('[Dungeon Tracker] Party failed message received');
-
             if (!this.isTracking || !this.currentRun) {
                 return;
             }
 
             // Mark run as failed and reset tracking
-            console.log('[Dungeon Tracker] Party failed on dungeon run - resetting tracking');
+            console.log('[Dungeon Tracker] Party failed - resetting tracking');
             this.resetTracking();
         }
 
@@ -26594,17 +26608,11 @@
 
             // First "Key counts" message = dungeon start
             if (this.firstKeyCountTimestamp === null) {
-                console.log('[Dungeon Tracker] First key counts message (dungeon start)');
-                console.log('[Dungeon Tracker] DEBUG - currentRun exists?', !!this.currentRun);
-                console.log('[Dungeon Tracker] DEBUG - currentRun.startTime:', this.currentRun?.startTime);
-                console.log('[Dungeon Tracker] DEBUG - wavesCompleted:', this.currentRun?.wavesCompleted);
-
                 // FALLBACK: If we're already tracking and have a currentRun.startTime,
                 // this is probably the COMPLETION message, not the start!
                 // This happens when state was restored but first message wasn't captured.
                 if (this.currentRun && this.currentRun.startTime) {
-                    console.log('[Dungeon Tracker] WARNING: Received Key counts with null timestamps but already tracking!');
-                    console.log('[Dungeon Tracker] This is likely COMPLETION. Using startTime as first timestamp fallback.');
+                    console.log('[Dungeon Tracker] WARNING: Received Key counts with null timestamps but already tracking! Using startTime as fallback.');
 
                     // Use the currentRun.startTime as the first timestamp (best estimate)
                     this.firstKeyCountTimestamp = this.currentRun.startTime;
@@ -26694,11 +26702,8 @@
          * @param {Object} data - new_battle message data
          */
         async onNewBattle(data) {
-            console.log('[Dungeon Tracker] new_battle received, wave:', data.wave, 'battleId:', data.battleId, 'isTracking:', this.isTracking);
-
             // Only track if we have wave data
             if (data.wave === undefined) {
-                console.log('[Dungeon Tracker] No wave data, ignoring');
                 return;
             }
 
@@ -26707,25 +26712,19 @@
 
             // Wave 0 = first wave = dungeon start
             if (data.wave === 0) {
-                console.log('[Dungeon Tracker] Wave 0 detected - starting new dungeon');
                 // Clear any stale saved state first (in case previous run didn't clear properly)
                 await this.clearInProgressRun();
 
                 // Start fresh dungeon
                 this.startDungeon(data);
             } else if (!this.isTracking) {
-                console.log('[Dungeon Tracker] Mid-dungeon wave detected, not tracking - attempting restore');
                 // Mid-dungeon start - try to restore first
                 const restored = await this.restoreInProgressRun(battleId);
                 if (!restored) {
-                    console.log('[Dungeon Tracker] Restore failed, starting fresh tracking');
                     // No restore - initialize tracking anyway
                     this.startDungeon(data);
-                } else {
-                    console.log('[Dungeon Tracker] Successfully restored in-progress run');
                 }
             } else {
-                console.log('[Dungeon Tracker] Wave', data.wave, 'started (already tracking)');
                 // Subsequent wave (already tracking)
                 // Update battleId in case user logged out and back in (new battle instance)
                 this.currentBattleId = data.battleId;
@@ -30976,7 +30975,7 @@
         const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
         targetWindow.Toolasha = {
-            version: '0.4.915',
+            version: '0.4.917',
 
             // Feature toggle API (for users to manage settings via console)
             features: {

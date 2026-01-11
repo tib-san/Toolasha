@@ -6,7 +6,6 @@
  */
 
 import webSocketHook from '../../core/websocket.js';
-import storage from '../../core/storage.js';
 
 /**
  * Get saved character data from storage
@@ -70,7 +69,9 @@ async function getClientData() {
  */
 async function getProfileList() {
     try {
-        return await storage.get('profileList', 'combatExport', []);
+        // Read from GM storage (cross-origin accessible, matches pattern of other combat sim data)
+        const profileListJson = await webSocketHook.loadFromStorage('toolasha_profile_list', '[]');
+        return JSON.parse(profileListJson);
     } catch (error) {
         console.error('[Combat Sim Export] Failed to get profile list:', error);
         return [];
@@ -437,6 +438,12 @@ export async function constructExportObject(externalProfileId = null) {
         let slotIndex = 1;
         for (const member of Object.values(characterObj.partyInfo.partySlotMap)) {
             if (member.characterID) {
+                console.log('[Combat Sim Export] Party member:', {
+                    memberCharID: member.characterID,
+                    memberCharIDType: typeof member.characterID,
+                    isYou: member.characterID === characterObj.character.id
+                });
+
                 if (member.characterID === characterObj.character.id) {
                     // This is you
                     exportObj[slotIndex] = JSON.stringify(constructSelfPlayer(characterObj, clientObj));
@@ -444,14 +451,22 @@ export async function constructExportObject(externalProfileId = null) {
                     importedPlayerPositions[slotIndex - 1] = true;
                 } else {
                     // Party member - try to get from profile list
+                    console.log('[Combat Sim Export] Looking for profile with ID:', member.characterID);
+                    console.log('[Combat Sim Export] Available profiles:', profileList.map(p => ({
+                        id: p.characterID,
+                        type: typeof p.characterID,
+                        name: p.characterName
+                    })));
+
                     const profile = profileList.find(p => p.characterID === member.characterID);
                     if (profile) {
+                        console.log('[Combat Sim Export] Profile found:', profile.characterName);
                         exportObj[slotIndex] = JSON.stringify(constructPartyPlayer(profile, clientObj, battleObj));
                         playerIDs[slotIndex - 1] = profile.characterName;
                         importedPlayerPositions[slotIndex - 1] = true;
                     } else {
+                        console.warn('[Combat Sim Export] No profile found for party member', member.characterID, '- profiles have:', profileList.map(p => p.characterID));
                         playerIDs[slotIndex - 1] = 'Open profile in game';
-                        console.warn(`[Combat Sim Export] No profile found for party member ${member.characterID}. Open their profile in-game to capture data.`);
                     }
                 }
                 slotIndex++;

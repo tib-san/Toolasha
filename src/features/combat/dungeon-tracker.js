@@ -159,8 +159,6 @@ class DungeonTracker {
         };
 
         console.log('[Dungeon Tracker] Restored state - firstTimestamp:', this.firstKeyCountTimestamp, 'lastTimestamp:', this.lastKeyCountTimestamp);
-        console.log('[Dungeon Tracker] DEBUG - Restored startTime:', saved.startTime);
-        console.log('[Dungeon Tracker] DEBUG - Restored wavesCompleted:', saved.wavesCompleted);
 
         this.notifyUpdate();
         return true;
@@ -178,13 +176,8 @@ class DungeonTracker {
      * Initialize dungeon tracker
      */
     async initialize() {
-        console.log('[Dungeon Tracker] Initializing with WebSocket hooks...');
-
         // Get character ID from URL for data isolation
         this.characterId = this.getCharacterIdFromURL();
-        if (this.characterId) {
-            console.log('[Dungeon Tracker] Character ID:', this.characterId);
-        }
 
         // Listen for new_battle messages (wave start)
         webSocketHook.on('new_battle', (data) => this.onNewBattle(data));
@@ -197,8 +190,6 @@ class DungeonTracker {
 
         // Listen for party chat messages (for server-validated duration and battle started)
         webSocketHook.on('chat_message_received', (data) => this.onChatMessage(data));
-
-        console.log('[Dungeon Tracker] WebSocket hooks registered');
 
         // Check for active dungeon on page load and try to restore state
         setTimeout(() => this.checkForActiveDungeon(), 1000);
@@ -252,8 +243,6 @@ class DungeonTracker {
             };
 
             console.log('[Dungeon Tracker] Restored on page load - firstTimestamp:', this.firstKeyCountTimestamp, 'lastTimestamp:', this.lastKeyCountTimestamp);
-            console.log('[Dungeon Tracker] DEBUG - Page load restored startTime:', saved.startTime);
-            console.log('[Dungeon Tracker] DEBUG - Page load restored wavesCompleted:', saved.wavesCompleted);
 
             // Trigger UI update to show immediately
             this.notifyUpdate();
@@ -281,8 +270,6 @@ class DungeonTracker {
 
             // FIRST: Try to find messages in memory (most reliable)
             if (this.recentChatMessages.length > 0) {
-                console.log('[Dungeon Tracker] Scanning', this.recentChatMessages.length, 'messages from memory');
-
                 for (const message of this.recentChatMessages) {
                     // Look for "Battle started" messages
                     if (message.m === 'systemChatMessage.partyBattleStarted') {
@@ -314,10 +301,7 @@ class DungeonTracker {
 
             // FALLBACK: If no messages in memory, scan DOM (for messages that arrived before script loaded)
             if (!latestKeyCountsMap) {
-                console.log('[Dungeon Tracker] No messages in memory, falling back to DOM scan');
-
                 const messages = document.querySelectorAll('[class^="ChatMessage_chatMessage"]');
-                console.log('[Dungeon Tracker] DEBUG - scanExistingChatMessages found', messages.length, 'total chat messages in DOM');
 
                 // Scan all messages to find Battle started and most recent key counts
                 for (const msg of messages) {
@@ -388,7 +372,6 @@ class DungeonTracker {
 
             // Update current run with the most recent key counts found
             if (latestKeyCountsMap && this.currentRun) {
-                console.log('[Dungeon Tracker] DEBUG - Found key counts in chat, setting timestamps');
                 this.currentRun.keyCountsMap = latestKeyCountsMap;
 
                 // Set firstKeyCountTimestamp and lastKeyCountTimestamp from DOM scan
@@ -396,11 +379,9 @@ class DungeonTracker {
                 if (this.firstKeyCountTimestamp === null) {
                     if (battleStartedFound && this.battleStartedTimestamp) {
                         // Use battle started as anchor point, key counts as first run timestamp
-                        console.log('[Dungeon Tracker] Setting first/last timestamps from Battle started and Key counts');
                         this.firstKeyCountTimestamp = latestTimestamp;
                         this.lastKeyCountTimestamp = latestTimestamp;
                     } else if (latestTimestamp) {
-                        console.log('[Dungeon Tracker] Setting first/last timestamps from DOM scan:', new Date(latestTimestamp).toISOString());
                         this.firstKeyCountTimestamp = latestTimestamp;
                         this.lastKeyCountTimestamp = latestTimestamp;
                     }
@@ -419,8 +400,6 @@ class DungeonTracker {
                 this.saveInProgressRun(); // Persist to IndexedDB
             } else if (!this.currentRun) {
                 console.warn('[Dungeon Tracker] Current run is null, cannot update');
-            } else {
-                console.log('[Dungeon Tracker] DEBUG - No key counts messages found in chat scan');
             }
         } catch (error) {
             console.error('[Dungeon Tracker] Error scanning existing messages:', error);
@@ -439,7 +418,6 @@ class DungeonTracker {
                 if (this.isDungeonAction(action.actionHrid)) {
 
                     if (action.isDone === false) {
-                        console.log('[Dungeon Tracker] actions_updated: Dungeon action added to queue:', action.actionHrid, 'T' + action.difficultyTier);
                         // Dungeon action added to queue - store info for when new_battle fires
                         this.pendingDungeonInfo = {
                             dungeonHrid: action.actionHrid,
@@ -448,7 +426,6 @@ class DungeonTracker {
 
                         // If already tracking (somehow), update immediately
                         if (this.isTracking && !this.currentRun.dungeonHrid) {
-                            console.log('[Dungeon Tracker] Already tracking but no dungeonHrid, updating from actions_updated');
                             this.currentRun.dungeonHrid = action.actionHrid;
                             this.currentRun.tier = action.difficultyTier;
 
@@ -459,12 +436,10 @@ class DungeonTracker {
                             }
                         }
                     } else if (action.isDone === true && this.isTracking && this.currentRun) {
-                        console.log('[Dungeon Tracker] actions_updated: Dungeon action marked as done');
                         // Dungeon action marked as done (completion or flee)
 
                         // If we don't have dungeon info yet, grab it from this action
                         if (!this.currentRun.dungeonHrid) {
-                            console.log('[Dungeon Tracker] Populating dungeon info from actions_updated before reset');
                             this.currentRun.dungeonHrid = action.actionHrid;
                             this.currentRun.tier = action.difficultyTier;
 
@@ -481,7 +456,7 @@ class DungeonTracker {
                                                   this.currentRun.wavesCompleted >= this.currentRun.maxWaves;
 
                         if (!allWavesCompleted) {
-                            console.log('[Dungeon Tracker] actions_updated: Early exit (fled/died), resetting');
+                            console.log('[Dungeon Tracker] Early exit (fled/died), resetting');
                             // Early exit (fled, died, or failed)
                             this.resetTracking();
                         }
@@ -577,14 +552,12 @@ class DungeonTracker {
      * @param {Object} message - Message object
      */
     onPartyFailed(timestamp, message) {
-        console.log('[Dungeon Tracker] Party failed message received');
-
         if (!this.isTracking || !this.currentRun) {
             return;
         }
 
         // Mark run as failed and reset tracking
-        console.log('[Dungeon Tracker] Party failed on dungeon run - resetting tracking');
+        console.log('[Dungeon Tracker] Party failed - resetting tracking');
         this.resetTracking();
     }
 
@@ -646,17 +619,11 @@ class DungeonTracker {
 
         // First "Key counts" message = dungeon start
         if (this.firstKeyCountTimestamp === null) {
-            console.log('[Dungeon Tracker] First key counts message (dungeon start)');
-            console.log('[Dungeon Tracker] DEBUG - currentRun exists?', !!this.currentRun);
-            console.log('[Dungeon Tracker] DEBUG - currentRun.startTime:', this.currentRun?.startTime);
-            console.log('[Dungeon Tracker] DEBUG - wavesCompleted:', this.currentRun?.wavesCompleted);
-
             // FALLBACK: If we're already tracking and have a currentRun.startTime,
             // this is probably the COMPLETION message, not the start!
             // This happens when state was restored but first message wasn't captured.
             if (this.currentRun && this.currentRun.startTime) {
-                console.log('[Dungeon Tracker] WARNING: Received Key counts with null timestamps but already tracking!');
-                console.log('[Dungeon Tracker] This is likely COMPLETION. Using startTime as first timestamp fallback.');
+                console.log('[Dungeon Tracker] WARNING: Received Key counts with null timestamps but already tracking! Using startTime as fallback.');
 
                 // Use the currentRun.startTime as the first timestamp (best estimate)
                 this.firstKeyCountTimestamp = this.currentRun.startTime;
@@ -746,11 +713,8 @@ class DungeonTracker {
      * @param {Object} data - new_battle message data
      */
     async onNewBattle(data) {
-        console.log('[Dungeon Tracker] new_battle received, wave:', data.wave, 'battleId:', data.battleId, 'isTracking:', this.isTracking);
-
         // Only track if we have wave data
         if (data.wave === undefined) {
-            console.log('[Dungeon Tracker] No wave data, ignoring');
             return;
         }
 
@@ -759,25 +723,19 @@ class DungeonTracker {
 
         // Wave 0 = first wave = dungeon start
         if (data.wave === 0) {
-            console.log('[Dungeon Tracker] Wave 0 detected - starting new dungeon');
             // Clear any stale saved state first (in case previous run didn't clear properly)
             await this.clearInProgressRun();
 
             // Start fresh dungeon
             this.startDungeon(data);
         } else if (!this.isTracking) {
-            console.log('[Dungeon Tracker] Mid-dungeon wave detected, not tracking - attempting restore');
             // Mid-dungeon start - try to restore first
             const restored = await this.restoreInProgressRun(battleId);
             if (!restored) {
-                console.log('[Dungeon Tracker] Restore failed, starting fresh tracking');
                 // No restore - initialize tracking anyway
                 this.startDungeon(data);
-            } else {
-                console.log('[Dungeon Tracker] Successfully restored in-progress run');
             }
         } else {
-            console.log('[Dungeon Tracker] Wave', data.wave, 'started (already tracking)');
             // Subsequent wave (already tracking)
             // Update battleId in case user logged out and back in (new battle instance)
             this.currentBattleId = data.battleId;

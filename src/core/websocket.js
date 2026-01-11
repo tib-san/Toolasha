@@ -109,6 +109,11 @@ class WebSocketHook {
             const data = JSON.parse(message);
             const messageType = data.type;
 
+            // Debug: Log profile-related messages
+            if (messageType && messageType.includes('profile')) {
+                console.log('[WebSocket Hook] Profile-related message:', messageType);
+            }
+
             // Save critical data to GM storage for Combat Sim export
             this.saveCombatSimData(messageType, message);
 
@@ -163,15 +168,38 @@ class WebSocketHook {
 
             // Save profile shares (when opening party member profiles)
             if (messageType === 'profile_shared') {
+                console.log('[Toolasha] profile_shared message received!', message.substring(0, 200) + '...');
                 const parsed = JSON.parse(message);
 
-                // Extract character info
-                parsed.characterID = parsed.profile.characterSkills[0].characterID;
-                parsed.characterName = parsed.profile.sharableCharacter.name;
+                console.log('[Toolasha] Profile structure:', {
+                    hasProfile: !!parsed.profile,
+                    hasSharableChar: !!parsed.profile?.sharableCharacter,
+                    sharableCharId: parsed.profile?.sharableCharacter?.id,
+                    sharableCharName: parsed.profile?.sharableCharacter?.name,
+                    hasCharSkills: !!parsed.profile?.characterSkills,
+                    firstSkillCharId: parsed.profile?.characterSkills?.[0]?.characterID,
+                    hasCharacter: !!parsed.profile?.character,
+                    characterId: parsed.profile?.character?.id
+                });
+
+                // Extract character info - try multiple sources for ID
+                parsed.characterID = parsed.profile.sharableCharacter?.id ||
+                                    parsed.profile.characterSkills?.[0]?.characterID ||
+                                    parsed.profile.character?.id;
+                parsed.characterName = parsed.profile.sharableCharacter?.name || 'Unknown';
                 parsed.timestamp = Date.now();
 
-                // Load existing profile list from IndexedDB
-                let profileList = await storage.get('profileList', 'combatExport', []);
+                console.log('[Toolasha] Extracted characterID:', parsed.characterID, 'characterName:', parsed.characterName);
+
+                // Validate we got a character ID
+                if (!parsed.characterID) {
+                    console.error('[Toolasha] Failed to extract characterID from profile:', parsed);
+                    return;
+                }
+
+                // Load existing profile list from GM storage (cross-origin accessible)
+                const profileListJson = await this.loadFromStorage('toolasha_profile_list', '[]');
+                let profileList = JSON.parse(profileListJson);
 
                 // Remove old entry for same character
                 profileList = profileList.filter(p => p.characterID !== parsed.characterID);
@@ -184,11 +212,8 @@ class WebSocketHook {
                     profileList.pop();
                 }
 
-                // Save updated profile list to IndexedDB
-                await storage.set('profileList', profileList, 'combatExport', true);
-
-                // Save current profile ID (for profile export button)
-                await storage.set('currentProfileId', parsed.characterID, 'combatExport', true);
+                // Save updated profile list to GM storage (matches pattern of other combat sim data)
+                await this.saveToStorage('toolasha_profile_list', JSON.stringify(profileList));
 
                 console.log('[Toolasha] Profile saved for Combat Sim export:', parsed.characterName);
             }
