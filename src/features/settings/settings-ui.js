@@ -16,6 +16,7 @@ class SettingsUI {
         this.settingsPanel = null;
         this.settingsObserver = null;
         this.currentSettings = {};
+        this.isInjecting = false; // Guard against concurrent injection
     }
 
     /**
@@ -48,7 +49,6 @@ class SettingsUI {
      */
     observeSettingsPanel() {
         // Watch for settings panel to be added to DOM
-        let isInjecting = false; // Prevent re-entrant observer calls
 
         // Wait for DOM to be ready before observing
         const startObserver = () => {
@@ -58,17 +58,13 @@ class SettingsUI {
             }
 
             const observer = new MutationObserver((mutations) => {
-                if (isInjecting) return; // Prevent observer loop
-
                 // Look for the settings tabs container
                 const tabsContainer = document.querySelector('div[class*="SettingsPanel_tabsComponentContainer"]');
 
                 if (tabsContainer) {
                     // Check if our tab already exists before injecting
                     if (!tabsContainer.querySelector('#toolasha-settings-tab')) {
-                        isInjecting = true;
                         this.injectSettingsTab();
-                        isInjecting = false;
                     }
                     // Keep observer running - panel might be removed/re-added if user navigates away and back
                 }
@@ -106,47 +102,61 @@ class SettingsUI {
     /**
      * Inject Toolasha settings tab into game's settings panel
      */
-    injectSettingsTab() {
-        // Find tabs container (MWIt-E approach)
-        const tabsComponentContainer = document.querySelector('div[class*="SettingsPanel_tabsComponentContainer"]');
-
-        if (!tabsComponentContainer) {
-            console.warn('[Toolasha Settings] Could not find tabsComponentContainer');
+    async injectSettingsTab() {
+        // Guard against concurrent injection
+        if (this.isInjecting) {
             return;
         }
+        this.isInjecting = true;
 
-        // Find the MUI tabs flexContainer
-        const tabsContainer = tabsComponentContainer.querySelector('[class*="MuiTabs-flexContainer"]');
-        const tabPanelsContainer = tabsComponentContainer.querySelector('[class*="TabsComponent_tabPanelsContainer"]');
+        try {
+            // Find tabs container (MWIt-E approach)
+            const tabsComponentContainer = document.querySelector('div[class*="SettingsPanel_tabsComponentContainer"]');
 
-        if (!tabsContainer || !tabPanelsContainer) {
-            console.warn('[Toolasha Settings] Could not find tabs or panels container');
-            return;
+            if (!tabsComponentContainer) {
+                console.warn('[Toolasha Settings] Could not find tabsComponentContainer');
+                return;
+            }
+
+            // Find the MUI tabs flexContainer
+            const tabsContainer = tabsComponentContainer.querySelector('[class*="MuiTabs-flexContainer"]');
+            const tabPanelsContainer = tabsComponentContainer.querySelector('[class*="TabsComponent_tabPanelsContainer"]');
+
+            if (!tabsContainer || !tabPanelsContainer) {
+                console.warn('[Toolasha Settings] Could not find tabs or panels container');
+                return;
+            }
+
+            // Check if already injected
+            if (tabsContainer.querySelector('#toolasha-settings-tab')) {
+                return;
+            }
+
+            // Reload current settings from storage to ensure latest values
+            this.currentSettings = await settingsStorage.loadSettings();
+
+            // Get existing tabs for reference
+            const existingTabs = Array.from(tabsContainer.querySelectorAll('button[role="tab"]'));
+
+            // Create new tab button
+            const tabButton = this.createTabButton();
+
+            // Create tab panel
+            const tabPanel = this.createTabPanel();
+
+            // Setup tab switching
+            this.setupTabSwitching(tabButton, tabPanel, existingTabs, tabPanelsContainer);
+
+            // Append to DOM
+            tabsContainer.appendChild(tabButton);
+            tabPanelsContainer.appendChild(tabPanel);
+
+            // Store reference
+            this.settingsPanel = tabPanel;
+        } finally {
+            // Always reset the guard flag
+            this.isInjecting = false;
         }
-
-        // Check if already injected
-        if (tabsContainer.querySelector('#toolasha-settings-tab')) {
-            return;
-        }
-
-        // Get existing tabs for reference
-        const existingTabs = Array.from(tabsContainer.querySelectorAll('button[role="tab"]'));
-
-        // Create new tab button
-        const tabButton = this.createTabButton();
-
-        // Create tab panel
-        const tabPanel = this.createTabPanel();
-
-        // Setup tab switching
-        this.setupTabSwitching(tabButton, tabPanel, existingTabs, tabPanelsContainer);
-
-        // Append to DOM
-        tabsContainer.appendChild(tabButton);
-        tabPanelsContainer.appendChild(tabPanel);
-
-        // Store reference
-        this.settingsPanel = tabPanel;
     }
 
     /**
@@ -690,6 +700,16 @@ class SettingsUI {
 
         // Save to storage
         await settingsStorage.setSetting(settingId, value);
+
+        // Update local cache immediately
+        if (!this.currentSettings[settingId]) {
+            this.currentSettings[settingId] = {};
+        }
+        if (type === 'checkbox') {
+            this.currentSettings[settingId].isTrue = value;
+        } else {
+            this.currentSettings[settingId].value = value;
+        }
 
         // Update config module (for backward compatibility)
         if (type === 'checkbox') {

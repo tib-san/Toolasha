@@ -16,6 +16,7 @@ import actionTimeDisplay from '../features/actions/action-time-display.js';
 import quickInputButtons from '../features/actions/quick-input-buttons.js';
 import outputTotals from '../features/actions/output-totals.js';
 import maxProduceable from '../features/actions/max-produceable.js';
+import gatheringStats from '../features/actions/gathering-stats.js';
 import requiredMaterials from '../features/actions/required-materials.js';
 import abilityBookCalculator from '../features/abilities/ability-book-calculator.js';
 import zoneIndices from '../features/combat/zone-indices.js';
@@ -173,6 +174,24 @@ const featureRegistry = [
             // Look for our injected max produceable displays
             const maxProduceElements = document.querySelectorAll('.mwi-max-produceable');
             return maxProduceElements.length > 0 || null; // null if no crafting actions visible
+        }
+    },
+    {
+        key: 'actionPanel_gatheringStats',
+        name: 'Gathering Stats Display',
+        category: 'Actions',
+        initialize: () => gatheringStats.initialize(),
+        async: false,
+        healthCheck: () => {
+            // Check for skill action panels in skill screens
+            const skillPanels = document.querySelectorAll('[class*="SkillAction_skillAction"]');
+            if (skillPanels.length === 0) {
+                return null; // No skill panels visible, can't verify
+            }
+
+            // Look for our injected gathering stats displays
+            const gatheringElements = document.querySelectorAll('.mwi-gathering-stats');
+            return gatheringElements.length > 0 || null; // null if no gathering actions visible
         }
     },
     {

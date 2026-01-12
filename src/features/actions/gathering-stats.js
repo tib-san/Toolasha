@@ -1,34 +1,28 @@
 /**
- * Max Produceable Display Module
+ * Gathering Stats Display Module
  *
- * Shows maximum craftable quantity on action panels based on current inventory.
- *
- * Example:
- * - Cheesy Sword requires: 10 Cheese, 5 Iron Bar
- * - Inventory: 120 Cheese, 65 Iron Bar
- * - Display: "Can produce: 12" (limited by 120/10 = 12)
+ * Shows profit/hr and exp/hr on gathering action tiles
+ * (foraging, woodcutting, milking)
  */
 
 import dataManager from '../../core/data-manager.js';
 import domObserver from '../../core/dom-observer.js';
 import config from '../../core/config.js';
 import { calculateGatheringProfit } from './gathering-profit.js';
-import { calculateProductionProfit } from './production-profit.js';
 import { formatKMB } from '../../utils/formatters.js';
 import { calculateExpPerHour } from '../../utils/experience-calculator.js';
 
-class MaxProduceable {
+class GatheringStats {
     constructor() {
         this.actionElements = new Map(); // actionPanel → {actionHrid, displayElement}
         this.unregisterObserver = null;
-        this.lastCrimsonMilkCount = null; // For debugging inventory updates
     }
 
     /**
-     * Initialize the max produceable display
+     * Initialize the gathering stats display
      */
     initialize() {
-        if (!config.getSetting('actionPanel_maxProduceable')) {
+        if (!config.getSetting('actionPanel_gatheringStats')) {
             return;
         }
 
@@ -36,11 +30,11 @@ class MaxProduceable {
 
         // Event-driven updates (no polling needed)
         dataManager.on('items_updated', () => {
-            this.updateAllCounts();
+            this.updateAllStats();
         });
 
         dataManager.on('action_completed', () => {
-            this.updateAllCounts();
+            this.updateAllStats();
         });
     }
 
@@ -50,19 +44,25 @@ class MaxProduceable {
     setupObserver() {
         // Watch for skill action panels (in skill screen, not detail modal)
         this.unregisterObserver = domObserver.onClass(
-            'MaxProduceable',
+            'GatheringStats',
             'SkillAction_skillAction',
             (actionPanel) => {
-                this.injectMaxProduceable(actionPanel);
+                this.injectGatheringStats(actionPanel);
             }
         );
+
+        // Check for existing action panels that may already be open
+        const existingPanels = document.querySelectorAll('[class*="SkillAction_skillAction"]');
+        existingPanels.forEach(panel => {
+            this.injectGatheringStats(panel);
+        });
     }
 
     /**
-     * Inject max produceable display into an action panel
+     * Inject gathering stats display into an action panel
      * @param {HTMLElement} actionPanel - The action panel element
      */
-    injectMaxProduceable(actionPanel) {
+    injectGatheringStats(actionPanel) {
         // Extract action HRID from panel
         const actionHrid = this.getActionHridFromPanel(actionPanel);
 
@@ -72,30 +72,31 @@ class MaxProduceable {
 
         const actionDetails = dataManager.getActionDetails(actionHrid);
 
-        // Only show for production actions with inputs
-        if (!actionDetails || !actionDetails.inputItems || actionDetails.inputItems.length === 0) {
+        // Only show for gathering actions (no inputItems)
+        const gatheringTypes = ['/action_types/foraging', '/action_types/woodcutting', '/action_types/milking'];
+        if (!actionDetails || !gatheringTypes.includes(actionDetails.type)) {
             return;
         }
 
         // Check if already injected
-        const existingDisplay = actionPanel.querySelector('.mwi-max-produceable');
+        const existingDisplay = actionPanel.querySelector('.mwi-gathering-stats');
         if (existingDisplay) {
             // Re-register existing display (DOM elements may be reused across navigation)
             this.actionElements.set(actionPanel, {
                 actionHrid: actionHrid,
                 displayElement: existingDisplay
             });
-            // Update with fresh inventory data
-            this.updateCount(actionPanel);
+            // Update with fresh data
+            this.updateStats(actionPanel);
             return;
         }
 
         // Create display element
         const display = document.createElement('div');
-        display.className = 'mwi-max-produceable';
+        display.className = 'mwi-gathering-stats';
         display.style.cssText = `
             position: absolute;
-            bottom: -65px;
+            bottom: -45px;
             left: 0;
             right: 0;
             font-size: 0.85em;
@@ -110,7 +111,7 @@ class MaxProduceable {
         if (actionPanel.style.position !== 'relative' && actionPanel.style.position !== 'absolute') {
             actionPanel.style.position = 'relative';
         }
-        actionPanel.style.marginBottom = '70px';
+        actionPanel.style.marginBottom = '50px';
 
         // Append directly to action panel with absolute positioning
         actionPanel.appendChild(display);
@@ -122,7 +123,7 @@ class MaxProduceable {
         });
 
         // Initial update
-        this.updateCount(actionPanel);
+        this.updateStats(actionPanel);
     }
 
     /**
@@ -156,87 +157,19 @@ class MaxProduceable {
     }
 
     /**
-     * Calculate max produceable count for an action
-     * @param {string} actionHrid - The action HRID
-     * @param {Array} inventory - Inventory array (optional, will fetch if not provided)
-     * @returns {number|null} Max produceable count or null
-     */
-    calculateMaxProduceable(actionHrid, inventory = null) {
-        const actionDetails = dataManager.getActionDetails(actionHrid);
-
-        // Get inventory if not provided
-        if (!inventory) {
-            inventory = dataManager.getInventory();
-        }
-
-        if (!actionDetails || !inventory) {
-            return null;
-        }
-
-        // Calculate max crafts per input
-        const maxCraftsPerInput = actionDetails.inputItems.map(input => {
-            const invItem = inventory.find(item =>
-                item.itemHrid === input.itemHrid &&
-                item.itemLocationHrid === '/item_locations/inventory'
-            );
-
-            const invCount = invItem?.count || 0;
-            const maxCrafts = Math.floor(invCount / input.count);
-
-            return maxCrafts;
-        });
-
-        let minCrafts = Math.min(...maxCraftsPerInput);
-
-        // Check upgrade item (e.g., Enhancement Stones)
-        if (actionDetails.upgradeItemHrid) {
-            const upgradeItem = inventory.find(item =>
-                item.itemHrid === actionDetails.upgradeItemHrid &&
-                item.itemLocationHrid === '/item_locations/inventory'
-            );
-
-            const upgradeCount = upgradeItem?.count || 0;
-            minCrafts = Math.min(minCrafts, upgradeCount);
-        }
-
-        return minCrafts;
-    }
-
-    /**
-     * Update display count for a single action panel
+     * Update stats display for a single action panel
      * @param {HTMLElement} actionPanel - The action panel element
-     * @param {Array} inventory - Inventory array (optional)
      */
-    async updateCount(actionPanel, inventory = null) {
+    async updateStats(actionPanel) {
         const data = this.actionElements.get(actionPanel);
 
         if (!data) {
             return;
         }
 
-        const maxCrafts = this.calculateMaxProduceable(data.actionHrid, inventory);
-
-        if (maxCrafts === null) {
-            data.displayElement.style.display = 'none';
-            return;
-        }
-
-        // Calculate profit/hr (if applicable)
-        let profitPerHour = null;
-        const actionDetails = dataManager.getActionDetails(data.actionHrid);
-
-        if (actionDetails) {
-            const gatheringTypes = ['/action_types/foraging', '/action_types/woodcutting', '/action_types/milking'];
-            const productionTypes = ['/action_types/brewing', '/action_types/cooking', '/action_types/cheesesmithing', '/action_types/crafting', '/action_types/tailoring'];
-
-            if (gatheringTypes.includes(actionDetails.type)) {
-                const profitData = await calculateGatheringProfit(data.actionHrid);
-                profitPerHour = profitData?.profitPerHour || null;
-            } else if (productionTypes.includes(actionDetails.type)) {
-                const profitData = await calculateProductionProfit(data.actionHrid);
-                profitPerHour = profitData?.profitPerHour || null;
-            }
-        }
+        // Calculate profit/hr
+        const profitData = await calculateGatheringProfit(data.actionHrid);
+        const profitPerHour = profitData?.profitPerHour || null;
 
         // Calculate exp/hr using shared utility
         const expData = calculateExpPerHour(data.actionHrid);
@@ -253,29 +186,20 @@ class MaxProduceable {
             actionPanel.style.display = '';
         }
 
-        // Color coding for "Can produce"
-        let canProduceColor;
-        if (maxCrafts === 0) {
-            canProduceColor = config.COLOR_LOSS; // Red - can't craft
-        } else if (maxCrafts < 5) {
-            canProduceColor = config.COLOR_WARNING; // Orange/yellow - low materials
-        } else {
-            canProduceColor = config.COLOR_PROFIT; // Green - plenty of materials
-        }
-
         // Build display HTML
-        let html = `<span style="color: ${canProduceColor};">Can produce: ${maxCrafts.toLocaleString()}</span>`;
+        let html = '';
 
         // Add profit/hr line if available
         if (profitPerHour !== null) {
             const profitColor = profitPerHour >= 0 ? config.COLOR_PROFIT : config.COLOR_LOSS;
             const profitSign = profitPerHour >= 0 ? '' : '-';
-            html += `<br><span style="color: ${profitColor};">Profit/hr: ${profitSign}${formatKMB(Math.abs(profitPerHour))}</span>`;
+            html += `<span style="color: ${profitColor};">Profit/hr: ${profitSign}${formatKMB(Math.abs(profitPerHour))}</span>`;
         }
 
         // Add exp/hr line if available
         if (expPerHour !== null && expPerHour > 0) {
-            html += `<br><span style="color: #fff;">Exp/hr: ${formatKMB(expPerHour)}</span>`;
+            if (html) html += '<br>';
+            html += `<span style="color: #fff;">Exp/hr: ${formatKMB(expPerHour)}</span>`;
         }
 
         data.displayElement.style.display = 'block';
@@ -283,20 +207,13 @@ class MaxProduceable {
     }
 
     /**
-     * Update all counts
+     * Update all stats
      */
-    updateAllCounts() {
-        // Get inventory once for all calculations (like MWIT-E does)
-        const inventory = dataManager.getInventory();
-
-        if (!inventory) {
-            return;
-        }
-
+    updateAllStats() {
         // Clean up stale references and update valid ones
         for (const actionPanel of [...this.actionElements.keys()]) {
             if (document.body.contains(actionPanel)) {
-                this.updateCount(actionPanel, inventory);
+                this.updateStats(actionPanel);
             } else {
                 // Panel no longer in DOM, remove from tracking
                 this.actionElements.delete(actionPanel);
@@ -305,7 +222,7 @@ class MaxProduceable {
     }
 
     /**
-     * Disable the max produceable display
+     * Disable the gathering stats display
      */
     disable() {
         if (this.unregisterObserver) {
@@ -314,12 +231,12 @@ class MaxProduceable {
         }
 
         // Remove all injected elements
-        document.querySelectorAll('.mwi-max-produceable').forEach(el => el.remove());
+        document.querySelectorAll('.mwi-gathering-stats').forEach(el => el.remove());
         this.actionElements.clear();
     }
 }
 
 // Create and export singleton instance
-const maxProduceable = new MaxProduceable();
+const gatheringStats = new GatheringStats();
 
-export default maxProduceable;
+export default gatheringStats;

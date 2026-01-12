@@ -67,6 +67,21 @@ export const settingsGroups = {
                 default: true,
                 help: 'Displays how many items you can make based on current inventory'
             },
+            actionPanel_gatheringStats: {
+                id: 'actionPanel_gatheringStats',
+                label: 'Action panel: Show profit/exp per hour on gathering actions',
+                type: 'checkbox',
+                default: true,
+                help: 'Displays profit/hr and exp/hr on gathering tiles (foraging, woodcutting, milking)'
+            },
+            actionPanel_hideNegativeProfit: {
+                id: 'actionPanel_hideNegativeProfit',
+                label: 'Action panel: Hide actions with negative profit',
+                type: 'checkbox',
+                default: false,
+                dependencies: ['actionPanel_maxProduceable', 'actionPanel_gatheringStats'],
+                help: 'Hides action panels that would result in a loss (negative profit/hr)'
+            },
             requiredMaterials: {
                 id: 'requiredMaterials',
                 label: 'Action panel: Show total required and missing materials',

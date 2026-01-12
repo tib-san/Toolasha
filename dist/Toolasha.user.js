@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.921
+// @version      0.4.922
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
 // @author       Celasha and Claude, thank you to bot7420, DrDucky, Frotty, Truth_Light, AlphB, and sentientmilk for providing the basis for a lot of this. Thank you to Miku, Orvel, Jigglymoose, Incinarator, Knerd, and others for their time and help. Thank you to Steez for testing and helping me figure out where I'm wrong! Special thanks to Zaeter for the name.
 // @license      CC-BY-NC-SA-4.0
@@ -429,6 +429,21 @@
                     type: 'checkbox',
                     default: true,
                     help: 'Displays how many items you can make based on current inventory'
+                },
+                actionPanel_gatheringStats: {
+                    id: 'actionPanel_gatheringStats',
+                    label: 'Action panel: Show profit/exp per hour on gathering actions',
+                    type: 'checkbox',
+                    default: true,
+                    help: 'Displays profit/hr and exp/hr on gathering tiles (foraging, woodcutting, milking)'
+                },
+                actionPanel_hideNegativeProfit: {
+                    id: 'actionPanel_hideNegativeProfit',
+                    label: 'Action panel: Hide actions with negative profit',
+                    type: 'checkbox',
+                    default: false,
+                    dependencies: ['actionPanel_maxProduceable', 'actionPanel_gatheringStats'],
+                    help: 'Hides action panels that would result in a loss (negative profit/hr)'
                 },
                 requiredMaterials: {
                     id: 'requiredMaterials',
@@ -12977,6 +12992,97 @@
     }
 
     /**
+     * Experience Calculator
+     * Shared utility for calculating experience per hour across features
+     *
+     * Calculates accurate XP/hour including:
+     * - Base experience from action
+     * - Experience multipliers (Wisdom + Charm Experience)
+     * - Action time with speed bonuses
+     * - Efficiency repeats (critical for accuracy)
+     */
+
+
+    /**
+     * Calculate experience per hour for an action
+     * @param {string} actionHrid - The action HRID (e.g., "/actions/cheesesmithing/cheese")
+     * @returns {Object|null} Experience data or null if not applicable
+     *   {
+     *     expPerHour: number,           // Total XP per hour (with all bonuses)
+     *     baseExp: number,              // Base XP per action
+     *     modifiedXP: number,           // XP per action after multipliers
+     *     actionsPerHour: number,       // Actions per hour (with efficiency)
+     *     xpMultiplier: number,         // Total XP multiplier (Wisdom + Charm)
+     *     actionTime: number,           // Time per action in seconds
+     *     totalEfficiency: number       // Total efficiency percentage
+     *   }
+     */
+    function calculateExpPerHour(actionHrid) {
+        const actionDetails = dataManager.getActionDetails(actionHrid);
+
+        // Validate action has experience gain
+        if (!actionDetails || !actionDetails.experienceGain || !actionDetails.experienceGain.value) {
+            return null;
+        }
+
+        // Get character data
+        const skills = dataManager.getSkills();
+        const equipment = dataManager.getEquipment();
+        const gameData = dataManager.getInitClientData();
+
+        if (!gameData || !skills || !equipment) {
+            return null;
+        }
+
+        // Calculate action stats (time + efficiency)
+        const stats = calculateActionStats(actionDetails, {
+            skills,
+            equipment,
+            itemDetailMap: gameData.itemDetailMap,
+            includeCommunityBuff: true,
+            includeBreakdown: false,
+            floorActionLevel: true
+        });
+
+        if (!stats) {
+            return null;
+        }
+
+        const { actionTime, totalEfficiency } = stats;
+
+        // Calculate actions per hour (base rate)
+        const baseActionsPerHour = 3600 / actionTime;
+
+        // Calculate average actions per attempt from efficiency
+        // Efficiency gives guaranteed repeats + chance for extra
+        const guaranteedActions = 1 + Math.floor(totalEfficiency / 100);
+        const chanceForExtra = totalEfficiency % 100;
+        const avgActionsPerAttempt = guaranteedActions + (chanceForExtra / 100);
+
+        // Calculate actions per hour WITH efficiency (total completions including free repeats)
+        const actionsPerHourWithEfficiency = baseActionsPerHour * avgActionsPerAttempt;
+
+        // Calculate experience multiplier (Wisdom + Charm Experience)
+        const skillHrid = actionDetails.experienceGain.skillHrid;
+        const xpData = calculateExperienceMultiplier(skillHrid, actionDetails.type);
+
+        // Calculate exp per hour with all bonuses
+        const baseExp = actionDetails.experienceGain.value;
+        const modifiedXP = baseExp * xpData.totalMultiplier;
+        const expPerHour = actionsPerHourWithEfficiency * modifiedXP;
+
+        return {
+            expPerHour: Math.floor(expPerHour),
+            baseExp,
+            modifiedXP,
+            actionsPerHour: actionsPerHourWithEfficiency,
+            xpMultiplier: xpData.totalMultiplier,
+            actionTime,
+            totalEfficiency
+        };
+    }
+
+    /**
      * Quick Input Buttons Module
      *
      * Adds quick action buttons (10, 100, 1000, Max) to action panels
@@ -13417,7 +13523,7 @@
                 }
 
             } catch (error) {
-                console.error('[MWI Tools] Error injecting quick input buttons:', error);
+                console.error('[Toolasha] Error injecting quick input buttons:', error);
             }
         }
 
@@ -13754,7 +13860,7 @@
 
                 return maxActions;
             } catch (error) {
-                console.error('[MWI Tools] Error calculating max value:', error);
+                console.error('[Toolasha] Error calculating max value:', error);
                 return 10000; // Safe fallback on error
             }
         }
@@ -13923,9 +14029,9 @@
                 const actionsNeeded = Math.ceil(xpNeeded / modifiedXP);
                 const timeNeeded = actionsNeeded * actionTime;
 
-                // Calculate rates (using modified XP)
-                const actionsPerHour = 3600 / actionTime;
-                const xpPerHour = actionsPerHour * modifiedXP;
+                // Calculate rates using shared utility (includes efficiency)
+                const expData = calculateExpPerHour(actionDetails.hrid);
+                const xpPerHour = expData?.expPerHour || (actionsNeeded > 0 ? (3600 / actionTime) * modifiedXP : 0);
                 const xpPerDay = xpPerHour * 24;
 
                 // Calculate daily level progress
@@ -14075,7 +14181,7 @@
                     false // Collapsed by default
                 );
             } catch (error) {
-                console.error('[MWI Tools] Error creating level progress section:', error);
+                console.error('[Toolasha] Error creating level progress section:', error);
                 return null;
             }
         }
@@ -14473,7 +14579,7 @@
             display.className = 'mwi-max-produceable';
             display.style.cssText = `
             position: absolute;
-            bottom: 0;
+            bottom: -65px;
             left: 0;
             right: 0;
             font-size: 0.85em;
@@ -14481,12 +14587,14 @@
             text-align: center;
             background: rgba(0, 0, 0, 0.7);
             border-top: 1px solid var(--border-color, ${config.COLOR_BORDER});
+            z-index: 10;
         `;
 
-            // Make sure the action panel has relative positioning
+            // Make sure the action panel has relative positioning and extra bottom margin
             if (actionPanel.style.position !== 'relative' && actionPanel.style.position !== 'absolute') {
                 actionPanel.style.position = 'relative';
             }
+            actionPanel.style.marginBottom = '70px';
 
             // Append directly to action panel with absolute positioning
             actionPanel.appendChild(display);
@@ -14583,7 +14691,7 @@
          * @param {HTMLElement} actionPanel - The action panel element
          * @param {Array} inventory - Inventory array (optional)
          */
-        updateCount(actionPanel, inventory = null) {
+        async updateCount(actionPanel, inventory = null) {
             const data = this.actionElements.get(actionPanel);
 
             if (!data) {
@@ -14597,18 +14705,65 @@
                 return;
             }
 
-            // Color coding
-            let color;
-            if (maxCrafts === 0) {
-                color = config.COLOR_LOSS; // Red - can't craft
-            } else if (maxCrafts < 5) {
-                color = config.COLOR_WARNING; // Orange/yellow - low materials
+            // Calculate profit/hr (if applicable)
+            let profitPerHour = null;
+            const actionDetails = dataManager.getActionDetails(data.actionHrid);
+
+            if (actionDetails) {
+                const gatheringTypes = ['/action_types/foraging', '/action_types/woodcutting', '/action_types/milking'];
+                const productionTypes = ['/action_types/brewing', '/action_types/cooking', '/action_types/cheesesmithing', '/action_types/crafting', '/action_types/tailoring'];
+
+                if (gatheringTypes.includes(actionDetails.type)) {
+                    const profitData = await calculateGatheringProfit(data.actionHrid);
+                    profitPerHour = profitData?.profitPerHour || null;
+                } else if (productionTypes.includes(actionDetails.type)) {
+                    const profitData = await calculateProductionProfit(data.actionHrid);
+                    profitPerHour = profitData?.profitPerHour || null;
+                }
+            }
+
+            // Calculate exp/hr using shared utility
+            const expData = calculateExpPerHour(data.actionHrid);
+            const expPerHour = expData?.expPerHour || null;
+
+            // Check if we should hide actions with negative profit
+            const hideNegativeProfit = config.getSetting('actionPanel_hideNegativeProfit');
+            if (hideNegativeProfit && profitPerHour !== null && profitPerHour < 0) {
+                // Hide the entire action panel
+                actionPanel.style.display = 'none';
+                return;
             } else {
-                color = config.COLOR_PROFIT; // Green - plenty of materials
+                // Show the action panel (in case it was previously hidden)
+                actionPanel.style.display = '';
+            }
+
+            // Color coding for "Can produce"
+            let canProduceColor;
+            if (maxCrafts === 0) {
+                canProduceColor = config.COLOR_LOSS; // Red - can't craft
+            } else if (maxCrafts < 5) {
+                canProduceColor = config.COLOR_WARNING; // Orange/yellow - low materials
+            } else {
+                canProduceColor = config.COLOR_PROFIT; // Green - plenty of materials
+            }
+
+            // Build display HTML
+            let html = `<span style="color: ${canProduceColor};">Can produce: ${maxCrafts.toLocaleString()}</span>`;
+
+            // Add profit/hr line if available
+            if (profitPerHour !== null) {
+                const profitColor = profitPerHour >= 0 ? config.COLOR_PROFIT : config.COLOR_LOSS;
+                const profitSign = profitPerHour >= 0 ? '' : '-';
+                html += `<br><span style="color: ${profitColor};">Profit/hr: ${profitSign}${formatKMB(Math.abs(profitPerHour))}</span>`;
+            }
+
+            // Add exp/hr line if available
+            if (expPerHour !== null && expPerHour > 0) {
+                html += `<br><span style="color: #fff;">Exp/hr: ${formatKMB(expPerHour)}</span>`;
             }
 
             data.displayElement.style.display = 'block';
-            data.displayElement.innerHTML = `<span style="color: ${color};">Can produce: ${maxCrafts.toLocaleString()}</span>`;
+            data.displayElement.innerHTML = html;
         }
 
         /**
@@ -14650,6 +14805,241 @@
 
     // Create and export singleton instance
     const maxProduceable = new MaxProduceable();
+
+    /**
+     * Gathering Stats Display Module
+     *
+     * Shows profit/hr and exp/hr on gathering action tiles
+     * (foraging, woodcutting, milking)
+     */
+
+
+    class GatheringStats {
+        constructor() {
+            this.actionElements = new Map(); // actionPanel → {actionHrid, displayElement}
+            this.unregisterObserver = null;
+        }
+
+        /**
+         * Initialize the gathering stats display
+         */
+        initialize() {
+            if (!config.getSetting('actionPanel_gatheringStats')) {
+                return;
+            }
+
+            this.setupObserver();
+
+            // Event-driven updates (no polling needed)
+            dataManager.on('items_updated', () => {
+                this.updateAllStats();
+            });
+
+            dataManager.on('action_completed', () => {
+                this.updateAllStats();
+            });
+        }
+
+        /**
+         * Setup DOM observer to watch for action panels
+         */
+        setupObserver() {
+            // Watch for skill action panels (in skill screen, not detail modal)
+            this.unregisterObserver = domObserver.onClass(
+                'GatheringStats',
+                'SkillAction_skillAction',
+                (actionPanel) => {
+                    this.injectGatheringStats(actionPanel);
+                }
+            );
+
+            // Check for existing action panels that may already be open
+            const existingPanels = document.querySelectorAll('[class*="SkillAction_skillAction"]');
+            existingPanels.forEach(panel => {
+                this.injectGatheringStats(panel);
+            });
+        }
+
+        /**
+         * Inject gathering stats display into an action panel
+         * @param {HTMLElement} actionPanel - The action panel element
+         */
+        injectGatheringStats(actionPanel) {
+            // Extract action HRID from panel
+            const actionHrid = this.getActionHridFromPanel(actionPanel);
+
+            if (!actionHrid) {
+                return;
+            }
+
+            const actionDetails = dataManager.getActionDetails(actionHrid);
+
+            // Only show for gathering actions (no inputItems)
+            const gatheringTypes = ['/action_types/foraging', '/action_types/woodcutting', '/action_types/milking'];
+            if (!actionDetails || !gatheringTypes.includes(actionDetails.type)) {
+                return;
+            }
+
+            // Check if already injected
+            const existingDisplay = actionPanel.querySelector('.mwi-gathering-stats');
+            if (existingDisplay) {
+                // Re-register existing display (DOM elements may be reused across navigation)
+                this.actionElements.set(actionPanel, {
+                    actionHrid: actionHrid,
+                    displayElement: existingDisplay
+                });
+                // Update with fresh data
+                this.updateStats(actionPanel);
+                return;
+            }
+
+            // Create display element
+            const display = document.createElement('div');
+            display.className = 'mwi-gathering-stats';
+            display.style.cssText = `
+            position: absolute;
+            bottom: -45px;
+            left: 0;
+            right: 0;
+            font-size: 0.85em;
+            padding: 4px 8px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.7);
+            border-top: 1px solid var(--border-color, ${config.COLOR_BORDER});
+            z-index: 10;
+        `;
+
+            // Make sure the action panel has relative positioning and extra bottom margin
+            if (actionPanel.style.position !== 'relative' && actionPanel.style.position !== 'absolute') {
+                actionPanel.style.position = 'relative';
+            }
+            actionPanel.style.marginBottom = '50px';
+
+            // Append directly to action panel with absolute positioning
+            actionPanel.appendChild(display);
+
+            // Store reference
+            this.actionElements.set(actionPanel, {
+                actionHrid: actionHrid,
+                displayElement: display
+            });
+
+            // Initial update
+            this.updateStats(actionPanel);
+        }
+
+        /**
+         * Extract action HRID from action panel
+         * @param {HTMLElement} actionPanel - The action panel element
+         * @returns {string|null} Action HRID or null
+         */
+        getActionHridFromPanel(actionPanel) {
+            // Try to find action name from panel
+            const nameElement = actionPanel.querySelector('div[class*="SkillAction_name"]');
+
+            if (!nameElement) {
+                return null;
+            }
+
+            const actionName = nameElement.textContent.trim();
+
+            // Look up action by name in game data
+            const initData = dataManager.getInitClientData();
+            if (!initData) {
+                return null;
+            }
+
+            for (const [hrid, action] of Object.entries(initData.actionDetailMap)) {
+                if (action.name === actionName) {
+                    return hrid;
+                }
+            }
+
+            return null;
+        }
+
+        /**
+         * Update stats display for a single action panel
+         * @param {HTMLElement} actionPanel - The action panel element
+         */
+        async updateStats(actionPanel) {
+            const data = this.actionElements.get(actionPanel);
+
+            if (!data) {
+                return;
+            }
+
+            // Calculate profit/hr
+            const profitData = await calculateGatheringProfit(data.actionHrid);
+            const profitPerHour = profitData?.profitPerHour || null;
+
+            // Calculate exp/hr using shared utility
+            const expData = calculateExpPerHour(data.actionHrid);
+            const expPerHour = expData?.expPerHour || null;
+
+            // Check if we should hide actions with negative profit
+            const hideNegativeProfit = config.getSetting('actionPanel_hideNegativeProfit');
+            if (hideNegativeProfit && profitPerHour !== null && profitPerHour < 0) {
+                // Hide the entire action panel
+                actionPanel.style.display = 'none';
+                return;
+            } else {
+                // Show the action panel (in case it was previously hidden)
+                actionPanel.style.display = '';
+            }
+
+            // Build display HTML
+            let html = '';
+
+            // Add profit/hr line if available
+            if (profitPerHour !== null) {
+                const profitColor = profitPerHour >= 0 ? config.COLOR_PROFIT : config.COLOR_LOSS;
+                const profitSign = profitPerHour >= 0 ? '' : '-';
+                html += `<span style="color: ${profitColor};">Profit/hr: ${profitSign}${formatKMB(Math.abs(profitPerHour))}</span>`;
+            }
+
+            // Add exp/hr line if available
+            if (expPerHour !== null && expPerHour > 0) {
+                if (html) html += '<br>';
+                html += `<span style="color: #fff;">Exp/hr: ${formatKMB(expPerHour)}</span>`;
+            }
+
+            data.displayElement.style.display = 'block';
+            data.displayElement.innerHTML = html;
+        }
+
+        /**
+         * Update all stats
+         */
+        updateAllStats() {
+            // Clean up stale references and update valid ones
+            for (const actionPanel of [...this.actionElements.keys()]) {
+                if (document.body.contains(actionPanel)) {
+                    this.updateStats(actionPanel);
+                } else {
+                    // Panel no longer in DOM, remove from tracking
+                    this.actionElements.delete(actionPanel);
+                }
+            }
+        }
+
+        /**
+         * Disable the gathering stats display
+         */
+        disable() {
+            if (this.unregisterObserver) {
+                this.unregisterObserver();
+                this.unregisterObserver = null;
+            }
+
+            // Remove all injected elements
+            document.querySelectorAll('.mwi-gathering-stats').forEach(el => el.remove());
+            this.actionElements.clear();
+        }
+    }
+
+    // Create and export singleton instance
+    const gatheringStats = new GatheringStats();
 
     /**
      * DOM Selector Constants
@@ -26612,7 +27002,6 @@
                                                       this.currentRun.wavesCompleted >= this.currentRun.maxWaves;
 
                             if (!allWavesCompleted) {
-                                console.log('[Dungeon Tracker] Early exit (fled/died), resetting');
                                 // Early exit (fled, died, or failed)
                                 this.resetTracking();
                             }
@@ -27051,7 +27440,6 @@
                     // Successful completion
                     this.completeDungeon();
                 } else {
-                    console.log('[Dungeon Tracker] Early exit detected (fled/died), resetting tracking');
                     // Early exit (fled, died, or failed)
                     this.resetTracking();
                 }
@@ -30142,6 +30530,24 @@
             }
         },
         {
+            key: 'actionPanel_gatheringStats',
+            name: 'Gathering Stats Display',
+            category: 'Actions',
+            initialize: () => gatheringStats.initialize(),
+            async: false,
+            healthCheck: () => {
+                // Check for skill action panels in skill screens
+                const skillPanels = document.querySelectorAll('[class*="SkillAction_skillAction"]');
+                if (skillPanels.length === 0) {
+                    return null; // No skill panels visible, can't verify
+                }
+
+                // Look for our injected gathering stats displays
+                const gatheringElements = document.querySelectorAll('.mwi-gathering-stats');
+                return gatheringElements.length > 0 || null; // null if no gathering actions visible
+            }
+        },
+        {
             key: 'requiredMaterials',
             name: 'Required Materials Display',
             category: 'Actions',
@@ -30754,6 +31160,7 @@
             this.settingsPanel = null;
             this.settingsObserver = null;
             this.currentSettings = {};
+            this.isInjecting = false; // Guard against concurrent injection
         }
 
         /**
@@ -30786,7 +31193,6 @@
          */
         observeSettingsPanel() {
             // Watch for settings panel to be added to DOM
-            let isInjecting = false; // Prevent re-entrant observer calls
 
             // Wait for DOM to be ready before observing
             const startObserver = () => {
@@ -30796,17 +31202,13 @@
                 }
 
                 const observer = new MutationObserver((mutations) => {
-                    if (isInjecting) return; // Prevent observer loop
-
                     // Look for the settings tabs container
                     const tabsContainer = document.querySelector('div[class*="SettingsPanel_tabsComponentContainer"]');
 
                     if (tabsContainer) {
                         // Check if our tab already exists before injecting
                         if (!tabsContainer.querySelector('#toolasha-settings-tab')) {
-                            isInjecting = true;
                             this.injectSettingsTab();
-                            isInjecting = false;
                         }
                         // Keep observer running - panel might be removed/re-added if user navigates away and back
                     }
@@ -30844,47 +31246,61 @@
         /**
          * Inject Toolasha settings tab into game's settings panel
          */
-        injectSettingsTab() {
-            // Find tabs container (MWIt-E approach)
-            const tabsComponentContainer = document.querySelector('div[class*="SettingsPanel_tabsComponentContainer"]');
-
-            if (!tabsComponentContainer) {
-                console.warn('[Toolasha Settings] Could not find tabsComponentContainer');
+        async injectSettingsTab() {
+            // Guard against concurrent injection
+            if (this.isInjecting) {
                 return;
             }
+            this.isInjecting = true;
 
-            // Find the MUI tabs flexContainer
-            const tabsContainer = tabsComponentContainer.querySelector('[class*="MuiTabs-flexContainer"]');
-            const tabPanelsContainer = tabsComponentContainer.querySelector('[class*="TabsComponent_tabPanelsContainer"]');
+            try {
+                // Find tabs container (MWIt-E approach)
+                const tabsComponentContainer = document.querySelector('div[class*="SettingsPanel_tabsComponentContainer"]');
 
-            if (!tabsContainer || !tabPanelsContainer) {
-                console.warn('[Toolasha Settings] Could not find tabs or panels container');
-                return;
+                if (!tabsComponentContainer) {
+                    console.warn('[Toolasha Settings] Could not find tabsComponentContainer');
+                    return;
+                }
+
+                // Find the MUI tabs flexContainer
+                const tabsContainer = tabsComponentContainer.querySelector('[class*="MuiTabs-flexContainer"]');
+                const tabPanelsContainer = tabsComponentContainer.querySelector('[class*="TabsComponent_tabPanelsContainer"]');
+
+                if (!tabsContainer || !tabPanelsContainer) {
+                    console.warn('[Toolasha Settings] Could not find tabs or panels container');
+                    return;
+                }
+
+                // Check if already injected
+                if (tabsContainer.querySelector('#toolasha-settings-tab')) {
+                    return;
+                }
+
+                // Reload current settings from storage to ensure latest values
+                this.currentSettings = await settingsStorage.loadSettings();
+
+                // Get existing tabs for reference
+                const existingTabs = Array.from(tabsContainer.querySelectorAll('button[role="tab"]'));
+
+                // Create new tab button
+                const tabButton = this.createTabButton();
+
+                // Create tab panel
+                const tabPanel = this.createTabPanel();
+
+                // Setup tab switching
+                this.setupTabSwitching(tabButton, tabPanel, existingTabs, tabPanelsContainer);
+
+                // Append to DOM
+                tabsContainer.appendChild(tabButton);
+                tabPanelsContainer.appendChild(tabPanel);
+
+                // Store reference
+                this.settingsPanel = tabPanel;
+            } finally {
+                // Always reset the guard flag
+                this.isInjecting = false;
             }
-
-            // Check if already injected
-            if (tabsContainer.querySelector('#toolasha-settings-tab')) {
-                return;
-            }
-
-            // Get existing tabs for reference
-            const existingTabs = Array.from(tabsContainer.querySelectorAll('button[role="tab"]'));
-
-            // Create new tab button
-            const tabButton = this.createTabButton();
-
-            // Create tab panel
-            const tabPanel = this.createTabPanel();
-
-            // Setup tab switching
-            this.setupTabSwitching(tabButton, tabPanel, existingTabs, tabPanelsContainer);
-
-            // Append to DOM
-            tabsContainer.appendChild(tabButton);
-            tabPanelsContainer.appendChild(tabPanel);
-
-            // Store reference
-            this.settingsPanel = tabPanel;
         }
 
         /**
@@ -31429,6 +31845,16 @@
             // Save to storage
             await settingsStorage.setSetting(settingId, value);
 
+            // Update local cache immediately
+            if (!this.currentSettings[settingId]) {
+                this.currentSettings[settingId] = {};
+            }
+            if (type === 'checkbox') {
+                this.currentSettings[settingId].isTrue = value;
+            } else {
+                this.currentSettings[settingId].value = value;
+            }
+
             // Update config module (for backward compatibility)
             if (type === 'checkbox') {
                 this.config.setSetting(settingId, value);
@@ -31659,7 +32085,7 @@
         const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
         targetWindow.Toolasha = {
-            version: '0.4.921',
+            version: '0.4.922',
 
             // Feature toggle API (for users to manage settings via console)
             features: {

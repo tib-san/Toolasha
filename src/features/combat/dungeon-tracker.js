@@ -488,7 +488,6 @@ class DungeonTracker {
                                                   this.currentRun.wavesCompleted >= this.currentRun.maxWaves;
 
                         if (!allWavesCompleted) {
-                            console.log('[Dungeon Tracker] Early exit (fled/died), resetting');
                             // Early exit (fled, died, or failed)
                             this.resetTracking();
                         }
@@ -933,7 +932,6 @@ class DungeonTracker {
                 // Successful completion
                 this.completeDungeon();
             } else {
-                console.log('[Dungeon Tracker] Early exit detected (fled/died), resetting tracking');
                 // Early exit (fled, died, or failed)
                 this.resetTracking();
             }

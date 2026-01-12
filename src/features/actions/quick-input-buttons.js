@@ -21,6 +21,7 @@ import { calculateHouseEfficiency } from '../../utils/house-efficiency.js';
 import { stackAdditive } from '../../utils/efficiency.js';
 import { timeReadable, formatWithSeparator } from '../../utils/formatters.js';
 import { calculateExperienceMultiplier } from '../../utils/experience-parser.js';
+import { calculateExpPerHour } from '../../utils/experience-calculator.js';
 import { createCollapsibleSection } from '../../utils/ui-components.js';
 
 /**
@@ -449,7 +450,7 @@ class QuickInputButtons {
             }
 
         } catch (error) {
-            console.error('[MWI Tools] Error injecting quick input buttons:', error);
+            console.error('[Toolasha] Error injecting quick input buttons:', error);
         }
     }
 
@@ -786,7 +787,7 @@ class QuickInputButtons {
 
             return maxActions;
         } catch (error) {
-            console.error('[MWI Tools] Error calculating max value:', error);
+            console.error('[Toolasha] Error calculating max value:', error);
             return 10000; // Safe fallback on error
         }
     }
@@ -955,9 +956,9 @@ class QuickInputButtons {
             const actionsNeeded = Math.ceil(xpNeeded / modifiedXP);
             const timeNeeded = actionsNeeded * actionTime;
 
-            // Calculate rates (using modified XP)
-            const actionsPerHour = 3600 / actionTime;
-            const xpPerHour = actionsPerHour * modifiedXP;
+            // Calculate rates using shared utility (includes efficiency)
+            const expData = calculateExpPerHour(actionDetails.hrid);
+            const xpPerHour = expData?.expPerHour || (actionsNeeded > 0 ? (3600 / actionTime) * modifiedXP : 0);
             const xpPerDay = xpPerHour * 24;
 
             // Calculate daily level progress
@@ -1107,7 +1108,7 @@ class QuickInputButtons {
                 false // Collapsed by default
             );
         } catch (error) {
-            console.error('[MWI Tools] Error creating level progress section:', error);
+            console.error('[Toolasha] Error creating level progress section:', error);
             return null;
         }
     }
