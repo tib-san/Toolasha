@@ -472,6 +472,14 @@ class DataManager {
     }
 
     /**
+     * Get player's market listings
+     * @returns {Array} Market listings array
+     */
+    getMarketListings() {
+        return this.characterData?.myMarketListings ? [...this.characterData.myMarketListings] : [];
+    }
+
+    /**
      * Register event listener
      * @param {string} event - Event name
      * @param {Function} callback - Handler function

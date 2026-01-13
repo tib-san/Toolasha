@@ -568,7 +568,6 @@ class DungeonTracker {
                 const currentDungeonName = dungeonTrackerStorage.getDungeonInfo(this.currentRun.dungeonHrid)?.name || '';
 
                 if (battleName && currentDungeonName && !battleName.includes(currentDungeonName)) {
-                    console.log('[Dungeon Tracker] Dungeon switching detected - resetting tracking');
                     this.resetTracking();
                 }
             } catch (error) {
@@ -588,7 +587,6 @@ class DungeonTracker {
         }
 
         // Mark run as failed and reset tracking
-        console.log('[Dungeon Tracker] Party failed - resetting tracking');
         this.resetTracking();
     }
 
@@ -928,7 +926,6 @@ class DungeonTracker {
                                       this.currentRun.wavesCompleted >= this.currentRun.maxWaves;
 
             if (allWavesCompleted) {
-                console.log('[Dungeon Tracker] All waves completed! Completing dungeon...');
                 // Successful completion
                 this.completeDungeon();
             } else {

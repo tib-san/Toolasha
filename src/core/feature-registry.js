@@ -11,6 +11,8 @@ import expectedValueCalculator from '../features/market/expected-value-calculato
 import tooltipConsumables from '../features/market/tooltip-consumables.js';
 import marketFilter from '../features/market/market-filter.js';
 import autoFillPrice from '../features/market/auto-fill-price.js';
+import itemCountDisplay from '../features/market/item-count-display.js';
+import listingPriceDisplay from '../features/market/listing-price-display.js';
 import { initActionPanelObserver } from '../features/actions/panel-observer.js';
 import actionTimeDisplay from '../features/actions/action-time-display.js';
 import quickInputButtons from '../features/actions/quick-input-buttons.js';
@@ -80,6 +82,20 @@ const featureRegistry = [
         name: 'Auto-Fill Market Price',
         category: 'Market',
         initialize: () => autoFillPrice.initialize(),
+        async: false
+    },
+    {
+        key: 'market_visibleItemCount',
+        name: 'Market Item Count Display',
+        category: 'Market',
+        initialize: () => itemCountDisplay.initialize(),
+        async: false
+    },
+    {
+        key: 'market_showListingPrices',
+        name: 'Market Listing Price Display',
+        category: 'Market',
+        initialize: () => listingPriceDisplay.initialize(),
         async: false
     },
 

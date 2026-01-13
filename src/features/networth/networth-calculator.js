@@ -24,9 +24,10 @@ import networthCache from './networth-cache.js';
  * Calculate the value of a single item
  * @param {Object} item - Item data {itemHrid, enhancementLevel, count}
  * @param {string} pricingMode - Pricing mode: 'ask', 'bid', or 'average'
+ * @param {Map} priceCache - Optional price cache from getPricesBatch()
  * @returns {number} Total value in coins
  */
-export async function calculateItemValue(item, pricingMode = 'ask') {
+export async function calculateItemValue(item, pricingMode = 'ask', priceCache = null) {
     const { itemHrid, enhancementLevel = 0, count = 1 } = item;
 
     let itemValue = 0;
@@ -55,12 +56,12 @@ export async function calculateItemValue(item, pricingMode = 'ask') {
                 } else {
                     // Enhancement calculation failed, fallback to base item price
                     console.warn('[Networth] Enhancement calculation failed for:', itemHrid, '+' + enhancementLevel);
-                    itemValue = getMarketPrice(itemHrid, 0, pricingMode);
+                    itemValue = getMarketPrice(itemHrid, 0, pricingMode, priceCache);
                 }
             }
         } else {
             // Normal logic for lower enhancement levels: try market price first, then calculate
-            const marketPrice = getMarketPrice(itemHrid, enhancementLevel, pricingMode);
+            const marketPrice = getMarketPrice(itemHrid, enhancementLevel, pricingMode, priceCache);
 
             if (marketPrice > 0) {
                 itemValue = marketPrice;
@@ -78,14 +79,14 @@ export async function calculateItemValue(item, pricingMode = 'ask') {
                         networthCache.set(itemHrid, enhancementLevel, itemValue);
                     } else {
                         console.warn('[Networth] Enhancement calculation failed for:', itemHrid, '+' + enhancementLevel);
-                        itemValue = getMarketPrice(itemHrid, 0, pricingMode);
+                        itemValue = getMarketPrice(itemHrid, 0, pricingMode, priceCache);
                     }
                 }
             }
         }
     } else {
         // Unenhanced items: use market price or crafting cost
-        itemValue = getMarketPrice(itemHrid, enhancementLevel, pricingMode);
+        itemValue = getMarketPrice(itemHrid, enhancementLevel, pricingMode, priceCache);
     }
 
     return itemValue * count;
@@ -96,16 +97,25 @@ export async function calculateItemValue(item, pricingMode = 'ask') {
  * @param {string} itemHrid - Item HRID
  * @param {number} enhancementLevel - Enhancement level
  * @param {string} pricingMode - Pricing mode: 'ask', 'bid', or 'average'
+ * @param {Map} priceCache - Optional price cache from getPricesBatch()
  * @returns {number} Price per item
  */
-function getMarketPrice(itemHrid, enhancementLevel, pricingMode) {
+function getMarketPrice(itemHrid, enhancementLevel, pricingMode, priceCache = null) {
     // Special handling for currencies
     const currencyValue = calculateCurrencyValue(itemHrid);
     if (currencyValue !== null) {
         return currencyValue;
     }
 
-    const prices = marketAPI.getPrice(itemHrid, enhancementLevel);
+    let prices;
+
+    // Use cache if provided, otherwise fetch directly
+    if (priceCache) {
+        const key = `${itemHrid}:${enhancementLevel}`;
+        prices = priceCache.get(key);
+    } else {
+        prices = marketAPI.getPrice(itemHrid, enhancementLevel);
+    }
 
     // If no market data, try fallbacks (only for base items)
     if (!prices) {
@@ -397,6 +407,22 @@ export async function calculateNetworth() {
     const characterAbilities = gameData.characterAbilities || [];
     const abilityCombatTriggersMap = gameData.abilityCombatTriggersMap || {};
 
+    // OPTIMIZATION: Pre-fetch all market prices in one batch
+    const itemsToPrice = [];
+
+    // Collect all items that need pricing
+    for (const item of characterItems) {
+        itemsToPrice.push({ itemHrid: item.itemHrid, enhancementLevel: item.enhancementLevel || 0 });
+    }
+
+    // Collect market listings items
+    for (const listing of marketListings) {
+        itemsToPrice.push({ itemHrid: listing.itemHrid, enhancementLevel: listing.enhancementLevel || 0 });
+    }
+
+    // Batch fetch all prices at once (eliminates ~400 redundant lookups)
+    const priceCache = marketAPI.getPricesBatch(itemsToPrice);
+
     // Calculate equipped items value
     let equippedValue = 0;
     const equippedBreakdown = [];
@@ -404,7 +430,7 @@ export async function calculateNetworth() {
     for (const item of characterItems) {
         if (item.itemLocationHrid === '/item_locations/inventory') continue;
 
-        const value = await calculateItemValue(item, pricingMode);
+        const value = await calculateItemValue(item, pricingMode, priceCache);
         equippedValue += value;
 
         // Add to breakdown
@@ -432,7 +458,7 @@ export async function calculateNetworth() {
     for (const item of characterItems) {
         if (item.itemLocationHrid !== '/item_locations/inventory') continue;
 
-        const value = await calculateItemValue(item, pricingMode);
+        const value = await calculateItemValue(item, pricingMode, priceCache);
 
         // Add to breakdown
         const itemDetails = gameData.itemDetailMap[item.itemHrid];
@@ -498,7 +524,8 @@ export async function calculateNetworth() {
 
             const value = await calculateItemValue(
                 { itemHrid: listing.itemHrid, enhancementLevel, count: quantity },
-                pricingMode
+                pricingMode,
+                priceCache
             );
 
             listingsValue += value * (1 - fee) + listing.unclaimedCoinCount;
@@ -506,7 +533,8 @@ export async function calculateNetworth() {
             // Buying: value is locked coins + unclaimed items
             const unclaimedValue = await calculateItemValue(
                 { itemHrid: listing.itemHrid, enhancementLevel, count: listing.unclaimedItemCount },
-                pricingMode
+                pricingMode,
+                priceCache
             );
 
             listingsValue += quantity * listing.price + unclaimedValue;

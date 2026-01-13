@@ -368,8 +368,6 @@ export async function constructExportObject(externalProfileId = null) {
 
     // Check if exporting another player's profile
     if (externalProfileId && externalProfileId !== characterObj.character.id) {
-        console.log('[Combat Sim Export] Exporting external profile:', externalProfileId);
-
         // Find the profile in storage
         const profile = profileList.find(p => p.characterID === externalProfileId);
         if (!profile) {
@@ -415,8 +413,6 @@ export async function constructExportObject(externalProfileId = null) {
 
     if (!hasParty) {
         // === SOLO MODE ===
-        console.log('[Combat Sim Export] Exporting solo character');
-
         exportObj[1] = JSON.stringify(constructSelfPlayer(characterObj, clientObj));
         playerIDs[0] = characterObj.character?.name || 'Player 1';
         importedPlayerPositions[0] = true;
@@ -432,18 +428,11 @@ export async function constructExportObject(externalProfileId = null) {
         }
     } else {
         // === PARTY MODE ===
-        console.log('[Combat Sim Export] Exporting party');
         isParty = true;
 
         let slotIndex = 1;
         for (const member of Object.values(characterObj.partyInfo.partySlotMap)) {
             if (member.characterID) {
-                console.log('[Combat Sim Export] Party member:', {
-                    memberCharID: member.characterID,
-                    memberCharIDType: typeof member.characterID,
-                    isYou: member.characterID === characterObj.character.id
-                });
-
                 if (member.characterID === characterObj.character.id) {
                     // This is you
                     exportObj[slotIndex] = JSON.stringify(constructSelfPlayer(characterObj, clientObj));
@@ -451,16 +440,8 @@ export async function constructExportObject(externalProfileId = null) {
                     importedPlayerPositions[slotIndex - 1] = true;
                 } else {
                     // Party member - try to get from profile list
-                    console.log('[Combat Sim Export] Looking for profile with ID:', member.characterID);
-                    console.log('[Combat Sim Export] Available profiles:', profileList.map(p => ({
-                        id: p.characterID,
-                        type: typeof p.characterID,
-                        name: p.characterName
-                    })));
-
                     const profile = profileList.find(p => p.characterID === member.characterID);
                     if (profile) {
-                        console.log('[Combat Sim Export] Profile found:', profile.characterName);
                         exportObj[slotIndex] = JSON.stringify(constructPartyPlayer(profile, clientObj, battleObj));
                         playerIDs[slotIndex - 1] = profile.characterName;
                         importedPlayerPositions[slotIndex - 1] = true;

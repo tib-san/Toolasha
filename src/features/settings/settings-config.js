@@ -574,6 +574,49 @@ export const settingsGroups = {
                 label: 'Auto-fill marketplace orders with optimal price',
                 type: 'checkbox',
                 default: true
+            },
+            market_visibleItemCount: {
+                id: 'market_visibleItemCount',
+                label: 'Market: Show inventory count on items',
+                type: 'checkbox',
+                default: true,
+                help: 'Displays how many of each item you own when browsing the market'
+            },
+            market_visibleItemCountOpacity: {
+                id: 'market_visibleItemCountOpacity',
+                label: 'Market: Opacity for items not in inventory',
+                type: 'slider',
+                default: 0.25,
+                min: 0,
+                max: 1,
+                step: 0.05,
+                dependencies: ['market_visibleItemCount'],
+                help: 'How transparent item tiles appear when you own zero of that item'
+            },
+            market_visibleItemCountIncludeEquipped: {
+                id: 'market_visibleItemCountIncludeEquipped',
+                label: 'Market: Count equipped items',
+                type: 'checkbox',
+                default: true,
+                dependencies: ['market_visibleItemCount'],
+                help: 'Include currently equipped items in the displayed count'
+            },
+            market_showListingPrices: {
+                id: 'market_showListingPrices',
+                label: 'Market: Show prices on individual listings',
+                type: 'checkbox',
+                default: true,
+                help: 'Displays top order price and total value on each listing in My Listings table'
+            },
+            market_listingPricePrecision: {
+                id: 'market_listingPricePrecision',
+                label: 'Market: Listing price decimal precision',
+                type: 'number',
+                default: 2,
+                min: 0,
+                max: 4,
+                dependencies: ['market_showListingPrices'],
+                help: 'Number of decimal places to show for listing prices'
             }
         }
     },

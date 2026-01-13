@@ -22,11 +22,8 @@ class CombatSummary {
     initialize() {
         // Check if feature is enabled
         if (!config.getSetting('combatSummary')) {
-            console.log('[Combat Summary] Feature disabled in settings');
             return;
         }
-
-        console.log('[Combat Summary] Initializing...');
 
         // Listen for battle_unit_fetched WebSocket message
         webSocketHook.on('battle_unit_fetched', (data) => {
@@ -34,7 +31,6 @@ class CombatSummary {
         });
 
         this.isActive = true;
-        console.log('[Combat Summary] Initialized successfully');
     }
 
     /**
@@ -75,8 +71,6 @@ class CombatSummary {
                     if (prices) {
                         totalPriceAsk += prices.ask * itemCount;
                         totalPriceBid += prices.bid * itemCount;
-                    } else {
-                        console.log('[Combat Summary] No market price for:', loot.itemHrid);
                     }
                 }
             }

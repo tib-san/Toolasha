@@ -335,6 +335,18 @@ class InventorySort {
             }
         }
 
+        // OPTIMIZATION: Pre-fetch all market prices in one batch
+        const itemsToPrice = [];
+        for (const item of inventory) {
+            if (item.itemLocationHrid === '/item_locations/inventory') {
+                itemsToPrice.push({
+                    itemHrid: item.itemHrid,
+                    enhancementLevel: item.enhancementLevel || 0
+                });
+            }
+        }
+        const priceCache = marketAPI.getPricesBatch(itemsToPrice);
+
         // Get settings for high enhancement cost mode
         const useHighEnhancementCost = config.getSetting('networth_highEnhancementUseCost');
         const minLevel = config.getSetting('networth_highEnhancementMinLevel') || 13;
@@ -432,7 +444,8 @@ class InventorySort {
                         bidPrice = enhancementCost;
                     } else {
                         // Enhancement calculation failed, fallback to market price
-                        const marketPrice = marketAPI.getPrice(itemHrid, enhancementLevel);
+                        const key = `${itemHrid}:${enhancementLevel}`;
+                        const marketPrice = priceCache.get(key);
                         if (marketPrice) {
                             askPrice = marketPrice.ask > 0 ? marketPrice.ask : 0;
                             bidPrice = marketPrice.bid > 0 ? marketPrice.bid : 0;
@@ -441,7 +454,8 @@ class InventorySort {
                 }
             } else {
                 // Use market price (for non-equipment or low enhancement levels)
-                const marketPrice = marketAPI.getPrice(itemHrid, enhancementLevel);
+                const key = `${itemHrid}:${enhancementLevel}`;
+                const marketPrice = priceCache.get(key);
 
                 // Start with whatever market data exists
                 if (marketPrice) {

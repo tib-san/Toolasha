@@ -562,6 +562,23 @@ class SettingsUI {
                 `;
             }
 
+            case 'slider': {
+                const value = currentSetting?.value ?? settingDef.default ?? 0;
+                return `
+                    <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
+                        <input type="range"
+                            id="${settingId}"
+                            class="toolasha-slider-input"
+                            value="${value}"
+                            min="${settingDef.min ?? 0}"
+                            max="${settingDef.max ?? 1}"
+                            step="${settingDef.step ?? 0.01}"
+                            style="flex: 1;">
+                        <span id="${settingId}_value" class="toolasha-slider-value" style="min-width: 50px; color: #aaa; font-size: 0.9em;">${value}</span>
+                    </div>
+                `;
+            }
+
             default:
                 return `<span style="color: red;">Unknown type: ${type}</span>`;
         }
@@ -685,8 +702,15 @@ class SettingsUI {
         // Get value based on type
         if (type === 'checkbox') {
             value = input.checked;
-        } else if (type === 'number') {
+        } else if (type === 'number' || type === 'slider') {
             value = parseFloat(input.value) || 0;
+            // Update the slider value display if it's a slider
+            if (type === 'slider') {
+                const valueDisplay = document.getElementById(`${settingId}_value`);
+                if (valueDisplay) {
+                    valueDisplay.textContent = value;
+                }
+            }
         } else if (type === 'color') {
             value = input.value;
             // Update the text display

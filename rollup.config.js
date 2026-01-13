@@ -44,10 +44,8 @@ export default {
     file: 'dist/Toolasha.user.js',
     format: 'iife',
     name: 'Toolasha',
-    banner: userscriptHeader,
-    // Wrap everything in an immediately invoked function
-    intro: '(function() {\n"use strict";\n',
-    outro: '\n})();'
+    banner: userscriptHeader
+    // Removed intro/outro - format: 'iife' already wraps in IIFE
   },
   plugins: [
     cssRawPlugin(),

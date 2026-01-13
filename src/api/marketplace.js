@@ -192,6 +192,27 @@ class MarketAPI {
     }
 
     /**
+     * Get prices for multiple items with enhancement levels (batch optimized)
+     * @param {Array<{itemHrid: string, enhancementLevel: number}>} items - Array of items with enhancement levels
+     * @returns {Map<string, Object>} Map of "hrid:level" -> { ask, bid }
+     */
+    getPricesBatch(items) {
+        const priceMap = new Map();
+
+        for (const {itemHrid, enhancementLevel = 0} of items) {
+            const key = `${itemHrid}:${enhancementLevel}`;
+            if (!priceMap.has(key)) {
+                const price = this.getPrice(itemHrid, enhancementLevel);
+                if (price) {
+                    priceMap.set(key, price);
+                }
+            }
+        }
+
+        return priceMap;
+    }
+
+    /**
      * Check if market data is loaded
      * @returns {boolean} True if data is available
      */

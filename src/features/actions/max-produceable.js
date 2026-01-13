@@ -16,6 +16,7 @@ import { calculateGatheringProfit } from './gathering-profit.js';
 import { calculateProductionProfit } from './production-profit.js';
 import { formatKMB } from '../../utils/formatters.js';
 import { calculateExpPerHour } from '../../utils/experience-calculator.js';
+import { getDrinkConcentration, parseArtisanBonus } from '../../utils/tea-parser.js';
 
 class MaxProduceable {
     constructor() {
@@ -191,9 +192,10 @@ class MaxProduceable {
      * Calculate max produceable count for an action
      * @param {string} actionHrid - The action HRID
      * @param {Array} inventory - Inventory array (optional, will fetch if not provided)
+     * @param {Object} gameData - Game data (optional, will fetch if not provided)
      * @returns {number|null} Max produceable count or null
      */
-    calculateMaxProduceable(actionHrid, inventory = null) {
+    calculateMaxProduceable(actionHrid, inventory = null, gameData = null) {
         const actionDetails = dataManager.getActionDetails(actionHrid);
 
         // Get inventory if not provided
@@ -205,6 +207,13 @@ class MaxProduceable {
             return null;
         }
 
+        // Get Artisan Tea reduction if active (applies to input materials only, not upgrade items)
+        const equipment = dataManager.getEquipment();
+        const itemDetailMap = gameData?.itemDetailMap || dataManager.getInitClientData()?.itemDetailMap || {};
+        const drinkConcentration = getDrinkConcentration(equipment, itemDetailMap);
+        const activeDrinks = dataManager.getActionDrinkSlots(actionDetails.type);
+        const artisanBonus = parseArtisanBonus(activeDrinks, itemDetailMap, drinkConcentration);
+
         // Calculate max crafts per input
         const maxCraftsPerInput = actionDetails.inputItems.map(input => {
             const invItem = inventory.find(item =>
@@ -213,7 +222,11 @@ class MaxProduceable {
             );
 
             const invCount = invItem?.count || 0;
-            const maxCrafts = Math.floor(invCount / input.count);
+
+            // Apply Artisan reduction (10% base, scaled by Drink Concentration)
+            // Materials consumed per action = base requirement × (1 - artisan bonus)
+            const materialsPerAction = input.count * (1 - artisanBonus);
+            const maxCrafts = Math.floor(invCount / materialsPerAction);
 
             return maxCrafts;
         });
@@ -221,6 +234,7 @@ class MaxProduceable {
         let minCrafts = Math.min(...maxCraftsPerInput);
 
         // Check upgrade item (e.g., Enhancement Stones)
+        // NOTE: Upgrade items are NOT affected by Artisan Tea (only regular inputItems are)
         if (actionDetails.upgradeItemHrid) {
             const upgradeItem = inventory.find(item =>
                 item.itemHrid === actionDetails.upgradeItemHrid &&
@@ -246,7 +260,7 @@ class MaxProduceable {
             return;
         }
 
-        const maxCrafts = this.calculateMaxProduceable(data.actionHrid, inventory);
+        const maxCrafts = this.calculateMaxProduceable(data.actionHrid, inventory, dataManager.getInitClientData());
 
         if (maxCrafts === null) {
             data.displayElement.style.display = 'none';
