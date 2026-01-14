@@ -69,11 +69,11 @@ class ListingPriceDisplay {
                 // Clear existing displays to force refresh
                 this.clearDisplays();
 
-                // Immediately re-process any visible tables
+                // Wait for React to update DOM before re-processing
                 // (DOM observer won't fire because table element didn't appear/disappear)
                 const visibleTable = document.querySelector('[class*="MarketplacePanel_myListingsTable"]');
                 if (visibleTable) {
-                    this.updateTable(visibleTable);
+                    this.setupTableMutationObserver(visibleTable);
                 }
             }
         };
@@ -105,6 +105,60 @@ class ListingPriceDisplay {
         if (existingTable) {
             this.updateTable(existingTable);
         }
+    }
+
+    /**
+     * Setup MutationObserver to wait for React to update table rows
+     * @param {HTMLElement} tableNode - The listings table element
+     */
+    setupTableMutationObserver(tableNode) {
+        const tbody = tableNode.querySelector('tbody');
+        if (!tbody) {
+            return;
+        }
+
+        let timeoutId = null;
+        let observer = null;
+
+        // Cleanup function
+        const cleanup = () => {
+            if (observer) {
+                observer.disconnect();
+                observer = null;
+            }
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+            }
+        };
+
+        // Check if table is ready and process if so
+        const checkAndProcess = () => {
+            const rowCount = tbody.querySelectorAll('tr').length;
+            const listingCount = Object.keys(this.allListings).length;
+
+            if (rowCount === listingCount) {
+                cleanup();
+                this.updateTable(tableNode);
+            }
+        };
+
+        // Create observer to watch for row additions
+        observer = new MutationObserver(() => {
+            checkAndProcess();
+        });
+
+        // Start observing tbody for child additions/removals
+        observer.observe(tbody, { childList: true });
+
+        // Safety timeout: give up after 2 seconds
+        timeoutId = setTimeout(() => {
+            cleanup();
+            console.error('[ListingPriceDisplay] Timeout waiting for React to update table');
+        }, 2000);
+
+        // Check immediately in case table is already updated
+        checkAndProcess();
     }
 
     /**
