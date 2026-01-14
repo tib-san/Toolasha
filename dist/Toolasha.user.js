@@ -725,10 +725,10 @@
                 },
                 invBadgePrices: {
                     id: 'invBadgePrices',
-                    label: 'Show price badges on item icons (independent of sorting)',
+                    label: 'Show bid/ask prices on item icons',
                     type: 'checkbox',
                     default: false,
-                    help: 'Displays stack value badges on inventory items without requiring sorting'
+                    help: 'Displays stack value on inventory items (works independently of sorting)'
                 },
                 invBadgePrices_type: {
                     id: 'invBadgePrices_type',
