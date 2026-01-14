@@ -17,6 +17,7 @@ import { formatRelativeTime } from '../../utils/formatters.js';
 class EstimatedListingAge {
     constructor() {
         this.knownListings = []; // Array of {id, timestamp} sorted by id
+        this.orderBooksCache = {}; // Cache of order book data from WebSocket
         this.unregisterWebSocket = null;
         this.unregisterObserver = null;
         this.storageKey = 'marketListingTimestamps';
@@ -80,15 +81,11 @@ class EstimatedListingAge {
     loadInitialListings() {
         const listings = dataManager.getMarketListings();
 
-        console.log('[EstimatedListingAge] Loading initial listings from dataManager:', listings);
-
         for (const listing of listings) {
             if (listing.id && listing.createdTimestamp) {
                 this.recordListing(listing);
             }
         }
-
-        console.log(`[EstimatedListingAge] Loaded ${listings.length} initial listings from dataManager`);
     }
 
     /**
@@ -97,8 +94,6 @@ class EstimatedListingAge {
     async loadHistoricalData() {
         try {
             const stored = await storage.getJSON(this.storageKey, 'marketListings', []);
-
-            console.log('[EstimatedListingAge] Raw stored data:', stored);
 
             // Filter out old entries (> 30 days)
             const now = Date.now();
@@ -109,11 +104,6 @@ class EstimatedListingAge {
             // Save cleaned data back if we filtered anything
             if (filtered.length < stored.length) {
                 await this.saveHistoricalData();
-            }
-
-            console.log(`[EstimatedListingAge] Loaded ${this.knownListings.length} historical listings`);
-            if (this.knownListings.length > 0) {
-                console.log('[EstimatedListingAge] Sample listing:', this.knownListings[0]);
             }
         } catch (error) {
             console.error('[EstimatedListingAge] Failed to load historical data:', error);
@@ -133,7 +123,7 @@ class EstimatedListingAge {
     }
 
     /**
-     * Setup WebSocket listeners to collect your listing IDs
+     * Setup WebSocket listeners to collect your listing IDs and order book data
      */
     setupWebSocketListeners() {
         // Handle initial character data
@@ -154,13 +144,28 @@ class EstimatedListingAge {
             }
         };
 
+        // Handle order book updates (contains listing IDs for ALL listings)
+        const orderBookHandler = (data) => {
+            if (data.marketItemOrderBooks) {
+                const itemHrid = data.marketItemOrderBooks.itemHrid;
+                this.orderBooksCache[itemHrid] = data.marketItemOrderBooks;
+
+                // Clear processed flags to re-render with new data
+                document.querySelectorAll('.mwi-estimated-age-set').forEach(container => {
+                    container.classList.remove('mwi-estimated-age-set');
+                });
+            }
+        };
+
         webSocketHook.on('init_character_data', initHandler);
         webSocketHook.on('market_listings_updated', updateHandler);
+        webSocketHook.on('market_item_order_books_updated', orderBookHandler);
 
         // Store for cleanup
         this.unregisterWebSocket = () => {
             webSocketHook.off('init_character_data', initHandler);
             webSocketHook.off('market_listings_updated', updateHandler);
+            webSocketHook.off('market_item_order_books_updated', orderBookHandler);
         };
     }
 
@@ -169,11 +174,7 @@ class EstimatedListingAge {
      * @param {Object} listing - Full listing object from WebSocket
      */
     recordListing(listing) {
-        // DEBUG: Log the incoming listing structure
-        console.log('[EstimatedListingAge] recordListing called with:', listing);
-
         if (!listing.createdTimestamp) {
-            console.warn('[EstimatedListingAge] No createdTimestamp on listing:', listing);
             return;
         }
 
@@ -195,11 +196,9 @@ class EstimatedListingAge {
 
         if (existingIndex !== -1) {
             // Update existing entry (in case it had incomplete data)
-            console.log('[EstimatedListingAge] Updating existing entry:', entry);
             this.knownListings[existingIndex] = entry;
         } else {
             // Add new entry
-            console.log('[EstimatedListingAge] Adding new entry:', entry);
             this.knownListings.push(entry);
         }
 
@@ -259,8 +258,21 @@ class EstimatedListingAge {
             return;
         }
 
-        // Try to detect which item we're viewing by checking the container
+        // Get current item and order book data
         const currentItemHrid = this.getCurrentItemHrid();
+        if (!currentItemHrid || !this.orderBooksCache[currentItemHrid]) {
+            return;
+        }
+
+        const orderBookData = this.orderBooksCache[currentItemHrid];
+
+        // Determine if this is buy or sell table (asks = sell, bids = buy)
+        const isSellTable = table.closest('[class*="orderBookTableContainer"]') ===
+                           table.closest('[class*="orderBooksContainer"]')?.children[0];
+
+        const listings = isSellTable ?
+                         orderBookData.orderBooks[0]?.asks || [] :
+                         orderBookData.orderBooks[0]?.bids || [];
 
         // Add header
         const header = document.createElement('th');
@@ -271,92 +283,65 @@ class EstimatedListingAge {
 
         // Add age cells to each row
         const rows = tbody.querySelectorAll('tr');
-        let yourListingIndex = 0; // Track position among YOUR listings
 
-        rows.forEach(row => {
+        rows.forEach((row, rowIndex) => {
             const cell = document.createElement('td');
             cell.classList.add('mwi-estimated-age-cell');
 
-            // Check if this is YOUR listing (has Cancel button)
-            const hasCancel = row.textContent.includes('Cancel');
+            // Check if this row has data within the order book range
+            if (rowIndex < listings.length) {
+                const listing = listings[rowIndex];
+                const listingId = listing.listingId;
 
-            if (hasCancel && currentItemHrid) {
-                // Try to match your listing by item + price + quantity
-                const priceText = row.querySelector('[class*="price"]')?.textContent || '';
-                const quantityText = row.children[0]?.textContent || '';
+                // Check if this is YOUR listing
+                const yourListing = this.knownListings.find(known => known.id === listingId);
 
-                // Parse price (handles K/M suffixes)
-                let price = this.parsePrice(priceText);
-                let quantity = this.parseQuantity(quantityText);
-
-                // DEBUG: Log matching attempt
-                console.log('[EstimatedListingAge] Matching attempt:', {
-                    currentItemHrid,
-                    priceText,
-                    quantityText,
-                    parsedPrice: price,
-                    parsedQuantity: quantity,
-                    yourListingIndex,
-                    totalKnownListings: this.knownListings.length
-                });
-
-                // Find ALL matching listings (may be multiple with same item+price+quantity)
-                const matchingListings = this.knownListings.filter(listing => {
-                    const itemMatch = listing.itemHrid === currentItemHrid;
-                    const priceMatch = Math.abs(listing.price - price) < 0.01;
-                    const qtyMatch = (listing.orderQuantity - listing.filledQuantity) === quantity;
-
-                    // DEBUG: Log each listing check
-                    if (!itemMatch || !priceMatch || !qtyMatch) {
-                        console.log('[EstimatedListingAge] Listing rejected:', {
-                            listingItem: listing.itemHrid,
-                            listingPrice: listing.price,
-                            listingQty: listing.orderQuantity - listing.filledQuantity,
-                            itemMatch,
-                            priceMatch,
-                            qtyMatch
-                        });
-                    }
-
-                    return itemMatch && priceMatch && qtyMatch;
-                });
-
-                console.log('[EstimatedListingAge] Found matches:', matchingListings.length);
-
-                // Sort by timestamp (oldest first, matching game order)
-                matchingListings.sort((a, b) => a.timestamp - b.timestamp);
-
-                // Use row index to pick the correct listing
-                const matchedListing = matchingListings[yourListingIndex];
-
-                if (matchedListing) {
-                    // Format based on user settings
-                    const formatted = this.formatTimestamp(matchedListing.timestamp);
-
+                if (yourListing) {
+                    // Exact timestamp for your listing
+                    const formatted = this.formatTimestamp(yourListing.timestamp);
                     cell.textContent = formatted; // No tilde for exact timestamps
                     cell.style.color = '#00FF00'; // Green for YOUR listing
                     cell.style.fontSize = '0.9em';
                 } else {
-                    cell.textContent = '~Unknown';
-                    cell.style.color = '#666666';
-                    cell.style.fontSize = '0.9em';
-                }
-
-                yourListingIndex++; // Increment for next YOUR listing with same criteria
-            } else {
-                // Not your listing - try estimation by listing ID
-                const listingId = this.extractListingId(row);
-                if (listingId) {
+                    // Estimated timestamp for other listings
                     const estimatedTimestamp = this.estimateTimestamp(listingId);
-
-                    // Format based on user settings, with tilde prefix for estimates
                     const formatted = this.formatTimestamp(estimatedTimestamp);
-
                     cell.textContent = `~${formatted}`;
                     cell.style.color = '#999999'; // Gray to indicate estimate
                     cell.style.fontSize = '0.9em';
+                }
+            } else {
+                // Row beyond order book data (ellipsis row or YOUR listings not in top 20)
+                const hasCancel = row.textContent.includes('Cancel');
+                if (hasCancel) {
+                    // This is YOUR listing beyond top 20
+                    // Try to match by price + quantity
+                    const priceText = row.querySelector('[class*="price"]')?.textContent || '';
+                    const quantityText = row.children[0]?.textContent || '';
+
+                    const price = this.parsePrice(priceText);
+                    const quantity = this.parseQuantity(quantityText);
+
+                    const matchedListing = this.knownListings.find(listing => {
+                        const itemMatch = listing.itemHrid === currentItemHrid;
+                        const priceMatch = Math.abs(listing.price - price) < 0.01;
+                        const qtyMatch = (listing.orderQuantity - listing.filledQuantity) === quantity;
+                        return itemMatch && priceMatch && qtyMatch;
+                    });
+
+                    if (matchedListing) {
+                        const formatted = this.formatTimestamp(matchedListing.timestamp);
+                        cell.textContent = formatted;
+                        cell.style.color = '#00FF00'; // Green for YOUR listing
+                        cell.style.fontSize = '0.9em';
+                    } else {
+                        cell.textContent = '~Unknown';
+                        cell.style.color = '#666666';
+                        cell.style.fontSize = '0.9em';
+                    }
                 } else {
-                    cell.textContent = '~Unknown';
+                    // Ellipsis row or unknown
+                    cell.textContent = '· · ·';
                     cell.style.color = '#666666';
                     cell.style.fontSize = '0.9em';
                 }
@@ -374,27 +359,11 @@ class EstimatedListingAge {
         // Find the order book container
         const orderBookContainer = document.querySelector('[class*="MarketplacePanel_orderBooksContainer"]');
         if (!orderBookContainer) {
-            console.log('[EstimatedListingAge] No order book container found');
             return null;
         }
-
-        // Go up to the PARENT MarketplacePanel (not the orderBooksContainer itself)
-        const marketPanel = orderBookContainer.parentElement;
-        if (!marketPanel) {
-            console.log('[EstimatedListingAge] No parent market panel found');
-            return null;
-        }
-
-        // Debug: log the market panel structure
-        console.log('[EstimatedListingAge] Market panel:', marketPanel);
-        console.log('[EstimatedListingAge] Market panel class:', marketPanel.className);
-        console.log('[EstimatedListingAge] Market panel children:', Array.from(marketPanel.children).map(el => el.className));
 
         // Try to find the current item from YOUR listings
-        // Since the game doesn't expose the current item in the order book panel,
-        // we'll match your listing from the order book against stored data
-        console.log('[EstimatedListingAge] Attempting to detect item from YOUR listings...');
-
+        // Match your listing from the order book against stored data
         const tables = orderBookContainer.querySelectorAll('table');
         for (const table of tables) {
             const rows = table.querySelectorAll('tbody tr');
@@ -407,15 +376,12 @@ class EstimatedListingAge {
                     const price = this.parsePrice(priceText);
                     const quantity = this.parseQuantity(quantityText);
 
-                    console.log('[EstimatedListingAge] Found YOUR listing:', { price, quantity });
-
                     // Match against stored listings
                     for (const listing of this.knownListings) {
                         const priceMatch = Math.abs(listing.price - price) < 0.01;
                         const qtyMatch = (listing.orderQuantity - listing.filledQuantity) === quantity;
 
                         if (priceMatch && qtyMatch) {
-                            console.log('[EstimatedListingAge] Detected item:', listing.itemHrid);
                             return listing.itemHrid;
                         }
                     }
@@ -423,7 +389,6 @@ class EstimatedListingAge {
             }
         }
 
-        console.log('[EstimatedListingAge] Could not detect item - no matching listings found');
         return null;
     }
 
@@ -457,31 +422,6 @@ class EstimatedListingAge {
     }
 
     /**
-     * Extract listing ID from order book row
-     * @param {HTMLElement} row - Table row
-     * @returns {number|null} Listing ID or null
-     */
-    extractListingId(row) {
-        // Listing ID is typically stored in a data attribute or needs to be parsed
-        // Check for data attributes first
-        if (row.dataset.listingId) {
-            return Number(row.dataset.listingId);
-        }
-
-        // Try to find it in the row's onclick or other attributes
-        const onclick = row.getAttribute('onclick');
-        if (onclick) {
-            const match = onclick.match(/listing[Ii]d[:\s]*(\d+)/);
-            if (match) {
-                return Number(match[1]);
-            }
-        }
-
-        // If we can't find it, return null
-        return null;
-    }
-
-    /**
      * Estimate timestamp for a listing ID
      * @param {number} listingId - Listing ID to estimate
      * @returns {number} Estimated timestamp in milliseconds
@@ -500,12 +440,29 @@ class EstimatedListingAge {
         const minId = this.knownListings[0].id;
         const maxId = this.knownListings[this.knownListings.length - 1].id;
 
+        let estimate;
         // Check if ID is within known range
         if (listingId >= minId && listingId <= maxId) {
-            return this.linearInterpolation(listingId);
+            estimate = this.linearInterpolation(listingId);
         } else {
-            return this.linearRegression(listingId);
+            estimate = this.linearRegression(listingId);
         }
+
+        // CRITICAL: Clamp to reasonable bounds
+        const now = Date.now();
+        const maxAgeTimestamp = now - this.maxAge; // 30 days ago
+
+        // Never allow future timestamps (listings cannot be created in the future)
+        if (estimate > now) {
+            estimate = now;
+        }
+
+        // Never allow timestamps older than maxAge (we filter these out anyway)
+        if (estimate < maxAgeTimestamp) {
+            estimate = maxAgeTimestamp;
+        }
+
+        return estimate;
     }
 
     /**
