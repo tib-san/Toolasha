@@ -21,6 +21,7 @@ import { calculateHouseEfficiency } from '../../utils/house-efficiency.js';
 import { stackAdditive } from '../../utils/efficiency.js';
 import { timeReadable, formatWithSeparator } from '../../utils/formatters.js';
 import { calculateExperienceMultiplier } from '../../utils/experience-parser.js';
+import { setReactInputValue } from '../../utils/react-input.js';
 import { calculateExpPerHour } from '../../utils/experience-calculator.js';
 import { createCollapsibleSection } from '../../utils/ui-components.js';
 
@@ -401,10 +402,15 @@ class QuickInputButtons {
 
             this.presetHours.forEach(hours => {
                 const button = this.createButton(hours === 0.5 ? '0.5' : hours.toString(), () => {
-                    // How many actions fit in X hours?
+                    // How many actions (outputs) fit in X hours?
+                    // With efficiency, fewer actual attempts produce more outputs
                     // Time (seconds) = hours × 3600
-                    // Actions = Time / actionTime
-                    const actionCount = Math.round((hours * 60 * 60) / actionTime);
+                    // Actual attempts = Time / actionTime
+                    // Queue count (outputs) = Actual attempts × efficiencyMultiplier
+                    // Round to whole number (input doesn't accept decimals)
+                    const totalSeconds = hours * 60 * 60;
+                    const actualAttempts = Math.round(totalSeconds / actionTime);
+                    const actionCount = Math.round(actualAttempts * efficiencyMultiplier);
                     this.setInputValue(numberInput, actionCount);
                 });
                 queueContent.appendChild(button);
@@ -677,35 +683,12 @@ class QuickInputButtons {
     }
 
     /**
-     * Set input value using React's internal _valueTracker
-     * This is the critical "hack" to make React recognize the change
+     * Set input value using React utility
      * @param {HTMLInputElement} input - Number input element
      * @param {number} value - Value to set
      */
     setInputValue(input, value) {
-        // Save the current value
-        const lastValue = input.value;
-
-        // Set the new value directly on the DOM
-        input.value = value;
-
-        // Create input event
-        const event = new Event('input', { bubbles: true });
-        event.simulated = true;
-
-        // This is the critical part: React stores an internal _valueTracker
-        // We need to set it to the old value before dispatching the event
-        // so React sees the difference and updates its state
-        const tracker = input._valueTracker;
-        if (tracker) {
-            tracker.setValue(lastValue);
-        }
-
-        // Dispatch the event - React will now recognize the change
-        input.dispatchEvent(event);
-
-        // Focus the input to show the value
-        input.focus();
+        setReactInputValue(input, value, { focus: true });
     }
 
     /**

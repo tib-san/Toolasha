@@ -7,6 +7,7 @@
 
 import { constructExportObject } from './combat-sim-export.js';
 import config from '../../core/config.js';
+import { setReactInputValue } from '../../utils/react-input.js';
 
 /**
  * Initialize combat sim integration (runs on sim page only)
@@ -119,7 +120,7 @@ async function importDataToSimulator(button) {
             const importInput = document.querySelector('input#inputSetGroupCombatAll');
             if (importInput) {
                 // exportObj already has JSON strings for each slot, just stringify once
-                importInput.value = JSON.stringify(exportObj);
+                setReactInputValue(importInput, JSON.stringify(exportObj), { focus: false });
             } else {
                 console.error('[Toolasha Combat Sim] Import input field not found');
             }
@@ -190,7 +191,7 @@ async function importDataToSimulator(button) {
             // Step 7: Set simulation time to 24 hours (standard)
             const simTimeInput = document.querySelector('input#inputSimulationTime');
             if (simTimeInput) {
-                simTimeInput.value = '24';
+                setReactInputValue(simTimeInput, '24', { focus: false });
             }
 
             // Step 8: Get prices (refresh market data)

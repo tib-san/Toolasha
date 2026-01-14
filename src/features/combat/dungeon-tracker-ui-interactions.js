@@ -33,6 +33,7 @@ class DungeonTrackerUIInteractions {
         this.setupClearAll();
         this.setupChartToggle();
         this.setupChartPopout();
+        this.setupKeyboardShortcut();
     }
 
     /**
@@ -58,8 +59,20 @@ class DungeonTrackerUIInteractions {
         document.addEventListener('mousemove', (e) => {
             if (!this.isDragging) return;
 
-            const x = e.clientX - this.dragOffset.x;
-            const y = e.clientY - this.dragOffset.y;
+            let x = e.clientX - this.dragOffset.x;
+            let y = e.clientY - this.dragOffset.y;
+
+            // Apply position boundaries to keep tracker visible
+            const containerRect = this.container.getBoundingClientRect();
+            const minVisiblePx = 100; // Keep at least 100px visible
+
+            // Constrain Y: header must be visible at top
+            y = Math.max(0, y);
+            y = Math.min(y, window.innerHeight - minVisiblePx);
+
+            // Constrain X: keep at least 100px visible on either edge
+            x = Math.max(-containerRect.width + minVisiblePx, x);
+            x = Math.min(x, window.innerWidth - minVisiblePx);
 
             // Save position (disables default centering)
             this.state.position = { x, y };
@@ -437,6 +450,71 @@ class DungeonTrackerUIInteractions {
         if (this.state.isChartExpanded) {
             this.applyChartExpandedState();
         }
+    }
+
+    /**
+     * Setup keyboard shortcut for resetting position
+     * Ctrl+Shift+D to reset dungeon tracker to default position
+     */
+    setupKeyboardShortcut() {
+        document.addEventListener('keydown', (e) => {
+            // Ctrl+Shift+D - Reset dungeon tracker position
+            if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+                e.preventDefault();
+                this.resetPosition();
+            }
+        });
+    }
+
+    /**
+     * Reset dungeon tracker position to default (center)
+     */
+    resetPosition() {
+        // Clear saved position (re-enables default centering)
+        this.state.position = null;
+
+        // Re-apply position styling
+        this.state.updatePosition(this.container);
+
+        // Save updated state
+        this.state.save();
+
+        // Show brief notification
+        this.showNotification('Dungeon Tracker position reset');
+    }
+
+    /**
+     * Show temporary notification message
+     * @param {string} message - Notification text
+     */
+    showNotification(message) {
+        const notification = document.createElement('div');
+        notification.textContent = message;
+        notification.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(74, 158, 255, 0.95);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 99999;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+        `;
+
+        document.body.appendChild(notification);
+
+        // Fade out and remove after 2 seconds
+        setTimeout(() => {
+            notification.style.transition = 'opacity 0.3s ease';
+            notification.style.opacity = '0';
+            setTimeout(() => notification.remove(), 300);
+        }, 2000);
     }
 }
 
