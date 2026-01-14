@@ -1,0 +1,426 @@
+================================================================================
+TOOLASHA MODULARIZATION ENHANCEMENT PLAN
+================================================================================
+
+Document Created: January 14, 2025
+Codebase Size: 90 JavaScript files, ~35,000 lines of code
+Analysis Scope: Complete src/ directory (core, features, utils, api)
+
+================================================================================
+HIGH PRIORITY
+================================================================================
+
+1. Break Down Monolithic UI Files
+   Target File: dungeon-tracker-ui.js (1,930 lines)
+   Issue: Single file handles UI creation, state management, Chart.js
+          integration, drag/drop, filtering, grouping, and statistics
+
+   Proposed Split:
+   - dungeon-tracker-ui-core.js - Main UI container and lifecycle
+   - dungeon-tracker-ui-state.js - State management (collapse, filters, position)
+   - dungeon-tracker-ui-chart.js - Chart.js integration
+   - dungeon-tracker-ui-history.js - Run history display logic
+   - dungeon-tracker-ui-interactions.js - Drag/drop and click handlers
+
+   Estimated Lines Saved: ~200 lines (better organization)
+   Risk Level: Medium (complex refactor, requires careful testing)
+
+--------------------------------------------------------------------------------
+
+2. Extract React Input Utility
+   Current: Only quick-input-buttons.js uses _valueTracker pattern (lines 685-709)
+   Issue: Critical React integration pattern not reusable; other files use
+          simpler dispatchEvent approach that may not properly update React state
+
+   Proposed Module: utils/react-input.js
+   Functions:
+   - setReactInputValue(input, value) - Handles _valueTracker hack
+   - isReactControlledInput(input) - Detect React-controlled inputs
+
+   Files That Would Benefit:
+   - combat-sim-integration.js (174, 176, 186, 234, 243, 253, 262)
+   - Any future feature that needs to programmatically set input values
+
+   Estimated Lines Saved: ~50 lines
+   Risk Level: Low (new utility, backward compatible)
+
+--------------------------------------------------------------------------------
+
+3. Consolidate Action Panel Display Logic
+   Target Files: action-time-display.js (1,163 lines), quick-input-buttons.js
+                 (1,138 lines), enhancement-display.js (857 lines),
+                 profit-display.js (583 lines)
+   Issue: Each feature independently handles action panel detection, input
+          finding, and display injection
+
+   Proposed Module: utils/action-panel-helper.js
+   Functions:
+   - findActionInput(container) - Standard input detection
+   - injectBelowInput(container, element) - Standard injection point
+   - findActionOutputs(container) - Output slot detection
+   - getActionPanelType(container) - Detect gathering/production/combat
+
+   Files That Would Benefit: 11 action panel features
+   Estimated Lines Saved: ~400 lines of duplicated querySelector logic
+   Risk Level: Low (pure utility extraction)
+
+--------------------------------------------------------------------------------
+
+4. Centralize Market Data Access
+   Target Files: 14 files access market prices
+   - profit-calculator.js (596 lines)
+   - expected-value-calculator.js
+   - tooltip-prices.js (872 lines)
+   - gathering-profit.js (519 lines)
+   - production-profit.js
+   - task-profit-calculator.js
+   - networth-calculator.js (614 lines)
+   - And 7 more...
+
+   Issue: Each file independently calls marketAPI.getAskPrice() / getBidPrice()
+          with pricing mode logic duplicated
+
+   Proposed Module: utils/market-data.js
+   Functions:
+   - getItemPrice(itemHrid, mode='auto') - Respects user pricing mode setting
+   - getItemPrices(itemHrid) - Returns {ask, bid, average} object
+   - formatPrice(amount, options) - Consistent K/M/B formatting
+   - getPricingMode(context) - Determine pricing mode (profit vs networth)
+
+   Estimated Lines Saved: ~200 lines of pricing mode conditionals
+   Risk Level: Low (utility wrapper around existing API)
+
+--------------------------------------------------------------------------------
+
+5. Standardize DOM Observer Patterns
+   Target: 30+ files use domObserver.onClass() with similar patterns
+   Issue: Each feature manually handles observer cleanup, processed flags,
+          and re-rendering logic
+
+   Proposed Module: utils/dom-observer-helpers.js
+   Functions:
+   - createSingletonObserver(id, selector, handler) - Auto-prevents duplicate processing
+   - createPersistentDisplay(selector, createFn) - Handles cleanup and re-creation
+   - createMutationWatcher(element, callback) - Simplified mutation observer
+
+   Pattern Example:
+   Current (20 lines):
+     this.unregister = domObserver.onClass('ID', 'selector', (elem) => {
+       if (elem.classList.contains('processed')) return;
+       elem.classList.add('processed');
+       // do work
+     });
+
+   Proposed (5 lines):
+     this.unregister = createSingletonObserver('ID', 'selector', (elem) => {
+       // do work (processed flag automatic)
+     });
+
+   Estimated Lines Saved: ~150 lines of boilerplate observer code
+   Risk Level: Low (wrapper around existing domObserver)
+
+================================================================================
+MEDIUM PRIORITY
+================================================================================
+
+6. Extract Shared Enhancement Calculation Logic
+   Target Files: enhancement-calculator.js (utils), enhancement-ui.js,
+                 tooltip-enhancement.js, enhancement-handlers.js
+   Issue: Enhancement multipliers, protection costs, and success rate logic
+          scattered across 4 locations
+
+   Proposal: Consolidate into utils/enhancement-calculator.js (expand existing)
+   Functions to Add:
+   - calculateEnhancementCost(item, level, options) - Full cost calculation
+   - calculateProtectionCosts(item, level) - Protection item requirements
+   - formatEnhancementDisplay(result) - Consistent UI formatting
+
+   Estimated Lines Saved: ~100 lines of duplicate calculation logic
+   Risk Level: Medium (consolidation may reveal inconsistencies)
+
+--------------------------------------------------------------------------------
+
+7. Create Profit Calculation Service
+   Target Files: profit-calculator.js (market), gathering-profit.js,
+                 production-profit.js, task-profit-calculator.js
+   Issue: Each profit type duplicates action time calculation, efficiency
+          parsing, and revenue computation
+
+   Proposed Module: services/profit-service.js
+   Functions:
+   - calculateActionProfit(actionHrid, quantity) - Unified profit calculation
+   - getProfitBreakdown(actionHrid) - Detailed cost/revenue analysis
+   - formatProfitDisplay(profit) - Consistent display formatting
+   - getActionEfficiency(actionHrid) - Calculate total efficiency with all bonuses
+
+   Estimated Lines Saved: ~300 lines of duplicated profit logic
+   Risk Level: Medium (requires careful testing of all profit displays)
+
+--------------------------------------------------------------------------------
+
+8. Consolidate Tea/Buff Parsing
+   Target File: tea-parser.js (17KB, largest util), used by 10+ features
+   Issue: File is large but well-structured; however, parsing logic is still
+          duplicated in some features
+
+   Proposal:
+   - Audit all tea parsing calls to ensure no features bypass tea-parser.js
+   - Consider splitting into focused modules:
+     - tea-parser-core.js - Equipment/buff detection
+     - tea-parser-efficiency.js - Efficiency/speed bonuses
+     - tea-parser-consumables.js - Tea/drink effects
+
+   Estimated Lines Saved: ~50 lines (enforcement of existing utility)
+   Risk Level: Low (audit + optional split)
+
+--------------------------------------------------------------------------------
+
+9. Extract Task Display Utilities
+   Target Files: task-profit-display.js (755 lines), task-icons.js (445 lines),
+                 task-reroll-tracker.js (435 lines)
+   Issue: Task card detection, icon injection, and overlay creation logic
+          duplicated across files
+
+   Proposed Module: utils/task-card-helper.js
+   Functions:
+   - findTaskCard(taskId) - Standard task card detection
+   - createTaskOverlay(content, options) - Consistent overlay injection
+   - getTaskDetails(card) - Parse task type, target, progress
+   - formatTaskReward(task) - Consistent reward display
+
+   Estimated Lines Saved: ~100 lines of querySelector duplication
+   Risk Level: Low (utility extraction)
+
+--------------------------------------------------------------------------------
+
+10. Standardize Settings Access Patterns
+    Current: Every feature accesses settings via config.getSettingValue() or
+             config.isFeatureEnabled()
+    Issue: No caching; settings checked on every render/calculation
+
+    Proposed Module: utils/settings-cache.js
+    Functions:
+    - getCachedSetting(key, defaultValue) - LRU cache with invalidation
+    - onSettingChange(key, callback) - Subscribe to setting updates
+    - invalidateSettingsCache() - Clear cache on settings change
+
+    Implementation Notes:
+    - Integrate with existing config.js
+    - Automatic cache invalidation on settings panel changes
+    - Max cache size: 50 entries (covers most active settings)
+
+    Estimated Performance Gain: ~80% reduction in redundant config lookups
+    Risk Level: Low (transparent caching layer)
+
+================================================================================
+LOW PRIORITY
+================================================================================
+
+11. Create Number Formatting Service
+    Current: formatters.js exists but not consistently used; ~15 files have
+             inline formatting
+    Issue: Currency formatting (K/M/B), time formatting, and percentage
+           formatting duplicated
+
+    Proposal: Expand formatters.js and enforce usage via code review
+    Functions to Add:
+    - formatCurrency(amount, options) - Consistent gold/coin display
+    - formatPercentage(value, decimals) - Consistent percentage formatting
+    - formatCompactNumber(value) - K/M/B notation
+
+    Estimated Lines Saved: ~80 lines
+    Risk Level: Low (utility expansion)
+
+--------------------------------------------------------------------------------
+
+12. Extract Tooltip Enhancement Utilities
+    Target Files: tooltip-prices.js (872 lines), tooltip-enhancement.js (641 lines),
+                  tooltip-consumables.js (422 lines)
+    Issue: Each tooltip type independently handles detection, content injection,
+           and cleanup
+
+    Proposed Module: utils/tooltip-helper.js
+    Functions:
+    - enhanceTooltip(tooltipElement, contentFn) - Standard tooltip enhancement
+    - findItemInTooltip(tooltip) - Extract item HRID from tooltip
+    - createTooltipSection(title, content) - Consistent section formatting
+    - waitForTooltip(selector) - Promise-based tooltip detection
+
+    Estimated Lines Saved: ~120 lines
+    Risk Level: Low (utility extraction)
+
+--------------------------------------------------------------------------------
+
+13. Consolidate Inventory Operations
+    Target Files: inventory-sort.js (734 lines), networth-calculator.js (614 lines)
+    Issue: Both files iterate inventory, calculate values, and sort/display items
+
+    Proposed Module: utils/inventory-helper.js
+    Functions:
+    - getInventoryItems(options) - Filtered inventory access
+    - calculateItemValue(item, pricingMode) - Enhanced item valuation
+    - sortInventory(items, sortMode) - Consistent sorting logic
+    - groupInventory(items, groupBy) - Group by category/type
+
+    Estimated Lines Saved: ~100 lines
+    Risk Level: Low (utility extraction)
+
+--------------------------------------------------------------------------------
+
+14. Extract Chart.js Integration
+    Current: Only dungeon-tracker-ui.js uses Chart.js (lines 1400-1600)
+    Issue: Chart configuration, color schemes, and update logic not reusable
+
+    Proposed Module: utils/chart-helper.js (create only if more features need charts)
+    Functions:
+    - createLineChart(canvas, data, options) - Consistent chart styling
+    - updateChartData(chart, newData) - Efficient data updates
+    - getChartColors(count) - Consistent color palette
+    - formatChartTooltip(context) - Custom tooltip formatting
+
+    Note: Defer until a second feature needs charts
+    Estimated Lines Saved: ~150 lines (when second chart feature added)
+    Risk Level: Low (premature at this point)
+
+--------------------------------------------------------------------------------
+
+15. Standardize WebSocket Event Handling
+    Target: 20+ features use dataManager.on('event', handler) patterns
+    Issue: No helper for common event patterns (cleanup, debouncing, filtering)
+
+    Proposed Module: utils/event-helper.js
+    Functions:
+    - createDebouncedHandler(fn, delay) - Debounced event handlers
+    - createEventSubscription(events, handler) - Multi-event subscription with cleanup
+    - filterEventData(data, conditions) - Conditional event handling
+    - createEventThrottler(fn, limit) - Throttled event handlers
+
+    Estimated Lines Saved: ~80 lines
+    Risk Level: Low (utility helpers)
+
+================================================================================
+SUMMARY METRICS
+================================================================================
+
+Estimated Total Lines Saved: ~1,500-2,000 lines (reduction of 4-6% of codebase)
+Number of New Utility Modules: 8-10 new files in src/utils/
+Files Requiring Refactoring: ~35 feature files would benefit
+Largest Impact Items: #1 (dungeon UI split), #3 (action panel helper),
+                      #4 (market data), #7 (profit service)
+Quickest Wins: #2 (React input), #5 (DOM observer), #11 (formatters)
+
+================================================================================
+IMPLEMENTATION STRATEGY
+================================================================================
+
+Phase 1 - Foundation (Quickest Wins)
+  - #2: Extract React Input Utility
+  - #5: Standardize DOM Observer Patterns
+  - #11: Create Number Formatting Service
+  Estimated Time: 2-3 days
+  Risk: Low
+
+Phase 2 - Core Utilities (High Impact)
+  - #3: Consolidate Action Panel Display Logic
+  - #4: Centralize Market Data Access
+  Estimated Time: 3-4 days
+  Risk: Low-Medium
+
+Phase 3 - Feature-Specific (Medium Impact)
+  - #6: Extract Shared Enhancement Calculation Logic
+  - #9: Extract Task Display Utilities
+  - #12: Extract Tooltip Enhancement Utilities
+  Estimated Time: 4-5 days
+  Risk: Medium
+
+Phase 4 - Complex Refactoring (Largest Impact)
+  - #1: Break Down Monolithic UI Files
+  - #7: Create Profit Calculation Service
+  Estimated Time: 5-7 days
+  Risk: Medium-High (requires extensive testing)
+
+Phase 5 - Optimization & Polish (Low Priority)
+  - #8: Consolidate Tea/Buff Parsing
+  - #10: Standardize Settings Access Patterns
+  - #13: Consolidate Inventory Operations
+  - #15: Standardize WebSocket Event Handling
+  Estimated Time: 3-4 days
+  Risk: Low
+
+Phase 6 - Defer (Only If Needed)
+  - #14: Extract Chart.js Integration (wait for second chart feature)
+
+Total Estimated Time: 17-23 days of focused development
+Recommended Approach: Tackle one phase at a time, with full testing after each
+
+================================================================================
+TESTING REQUIREMENTS
+================================================================================
+
+For Each Modularization:
+1. Unit tests for new utility modules
+2. Integration tests for refactored features
+3. Regression testing of all affected features
+4. Performance benchmarking (especially #4, #10)
+5. User acceptance testing of UI changes (#1)
+
+Critical Test Scenarios:
+- Action panel features (gathering, production, enhancement)
+- Market price calculations (profit displays, tooltips, networth)
+- Dungeon tracker (if #1 implemented)
+- Settings changes (cache invalidation for #10)
+- Character switching (all features)
+
+================================================================================
+RISKS & MITIGATION
+================================================================================
+
+Risk: Breaking existing features during refactoring
+Mitigation:
+  - Implement utilities first, refactor features second
+  - Keep old code commented during transition
+  - Extensive regression testing per phase
+
+Risk: Performance degradation from abstraction layers
+Mitigation:
+  - Benchmark before/after for #4 and #10
+  - Profile hot paths (action panels, tooltips)
+  - Use caching aggressively (#10)
+
+Risk: Incomplete adoption of new utilities
+Mitigation:
+  - Update all existing features to use new utilities
+  - Add eslint rules to enforce patterns
+  - Document utilities in code comments
+
+Risk: Merge conflicts if features are being actively developed
+Mitigation:
+  - Coordinate with active development
+  - Implement during stable periods
+  - Use feature branches for each phase
+
+================================================================================
+SUCCESS CRITERIA
+================================================================================
+
+1. Code Duplication: Reduce duplicated logic by 50%+ in target areas
+2. File Size: No single file exceeds 800 lines (currently 3 files >1,000 lines)
+3. Maintainability: New features require 20-30% less code due to utilities
+4. Performance: No degradation in action panel or tooltip rendering
+5. Test Coverage: All new utilities have >80% code coverage
+6. Developer Experience: Faster feature development with shared utilities
+
+================================================================================
+NOTES
+================================================================================
+
+- This plan was generated from a comprehensive codebase review
+- Proposals are based on actual duplication patterns found in the code
+- Line counts are estimates based on static analysis
+- Implementation order prioritizes impact vs. risk ratio
+- All proposals maintain backward compatibility during transition
+- Defer #14 (Chart.js) until a second feature needs charts
+
+================================================================================
+END OF DOCUMENT
+================================================================================

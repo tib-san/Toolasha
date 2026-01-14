@@ -9626,6 +9626,13 @@
                     }
                     // Clear existing displays to force refresh
                     this.clearDisplays();
+
+                    // Immediately re-process any visible tables
+                    // (DOM observer won't fire because table element didn't appear/disappear)
+                    const visibleTable = document.querySelector('[class*="MarketplacePanel_myListingsTable"]');
+                    if (visibleTable) {
+                        this.updateTable(visibleTable);
+                    }
                 }
             };
 
