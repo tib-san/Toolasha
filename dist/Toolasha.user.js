@@ -10068,6 +10068,7 @@
         constructor() {
             this.knownListings = []; // Array of {id, timestamp} sorted by id
             this.orderBooksCache = {}; // Cache of order book data from WebSocket
+            this.currentItemHrid = null; // Track current item from WebSocket
             this.unregisterWebSocket = null;
             this.unregisterObserver = null;
             this.storageKey = 'marketListingTimestamps';
@@ -10199,6 +10200,7 @@
                 if (data.marketItemOrderBooks) {
                     const itemHrid = data.marketItemOrderBooks.itemHrid;
                     this.orderBooksCache[itemHrid] = data.marketItemOrderBooks;
+                    this.currentItemHrid = itemHrid; // Track current item
 
                     // Clear processed flags to re-render with new data
                     document.querySelectorAll('.mwi-estimated-age-set').forEach(container => {
@@ -10310,6 +10312,7 @@
 
             // Get current item and order book data
             const currentItemHrid = this.getCurrentItemHrid();
+
             if (!currentItemHrid || !this.orderBooksCache[currentItemHrid]) {
                 return;
             }
@@ -10406,14 +10409,27 @@
          * @returns {string|null} Item HRID or null
          */
         getCurrentItemHrid() {
-            // Find the order book container
+            // PRIMARY: Check for current item element (same as RWI approach)
+            const currentItemElement = document.querySelector('.MarketplacePanel_currentItem__3ercC');
+            if (currentItemElement) {
+                const useElement = currentItemElement.querySelector('use');
+                if (useElement && useElement.href && useElement.href.baseVal) {
+                    const itemHrid = '/items/' + useElement.href.baseVal.split('#')[1];
+                    return itemHrid;
+                }
+            }
+
+            // SECONDARY: Use WebSocket tracked item
+            if (this.currentItemHrid) {
+                return this.currentItemHrid;
+            }
+
+            // TERTIARY: Try to find from YOUR listings in the order book
             const orderBookContainer = document.querySelector('[class*="MarketplacePanel_orderBooksContainer"]');
             if (!orderBookContainer) {
                 return null;
             }
 
-            // Try to find the current item from YOUR listings
-            // Match your listing from the order book against stored data
             const tables = orderBookContainer.querySelectorAll('table');
             for (const table of tables) {
                 const rows = table.querySelectorAll('tbody tr');
