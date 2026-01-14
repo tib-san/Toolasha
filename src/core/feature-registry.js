@@ -13,6 +13,7 @@ import marketFilter from '../features/market/market-filter.js';
 import autoFillPrice from '../features/market/auto-fill-price.js';
 import itemCountDisplay from '../features/market/item-count-display.js';
 import listingPriceDisplay from '../features/market/listing-price-display.js';
+import estimatedListingAge from '../features/market/estimated-listing-age.js';
 import { initActionPanelObserver } from '../features/actions/panel-observer.js';
 import actionTimeDisplay from '../features/actions/action-time-display.js';
 import quickInputButtons from '../features/actions/quick-input-buttons.js';
@@ -97,6 +98,13 @@ const featureRegistry = [
         category: 'Market',
         initialize: () => listingPriceDisplay.initialize(),
         async: false
+    },
+    {
+        key: 'market_showEstimatedListingAge',
+        name: 'Estimated Listing Age',
+        category: 'Market',
+        initialize: () => estimatedListingAge.initialize(),
+        async: true // Uses IndexedDB storage
     },
 
     // Action Features

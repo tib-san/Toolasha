@@ -1,11 +1,19 @@
 # Market Features Implementation Plan
 ## Ranged Way Idle → Toolasha Integration
 
+**Status Overview:**
+- ✅ **Feature 1: Visible Item Count** - IMPLEMENTED & WORKING
+- ❌ **Feature 2: Total Listing Funds** - NOT YET IMPLEMENTED (future)
+- ✅ **Feature 3: Individual Listing Price Display** - IMPLEMENTED & WORKING
+- ❌ **Feature 4: Listing Lifespan Display** - NOT YET IMPLEMENTED (future)
+
 This document provides detailed implementation specifications for porting market features from Ranged Way Idle into Toolasha.
 
 ---
 
 ## FEATURE 1: Visible Item Count in Market
+
+**✅ STATUS: IMPLEMENTED** - This feature is complete and working in `src/features/market/item-count-display.js`. We are not planning further updates at this time but keeping this documentation for potential future enhancements.
 
 **Description:** Display inventory counts on market item tiles/cards, showing how many of each item you own.
 
@@ -250,6 +258,8 @@ class ListingFundsSummary {
 
 ## FEATURE 3: Individual Listing Price Display
 
+**✅ STATUS: IMPLEMENTED** - This feature is complete and working in `src/features/market/listing-price-display.js`. We are not planning further updates at this time but keeping this documentation for potential future enhancements.
+
 **Description:** Show price per unit and total value for each active listing in your listings panel.
 
 **Technical Implementation:**
@@ -413,7 +423,35 @@ Add to `src/core/feature-registry.js`:
 
 ## Testing Checklist
 
-**For Each Feature:**
+**✅ FEATURE 1 (Item Count Display) - TESTED & WORKING:**
+- [x] Settings appear in Toolasha settings panel
+- [x] Settings persist after page refresh
+- [x] Feature works on initial page load
+- [x] Feature works when navigating to market after page load
+- [x] Updates occur when inventory/listings change
+- [x] No console errors
+- [x] Performance is acceptable (no lag)
+- [x] Disabling setting removes UI elements
+- [x] Works with existing Toolasha features (no conflicts)
+- [x] Opacity slider fixed and working correctly
+- [x] Tested with 0 items, 1 item, many items, equipped items, enhanced items
+
+**✅ FEATURE 3 (Listing Price Display) - TESTED & WORKING:**
+- [x] Settings appear in Toolasha settings panel
+- [x] Settings persist after page refresh
+- [x] Feature works on initial page load
+- [x] Feature works when navigating to market after page load
+- [x] Updates occur when inventory/listings change
+- [x] No console errors
+- [x] Performance is acceptable (no lag)
+- [x] Disabling setting removes UI elements
+- [x] Works with existing Toolasha features (no conflicts)
+- [x] K/M suffix parsing fixed (340K → 340,000)
+- [x] KMB formatting matches game UI
+- [x] Batch pricing optimization implemented
+- [x] Tested with very large numbers, partially filled listings
+
+**❌ FEATURE 2 (Listing Funds Summary) - NOT YET IMPLEMENTED:**
 - [ ] Settings appear in Toolasha settings panel
 - [ ] Settings persist after page refresh
 - [ ] Feature works on initial page load
@@ -423,12 +461,19 @@ Add to `src/core/feature-registry.js`:
 - [ ] Performance is acceptable (no lag)
 - [ ] Disabling setting removes UI elements
 - [ ] Works with existing Toolasha features (no conflicts)
+- [ ] Test with no listings, buy orders, sell orders, mixed, filled/unclaimed
 
-**Specific Tests:**
-- **Item Count:** Test with 0 items, 1 item, many items, equipped items, enhanced items
-- **Listing Funds:** Test with no listings, buy orders, sell orders, mixed, filled/unclaimed
-- **Listing Prices:** Test with very large numbers, very small numbers, partially filled
-- **Lifespan:** Test with brand new listings, old listings, across day boundaries
+**❌ FEATURE 4 (Lifespan Display) - NOT YET IMPLEMENTED:**
+- [ ] Settings appear in Toolasha settings panel
+- [ ] Settings persist after page refresh
+- [ ] Feature works on initial page load
+- [ ] Feature works when navigating to market after page load
+- [ ] Updates occur when inventory/listings change
+- [ ] No console errors
+- [ ] Performance is acceptable (no lag)
+- [ ] Disabling setting removes UI elements
+- [ ] Works with existing Toolasha features (no conflicts)
+- [ ] Test with brand new listings, old listings, across day boundaries
 
 ---
 
@@ -468,12 +513,10 @@ import { formatWithSeparator, formatKMB } from '../../utils/formatters.js';
 
 ## Implementation Order
 
-**Session 1: Core Market Info**
-1. Total Listing Funds Summary (easiest, high value)
-2. Individual Listing Price Display (builds on #1)
+**✅ Completed:**
+1. ✅ Feature #1: Visible Item Count in Market (`item-count-display.js`)
+2. ✅ Feature #3: Individual Listing Price Display (`listing-price-display.js`)
 
-**Session 2: Inventory Integration**
-3. Visible Item Count in Market (most complex, most requested)
-
-**Session 3: Polish**
-4. Listing Lifespan Display (quick enhancement to #2)
+**📋 Remaining:**
+3. ❌ Feature #2: Total Listing Funds Summary (easiest, high value - marked for future implementation)
+4. ❌ Feature #4: Listing Lifespan Display (quick enhancement to #3 - marked for future implementation)

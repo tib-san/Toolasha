@@ -198,6 +198,35 @@ export function coinFormatter(num) {
 }
 
 /**
+ * Format milliseconds as relative time
+ * @param {number} ageMs - Age in milliseconds
+ * @returns {string} Formatted relative time (e.g., "5m", "2h 30m", "3d 12h", "14d")
+ *
+ * @example
+ * formatRelativeTime(30000) // "Just now" (< 1 min)
+ * formatRelativeTime(300000) // "5m" (5 minutes)
+ * formatRelativeTime(7200000) // "2h 0m" (2 hours)
+ * formatRelativeTime(93600000) // "1d 2h" (26 hours)
+ * formatRelativeTime(864000000) // "10d" (10 days)
+ * formatRelativeTime(2678400000) // "30+ days" (31 days)
+ */
+export function formatRelativeTime(ageMs) {
+    const minutes = Math.floor(ageMs / 60000);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    // Edge cases
+    if (minutes < 1) return 'Just now';
+    if (days > 30) return '30+ days';
+
+    // Format based on age
+    if (days > 7) return `${days}d`;
+    if (days > 0) return `${days}d ${hours % 24}h`;
+    if (hours > 0) return `${hours}h ${minutes % 60}m`;
+    return `${minutes}m`;
+}
+
+/**
  * Format numbers for networth display with decimal precision
  * Uses 2 decimal places for better readability in detailed breakdowns
  * @param {number} num - The number to format

@@ -617,6 +617,45 @@ export const settingsGroups = {
                 max: 4,
                 dependencies: ['market_showListingPrices'],
                 help: 'Number of decimal places to show for listing prices'
+            },
+            market_showListingAge: {
+                id: 'market_showListingAge',
+                label: 'Market: Show listing age',
+                type: 'checkbox',
+                default: false,
+                dependencies: ['market_showListingPrices'],
+                help: 'Display how long ago each listing was created (e.g., "3h 45m")'
+            },
+            market_showEstimatedListingAge: {
+                id: 'market_showEstimatedListingAge',
+                label: 'Market: Show estimated age on order book',
+                type: 'checkbox',
+                default: false,
+                help: 'Estimates creation time for all market listings using listing ID interpolation'
+            },
+            market_listingAgeFormat: {
+                id: 'market_listingAgeFormat',
+                label: 'Market: Listing age display format',
+                type: 'select',
+                default: 'datetime',
+                options: [
+                    { value: 'elapsed', label: 'Elapsed Time (e.g., "3h 45m")' },
+                    { value: 'datetime', label: 'Date/Time (e.g., "01-13 14:30")' }
+                ],
+                dependencies: ['market_showEstimatedListingAge'],
+                help: 'Choose how to display listing creation times'
+            },
+            market_listingTimeFormat: {
+                id: 'market_listingTimeFormat',
+                label: 'Market: Time format for date/time display',
+                type: 'select',
+                default: '24hour',
+                options: [
+                    { value: '24hour', label: '24-hour (14:30)' },
+                    { value: '12hour', label: '12-hour (2:30 PM)' }
+                ],
+                dependencies: ['market_showEstimatedListingAge'],
+                help: 'Time format when using Date/Time display (only applies if Date/Time format is selected)'
             }
         }
     },

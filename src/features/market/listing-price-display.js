@@ -12,7 +12,7 @@ import domObserver from '../../core/dom-observer.js';
 import config from '../../core/config.js';
 import webSocketHook from '../../core/websocket.js';
 import marketAPI from '../../api/marketplace.js';
-import { coinFormatter } from '../../utils/formatters.js';
+import { coinFormatter, formatRelativeTime } from '../../utils/formatters.js';
 
 class ListingPriceDisplay {
     constructor() {
@@ -193,9 +193,20 @@ class ListingPriceDisplay {
         totalPriceHeader.classList.add('mwi-listing-price-header');
         totalPriceHeader.textContent = 'Total Price';
 
-        // Insert before 4th and 5th children (after item/type/quantity/price columns)
+        // Create "Listed" header (if setting enabled)
+        let listedHeader = null;
+        if (config.getSetting('market_showListingAge')) {
+            listedHeader = document.createElement('th');
+            listedHeader.classList.add('mwi-listing-price-header');
+            listedHeader.textContent = 'Listed';
+        }
+
+        // Insert headers (Listed goes last if present)
         thead.insertBefore(topOrderHeader, thead.children[4]);
         thead.insertBefore(totalPriceHeader, thead.children[5]);
+        if (listedHeader) {
+            thead.insertBefore(listedHeader, thead.children[6]);
+        }
     }
 
     /**
@@ -229,6 +240,7 @@ class ListingPriceDisplay {
                 row.dataset.price = matchedListing.price;
                 row.dataset.orderQuantity = matchedListing.orderQuantity;
                 row.dataset.filledQuantity = matchedListing.filledQuantity;
+                row.dataset.createdTimestamp = matchedListing.createdTimestamp;
             }
         }
     }
@@ -333,6 +345,12 @@ class ListingPriceDisplay {
             // Create Total Price cell
             const totalPriceCell = this.createTotalPriceCell(itemHrid, isSell, price, orderQuantity, filledQuantity);
             row.insertBefore(totalPriceCell, row.children[5]);
+
+            // Create Listed Age cell (if setting enabled)
+            if (config.getSetting('market_showListingAge') && dataset.createdTimestamp) {
+                const listedAgeCell = this.createListedAgeCell(dataset.createdTimestamp);
+                row.insertBefore(listedAgeCell, row.children[6]);
+            }
         }
     }
 
@@ -404,6 +422,30 @@ class ListingPriceDisplay {
 
         // Color based on amount
         span.style.color = this.getAmountColor(totalPrice);
+
+        cell.appendChild(span);
+        return cell;
+    }
+
+    /**
+     * Create Listed Age cell
+     * @param {string} createdTimestamp - ISO timestamp when listing was created
+     * @returns {HTMLElement} Table cell element
+     */
+    createListedAgeCell(createdTimestamp) {
+        const cell = document.createElement('td');
+        cell.classList.add('mwi-listing-price-cell');
+
+        const span = document.createElement('span');
+        span.classList.add('mwi-listing-price-value');
+
+        // Calculate age in milliseconds
+        const createdDate = new Date(createdTimestamp);
+        const ageMs = Date.now() - createdDate.getTime();
+
+        // Format relative time
+        span.textContent = formatRelativeTime(ageMs);
+        span.style.color = '#AAAAAA'; // Gray for time display
 
         cell.appendChild(span);
         return cell;

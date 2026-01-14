@@ -9,7 +9,7 @@ class Storage {
         this.db = null;
         this.available = false;
         this.dbName = 'ToolashaDB';
-        this.dbVersion = 6; // Bumped for unifiedRuns store
+        this.dbVersion = 7; // Bumped for marketListings store
         this.saveDebounceTimers = new Map(); // Per-key debounce timers
         this.SAVE_DEBOUNCE_DELAY = 3000; // 3 seconds
     }
@@ -79,6 +79,11 @@ class Storage {
                 // Create unifiedRuns store if it doesn't exist (for dungeon tracker unified storage)
                 if (!db.objectStoreNames.contains('unifiedRuns')) {
                     db.createObjectStore('unifiedRuns');
+                }
+
+                // Create marketListings store if it doesn't exist (for estimated listing ages)
+                if (!db.objectStoreNames.contains('marketListings')) {
+                    db.createObjectStore('marketListings');
                 }
             };
         });

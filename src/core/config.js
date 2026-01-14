@@ -90,6 +90,20 @@ class Config {
                 description: 'Shows EV for openable containers (crates, chests)',
                 settingKey: 'itemTooltip_expectedValue'
             },
+            market_showListingPrices: {
+                enabled: true,
+                name: 'Market Listing Price Display',
+                category: 'Market',
+                description: 'Shows top order price, total value, and listing age on My Listings',
+                settingKey: 'market_showListingPrices'
+            },
+            market_showEstimatedListingAge: {
+                enabled: true,
+                name: 'Estimated Listing Age',
+                category: 'Market',
+                description: 'Estimates creation time for all market listings using listing ID interpolation',
+                settingKey: 'market_showEstimatedListingAge'
+            },
 
             // Action Features
             actionTimeDisplay: {
