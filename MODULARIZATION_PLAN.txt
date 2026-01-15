@@ -39,23 +39,10 @@ HIGH PRIORITY
 
 --------------------------------------------------------------------------------
 
-3. Consolidate Action Panel Display Logic
-   Target Files: action-time-display.js (1,163 lines), quick-input-buttons.js
-                 (1,138 lines), enhancement-display.js (857 lines),
-                 profit-display.js (583 lines)
-   Issue: Each feature independently handles action panel detection, input
-          finding, and display injection
+✅ 3. Consolidate Action Panel Display Logic - COMPLETED (January 2026)
 
-   Proposed Module: utils/action-panel-helper.js
-   Functions:
-   - findActionInput(container) - Standard input detection
-   - injectBelowInput(container, element) - Standard injection point
-   - findActionOutputs(container) - Output slot detection
-   - getActionPanelType(container) - Detect gathering/production/combat
-
-   Files That Would Benefit: 11 action panel features
-   Estimated Lines Saved: ~400 lines of duplicated querySelector logic
-   Risk Level: Low (pure utility extraction)
+   COMPLETED: utils/action-panel-helper.js created
+   Files refactored: required-materials.js, output-totals.js
 
 --------------------------------------------------------------------------------
 
@@ -295,15 +282,16 @@ LOW PRIORITY
 SUMMARY METRICS
 ================================================================================
 
-COMPLETED: 2/15 items (13%)
+COMPLETED: 3/15 items (20%)
   ✅ #1: Break Down Monolithic UI Files (dungeon tracker split)
   ✅ #2: Extract React Input Utility
+  ✅ #3: Consolidate Action Panel Display Logic
 
-REMAINING: 13/15 items
+REMAINING: 12/15 items
 Estimated Total Lines Saved: ~1,500-2,000 lines (reduction of 4-6% of codebase)
 Number of New Utility Modules: 8-10 new files in src/utils/
 Files Requiring Refactoring: ~35 feature files would benefit
-Largest Impact Items: #3 (action panel helper), #4 (market data), #7 (profit service)
+Largest Impact Items: #4 (market data), #7 (profit service)
 Quickest Wins: #5 (DOM observer), #11 (formatters)
 
 ================================================================================
@@ -317,10 +305,10 @@ Phase 1 - Foundation (Quickest Wins) - 1/3 COMPLETE
   Estimated Time: 2-3 days remaining
   Risk: Low
 
-Phase 2 - Core Utilities (High Impact)
-  - #3: Consolidate Action Panel Display Logic
-  - #4: Centralize Market Data Access
-  Estimated Time: 3-4 days
+Phase 2 - Core Utilities (High Impact) - 1/2 COMPLETE
+  ✅ #3: Consolidate Action Panel Display Logic - DONE
+  - #4: Centralize Market Data Access - PENDING
+  Estimated Time: 1-2 days remaining
   Risk: Low-Medium
 
 Phase 3 - Feature-Specific (Medium Impact)
@@ -347,7 +335,7 @@ Phase 5 - Optimization & Polish (Low Priority)
 Phase 6 - Defer (Only If Needed)
   - #14: Extract Chart.js Integration (wait for second chart feature)
 
-Total Estimated Time: 12-18 days remaining (5-7 days already invested in #1 and #2)
+Total Estimated Time: 10-16 days remaining (7-9 days already invested in #1, #2, #3)
 Recommended Approach: Tackle one phase at a time, with full testing after each
 
 ================================================================================

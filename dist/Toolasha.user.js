@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.931
+// @version      0.4.932
 // @downloadURL  https://greasyfork.org/scripts/562662-toolasha/code/Toolasha.user.js
 // @updateURL    https://greasyfork.org/scripts/562662-toolasha/code/Toolasha.meta.js
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
@@ -33656,7 +33656,7 @@
         constructor() {
             this.config = config;
             this.settingsPanel = null;
-            this.unregisterSettingsObserver = null;
+            this.settingsObserver = null;
             this.currentSettings = {};
             this.isInjecting = false; // Guard against concurrent injection
         }
@@ -33665,8 +33665,10 @@
          * Initialize the settings UI
          */
         async initialize() {
-            // Inject CSS styles
-            this.injectStyles();
+            // Inject CSS styles (check if already injected)
+            if (!document.getElementById('toolasha-settings-styles')) {
+                this.injectStyles();
+            }
 
             // Load current settings
             this.currentSettings = await settingsStorage.loadSettings();
@@ -33686,27 +33688,57 @@
         }
 
         /**
-         * Observe for game's settings panel using centralized observer
+         * Observe for game's settings panel
+         * Uses MutationObserver to detect when settings panel appears
          */
         observeSettingsPanel() {
-            // Register with centralized DOM observer for settings panel detection
-            this.unregisterSettingsObserver = domObserver.onClass(
-                'SettingsUI-PanelDetection',
-                'SettingsPanel_tabsComponentContainer',
-                (tabsContainer) => {
-                    // Check if our tab already exists before injecting
-                    if (!tabsContainer.querySelector('#toolasha-settings-tab')) {
-                        this.injectSettingsTab();
-                    }
-                },
-                { debounce: true, debounceDelay: 100 }
-            );
+            // Wait for DOM to be ready before observing
+            const startObserver = () => {
+                if (!document.body) {
+                    setTimeout(startObserver, 10);
+                    return;
+                }
 
-            // Also check immediately in case settings is already open
-            const existingTabsContainer = document.querySelector('div[class*="SettingsPanel_tabsComponentContainer"]');
-            if (existingTabsContainer && !existingTabsContainer.querySelector('#toolasha-settings-tab')) {
-                this.injectSettingsTab();
-            }
+                const observer = new MutationObserver((mutations) => {
+                    // Look for the settings tabs container
+                    const tabsContainer = document.querySelector('div[class*="SettingsPanel_tabsComponentContainer"]');
+
+                    if (tabsContainer) {
+                        // Check if our tab already exists before injecting
+                        if (!tabsContainer.querySelector('#toolasha-settings-tab')) {
+                            this.injectSettingsTab();
+                        }
+                        // Keep observer running - panel might be removed/re-added if user navigates away and back
+                    }
+                });
+
+                // Observe the main game panel for changes
+                const gamePanel = document.querySelector('div[class*="GamePage_gamePanel"]');
+                if (gamePanel) {
+                    observer.observe(gamePanel, {
+                        childList: true,
+                        subtree: true
+                    });
+                } else {
+                    // Fallback: observe entire body if game panel not found (Firefox timing issue)
+                    console.warn('[Toolasha Settings] Could not find game panel, observing body instead');
+                    observer.observe(document.body, {
+                        childList: true,
+                        subtree: true
+                    });
+                }
+
+                // Store observer reference
+                this.settingsObserver = observer;
+
+                // Also check immediately in case settings is already open
+                const existingTabsContainer = document.querySelector('div[class*="SettingsPanel_tabsComponentContainer"]');
+                if (existingTabsContainer && !existingTabsContainer.querySelector('#toolasha-settings-tab')) {
+                    this.injectSettingsTab();
+                }
+            };
+
+            startObserver();
         }
 
         /**
@@ -33763,6 +33795,8 @@
 
                 // Store reference
                 this.settingsPanel = tabPanel;
+            } catch (error) {
+                console.error('[Toolasha Settings] Error during tab injection:', error);
             } finally {
                 // Always reset the guard flag
                 this.isInjecting = false;
@@ -34533,16 +34567,7 @@
                     setTimeout(async () => {
                         const failedFeatures = featureRegistry$1.checkFeatureHealth();
 
-                        // Also check settings tab health
-                        const settingsTabExists = document.querySelector('#toolasha-settings-tab');
-                        if (!settingsTabExists) {
-                            console.warn('[Toolasha] Settings tab not found, retrying settings UI initialization...');
-                            try {
-                                await settingsUI.initialize();
-                            } catch (error) {
-                                console.error('[Toolasha] Settings UI retry failed:', error);
-                            }
-                        }
+                        // Note: Settings tab health check removed - tab only appears when user opens settings panel
 
                         if (failedFeatures.length > 0) {
                             console.warn('[Toolasha] Health check found failed features:', failedFeatures.map(f => f.name));
@@ -34575,7 +34600,7 @@
         const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
         targetWindow.Toolasha = {
-            version: '0.4.931',
+            version: '0.4.932',
 
             // Feature toggle API (for users to manage settings via console)
             features: {

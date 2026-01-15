@@ -85,16 +85,7 @@ if (isCombatSimulatorPage()) {
                 setTimeout(async () => {
                     const failedFeatures = featureRegistry.checkFeatureHealth();
 
-                    // Also check settings tab health
-                    const settingsTabExists = document.querySelector('#toolasha-settings-tab');
-                    if (!settingsTabExists) {
-                        console.warn('[Toolasha] Settings tab not found, retrying settings UI initialization...');
-                        try {
-                            await settingsUI.initialize();
-                        } catch (error) {
-                            console.error('[Toolasha] Settings UI retry failed:', error);
-                        }
-                    }
+                    // Note: Settings tab health check removed - tab only appears when user opens settings panel
 
                     if (failedFeatures.length > 0) {
                         console.warn('[Toolasha] Health check found failed features:', failedFeatures.map(f => f.name));
@@ -127,7 +118,7 @@ if (isCombatSimulatorPage()) {
     const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
     targetWindow.Toolasha = {
-        version: '0.4.931',
+        version: '0.4.932',
 
         // Feature toggle API (for users to manage settings via console)
         features: {
