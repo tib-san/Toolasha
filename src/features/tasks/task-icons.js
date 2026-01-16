@@ -25,7 +25,6 @@ class TaskIcons {
         this.itemsByHrid = null;
         this.actionsByHrid = null;
         this.monstersByHrid = null;
-        this.locationsByHrid = null;
     }
 
     /**
@@ -76,13 +75,6 @@ class TaskIcons {
         if (gameData.combatMonsterDetailMap) {
             Object.entries(gameData.combatMonsterDetailMap).forEach(([hrid, monster]) => {
                 this.monstersByHrid.set(hrid, monster);
-            });
-        }
-
-        // Index locations (for dungeon info)
-        if (gameData.locationDetailMap) {
-            Object.entries(gameData.locationDetailMap).forEach(([hrid, location]) => {
-                this.locationsByHrid.set(hrid, location);
             });
         }
     }
@@ -329,59 +321,166 @@ class TaskIcons {
             return;
         }
 
-        const iconName = monsterHrid.split('/').pop();
-        this.addIconOverlay(taskCard, this.SPRITES.MONSTERS, iconName, 'monster', '50%');
-
-        // Also add dungeon icons if enabled and monster appears in dungeons
+        // Count dungeons if dungeon icons are enabled
+        let dungeonCount = 0;
         if (config.isFeatureEnabled('taskIconsDungeons')) {
-            this.addDungeonIcons(taskCard, monsterHrid);
+            dungeonCount = this.countDungeonsForMonster(monsterHrid);
+        }
+
+        // Calculate icon width based on total count (1 monster + N dungeons)
+        const totalIcons = 1 + dungeonCount;
+        let iconWidth;
+        if (totalIcons <= 2) {
+            iconWidth = 30;
+        } else if (totalIcons <= 4) {
+            iconWidth = 25;
+        } else {
+            iconWidth = 20;
+        }
+
+        // Position monster on the right (ends at 100%)
+        const monsterPosition = 100 - iconWidth;
+        const iconName = monsterHrid.split('/').pop();
+        this.addIconOverlay(taskCard, this.SPRITES.MONSTERS, iconName, 'monster', `${monsterPosition}%`, `${iconWidth}%`);
+
+        // Add dungeon icons if enabled
+        if (config.isFeatureEnabled('taskIconsDungeons') && dungeonCount > 0) {
+            this.addDungeonIcons(taskCard, monsterHrid, iconWidth);
         }
     }
 
     /**
-     * Add dungeon icons for a monster
+     * Count how many dungeons a monster appears in
      */
-    addDungeonIcons(taskCard, monsterHrid) {
-        const monster = this.monstersByHrid.get(monsterHrid);
-        if (!monster || !monster.combatDropTable) return;
+    countDungeonsForMonster(monsterHrid) {
+        let count = 0;
 
-        // Find which dungeon zones this monster appears in
-        const dungeonHrids = [];
+        for (const [actionHrid, action] of this.actionsByHrid) {
+            if (!action.combatZoneInfo?.isDungeon) continue;
 
-        for (const [locationHrid, location] of this.locationsByHrid) {
-            // Skip non-dungeon locations
-            if (!location.isDungeon) continue;
+            const dungeonInfo = action.combatZoneInfo.dungeonInfo;
+            if (!dungeonInfo) continue;
 
-            // Check if this location's monster drop table includes our monster
-            if (location.combatEncounterTable) {
-                for (const encounter of location.combatEncounterTable) {
-                    if (encounter.monsterHrid === monsterHrid) {
-                        dungeonHrids.push(locationHrid);
-                        break;
+            let monsterFound = false;
+
+            // Check random spawns
+            if (dungeonInfo.randomSpawnInfoMap) {
+                for (const waveSpawns of Object.values(dungeonInfo.randomSpawnInfoMap)) {
+                    if (waveSpawns.spawns) {
+                        for (const spawn of waveSpawns.spawns) {
+                            if (spawn.combatMonsterHrid === monsterHrid) {
+                                monsterFound = true;
+                                break;
+                            }
+                        }
                     }
+                    if (monsterFound) break;
                 }
+            }
+
+            // Check fixed spawns
+            if (!monsterFound && dungeonInfo.fixedSpawnsMap) {
+                for (const waveSpawns of Object.values(dungeonInfo.fixedSpawnsMap)) {
+                    for (const spawn of waveSpawns) {
+                        if (spawn.combatMonsterHrid === monsterHrid) {
+                            monsterFound = true;
+                            break;
+                        }
+                    }
+                    if (monsterFound) break;
+                }
+            }
+
+            if (monsterFound) {
+                count++;
             }
         }
 
-        // Add icon for each dungeon
-        let offset = 35; // Start after monster icon (which is at 5%)
+        return count;
+    }
+
+    /**
+     * Add dungeon icons for a monster
+     * @param {HTMLElement} taskCard - Task card element
+     * @param {string} monsterHrid - Monster HRID
+     * @param {number} iconWidth - Width percentage for each icon
+     */
+    addDungeonIcons(taskCard, monsterHrid, iconWidth) {
+        const monster = this.monstersByHrid.get(monsterHrid);
+        if (!monster) return;
+
+        // Find which dungeons this monster appears in
+        const dungeonHrids = [];
+
+        for (const [actionHrid, action] of this.actionsByHrid) {
+            // Skip non-dungeon actions
+            if (!action.combatZoneInfo?.isDungeon) continue;
+
+            const dungeonInfo = action.combatZoneInfo.dungeonInfo;
+            if (!dungeonInfo) continue;
+
+            let monsterFound = false;
+
+            // Check random spawns (regular waves)
+            if (dungeonInfo.randomSpawnInfoMap) {
+                for (const waveSpawns of Object.values(dungeonInfo.randomSpawnInfoMap)) {
+                    if (waveSpawns.spawns) {
+                        for (const spawn of waveSpawns.spawns) {
+                            if (spawn.combatMonsterHrid === monsterHrid) {
+                                monsterFound = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (monsterFound) break;
+                }
+            }
+
+            // Check fixed spawns (boss waves)
+            if (!monsterFound && dungeonInfo.fixedSpawnsMap) {
+                for (const waveSpawns of Object.values(dungeonInfo.fixedSpawnsMap)) {
+                    for (const spawn of waveSpawns) {
+                        if (spawn.combatMonsterHrid === monsterHrid) {
+                            monsterFound = true;
+                            break;
+                        }
+                    }
+                    if (monsterFound) break;
+                }
+            }
+
+            if (monsterFound) {
+                dungeonHrids.push(actionHrid);
+            }
+        }
+
+        // Position dungeons right-to-left, starting from left of monster
+        const monsterPosition = 100 - iconWidth;
+        let position = monsterPosition - iconWidth; // Start one icon to the left of monster
+
         dungeonHrids.forEach(dungeonHrid => {
             const iconName = dungeonHrid.split('/').pop();
-            this.addIconOverlay(taskCard, this.SPRITES.ACTIONS, iconName, 'dungeon', `${offset}%`);
-            offset += 30; // Each dungeon icon takes 30% width
+            this.addIconOverlay(taskCard, this.SPRITES.ACTIONS, iconName, 'dungeon', `${position}%`, `${iconWidth}%`);
+            position -= iconWidth; // Move left for next dungeon
         });
     }
 
     /**
      * Add icon overlay to task card
+     * @param {HTMLElement} taskCard - Task card element
+     * @param {string} spritePath - Path to sprite SVG
+     * @param {string} iconName - Icon name in sprite
+     * @param {string} type - Icon type (action/monster/dungeon)
+     * @param {string} leftPosition - Left position percentage
+     * @param {string} widthPercent - Width percentage (default: '30%')
      */
-    addIconOverlay(taskCard, spritePath, iconName, type, leftPosition = '50%') {
+    addIconOverlay(taskCard, spritePath, iconName, type, leftPosition = '50%', widthPercent = '30%') {
         // Create container for icon
         const iconDiv = document.createElement('div');
         iconDiv.className = `mwi-task-icon mwi-task-icon-${type}`;
         iconDiv.style.position = 'absolute';
         iconDiv.style.left = leftPosition;
-        iconDiv.style.width = '30%';
+        iconDiv.style.width = widthPercent;
         iconDiv.style.height = '100%';
         iconDiv.style.opacity = '0.3';
         iconDiv.style.pointerEvents = 'none';
