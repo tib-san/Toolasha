@@ -27,7 +27,7 @@ const REGEX_COMMA = /,/g;
  * @returns {string} Formatted number
  */
 function formatTooltipPrice(num) {
-    const useKMB = config.getSetting('itemTooltip_useKMBFormat');
+    const useKMB = config.getSetting('formatting_useKMBFormat');
     return useKMB ? networthFormatter(num) : numberFormatter(num);
 }
 
@@ -180,14 +180,14 @@ class TooltipPrices {
             return; // Skip price/profit display for containers
         }
 
-        // Get market price (for base item, enhancement level 0)
-        const price = marketAPI.getPrice(itemHrid, 0);
-
         // Only check enhancement level for regular item tooltips (not collection tooltips)
         let enhancementLevel = 0;
         if (isItemTooltip && !isCollectionTooltip) {
             enhancementLevel = this.extractEnhancementLevel(tooltipElement);
         }
+
+        // Get market price for the specific enhancement level (0 for base items, 1-20 for enhanced)
+        const price = marketAPI.getPrice(itemHrid, enhancementLevel);
 
         // Inject price display only if we have market data
         if (price && (price.ask > 0 || price.bid > 0)) {

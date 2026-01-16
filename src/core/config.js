@@ -208,6 +208,13 @@ class Config {
                 description: 'Shows XP progress percentage in left sidebar',
                 settingKey: 'expPercentage'
             },
+            largeNumberFormatting: {
+                enabled: true,
+                name: 'Use K/M/B Number Formatting',
+                category: 'UI',
+                description: 'Display large numbers as 1.5M instead of 1,500,000',
+                settingKey: 'formatting_useKMBFormat'
+            },
 
             // Task Features
             taskProfitDisplay: {

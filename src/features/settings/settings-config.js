@@ -110,14 +110,6 @@ export const settingsGroups = {
                 type: 'checkbox',
                 default: true
             },
-            itemTooltip_useKMBFormat: {
-                id: 'itemTooltip_useKMBFormat',
-                label: 'Use KMB format for prices (1.23M instead of 1,234,567)',
-                type: 'checkbox',
-                default: false,
-                dependencies: ['itemTooltip_prices'],
-                help: 'Display large numbers in item tooltips using K/M/B abbreviations with 2 decimal places'
-            },
             itemTooltip_profit: {
                 id: 'itemTooltip_profit',
                 label: 'Show production cost and profit',
@@ -548,6 +540,13 @@ export const settingsGroups = {
         title: 'UI Enhancements',
         icon: '🎨',
         settings: {
+            formatting_useKMBFormat: {
+                id: 'formatting_useKMBFormat',
+                label: 'Use K/M/B number formatting (e.g., 1.5M instead of 1,500,000)',
+                type: 'checkbox',
+                default: true,
+                help: 'Applies to tooltips, action panels, profit displays, and all number formatting throughout the UI'
+            },
             expPercentage: {
                 id: 'expPercentage',
                 label: 'Left sidebar: Show skill XP percentages',

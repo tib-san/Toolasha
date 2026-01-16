@@ -3,6 +3,8 @@
  * Pure functions for formatting numbers and time
  */
 
+import config from '../core/config.js';
+
 /**
  * Format numbers with thousand separators
  * @param {number} num - The number to format
@@ -330,4 +332,25 @@ export function formatCurrency(amount, options = {}) {
  */
 export function formatCompactNumber(value, decimals = 1) {
     return formatKMB(value, decimals);
+}
+
+/**
+ * Format large numbers based on user preference
+ * Uses K/M/B notation or full numbers depending on setting
+ * @param {number} value - The number to format
+ * @param {number} decimals - Number of decimal places for K/M/B format (default: 1)
+ * @returns {string} Formatted number (e.g., "1.5M" or "1,500,000")
+ *
+ * @example
+ * // With K/M/B enabled (default)
+ * formatLargeNumber(1500000) // "1.5M"
+ * formatLargeNumber(2300) // "2.3K"
+ *
+ * // With K/M/B disabled
+ * formatLargeNumber(1500000) // "1,500,000"
+ * formatLargeNumber(2300) // "2,300"
+ */
+export function formatLargeNumber(value, decimals = 1) {
+    const useAbbreviations = config.getSetting('formatting_useKMBFormat') !== false;
+    return useAbbreviations ? formatKMB(value, decimals) : formatWithSeparator(value);
 }

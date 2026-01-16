@@ -500,11 +500,11 @@ class DungeonTrackerUI {
             headerRuns.textContent = stats.totalRuns.toString();
         }
 
-        // Update header keys (always visible)
+        // Update header keys (always visible) - show current key count from current run
         const headerKeys = this.container.querySelector('#mwi-dt-header-keys');
         if (headerKeys) {
-            const selfKeyCount = (run.keyCountsMap && run.keyCountsMap[characterName]) || 0;
-            headerKeys.textContent = selfKeyCount.toLocaleString();
+            const currentKeys = (run.keyCountsMap && run.keyCountsMap[characterName]) || 0;
+            headerKeys.textContent = currentKeys.toLocaleString();
         }
 
         // Update run-level stats in content area (2x2 grid)

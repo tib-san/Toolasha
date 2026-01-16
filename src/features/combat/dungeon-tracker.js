@@ -1019,24 +1019,37 @@ class DungeonTracker {
             slowestWave,
             wavesCompleted: completedRunData.wavesCompleted,
             waveTimes: completedWaveTimes,
-            keyCountMessages: completedKeyCountMessages  // Store key data for history
+            keyCountMessages: completedKeyCountMessages,  // Store key data for history
+            keyCountsMap: completedRunData.keyCountsMap  // Include for backward compatibility
         };
 
-        // Phase 5: Run history is now built exclusively from party chat messages
-        // by dungeon-tracker-chat-annotations.js (saveRunsFromEvents method).
-        //
-        // This approach uses server-provided chat timestamps instead of wall-clock time,
-        // which prevents hibernation-corrupted durations (e.g., 625-minute runs when
-        // the computer sleeps mid-dungeon).
-        //
-        // WebSocket tracking is still active for live UI features:
-        // - Elapsed time display
-        // - Wave counter
-        // - Progress bar
-        // - Key counts display
-        //
-        // But we NO LONGER save runs to storage from WebSocket events.
-        // Chat message parsing is the single source of truth for historical run data.
+        // Auto-save completed run to history if we have complete data
+        // Only saves runs completed during live tracking (Option A)
+        if (validated && completedRunData.keyCountsMap && completedRunData.dungeonHrid) {
+            try {
+                // Extract team from keyCountsMap
+                const team = Object.keys(completedRunData.keyCountsMap).sort();
+                const teamKey = dungeonTrackerStorage.getTeamKey(team);
+
+                // Get dungeon name from HRID
+                const dungeonInfo = dungeonTrackerStorage.getDungeonInfo(completedRunData.dungeonHrid);
+                const dungeonName = dungeonInfo ? dungeonInfo.name : 'Unknown';
+
+                // Build run object in unified format
+                const runToSave = {
+                    timestamp: new Date(firstTimestamp).toISOString(),  // Use party message timestamp
+                    duration: partyMessageDuration,  // Server-validated duration
+                    dungeonName: dungeonName,
+                    keyCountsMap: completedRunData.keyCountsMap  // Include key counts
+                };
+
+                // Save to database (with duplicate detection)
+                await dungeonTrackerStorage.saveTeamRun(teamKey, runToSave);
+                console.log('[Dungeon Tracker] Auto-saved completed run to history');
+            } catch (error) {
+                console.error('[Dungeon Tracker] Failed to auto-save run:', error);
+            }
+        }
 
         // Notify completion
         this.notifyCompletion(completedRun);

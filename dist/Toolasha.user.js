@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.935
+// @version      0.4.936
 // @downloadURL  https://greasyfork.org/scripts/562662-toolasha/code/Toolasha.user.js
 // @updateURL    https://greasyfork.org/scripts/562662-toolasha/code/Toolasha.meta.js
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
@@ -476,14 +476,6 @@
                     type: 'checkbox',
                     default: true
                 },
-                itemTooltip_useKMBFormat: {
-                    id: 'itemTooltip_useKMBFormat',
-                    label: 'Use KMB format for prices (1.23M instead of 1,234,567)',
-                    type: 'checkbox',
-                    default: false,
-                    dependencies: ['itemTooltip_prices'],
-                    help: 'Display large numbers in item tooltips using K/M/B abbreviations with 2 decimal places'
-                },
                 itemTooltip_profit: {
                     id: 'itemTooltip_profit',
                     label: 'Show production cost and profit',
@@ -914,6 +906,13 @@
             title: 'UI Enhancements',
             icon: '🎨',
             settings: {
+                formatting_useKMBFormat: {
+                    id: 'formatting_useKMBFormat',
+                    label: 'Use K/M/B number formatting (e.g., 1.5M instead of 1,500,000)',
+                    type: 'checkbox',
+                    default: true,
+                    help: 'Applies to tooltips, action panels, profit displays, and all number formatting throughout the UI'
+                },
                 expPercentage: {
                     id: 'expPercentage',
                     label: 'Left sidebar: Show skill XP percentages',
@@ -1555,6 +1554,13 @@
                     category: 'UI',
                     description: 'Shows XP progress percentage in left sidebar',
                     settingKey: 'expPercentage'
+                },
+                largeNumberFormatting: {
+                    enabled: true,
+                    name: 'Use K/M/B Number Formatting',
+                    category: 'UI',
+                    description: 'Display large numbers as 1.5M instead of 1,500,000',
+                    settingKey: 'formatting_useKMBFormat'
                 },
 
                 // Task Features
@@ -4364,6 +4370,7 @@
      * Pure functions for formatting numbers and time
      */
 
+
     /**
      * Format numbers with thousand separators
      * @param {number} num - The number to format
@@ -4642,6 +4649,27 @@
         }
 
         return (value * 100).toFixed(decimals) + '%';
+    }
+
+    /**
+     * Format large numbers based on user preference
+     * Uses K/M/B notation or full numbers depending on setting
+     * @param {number} value - The number to format
+     * @param {number} decimals - Number of decimal places for K/M/B format (default: 1)
+     * @returns {string} Formatted number (e.g., "1.5M" or "1,500,000")
+     *
+     * @example
+     * // With K/M/B enabled (default)
+     * formatLargeNumber(1500000) // "1.5M"
+     * formatLargeNumber(2300) // "2.3K"
+     *
+     * // With K/M/B disabled
+     * formatLargeNumber(1500000) // "1,500,000"
+     * formatLargeNumber(2300) // "2,300"
+     */
+    function formatLargeNumber(value, decimals = 1) {
+        const useAbbreviations = config.getSetting('formatting_useKMBFormat') !== false;
+        return useAbbreviations ? formatKMB(value, decimals) : formatWithSeparator(value);
     }
 
     /**
@@ -7873,7 +7901,7 @@
      * @returns {string} Formatted number
      */
     function formatTooltipPrice(num) {
-        const useKMB = config.getSetting('itemTooltip_useKMBFormat');
+        const useKMB = config.getSetting('formatting_useKMBFormat');
         return useKMB ? networthFormatter(num) : numberFormatter(num);
     }
 
@@ -8026,14 +8054,14 @@
                 return; // Skip price/profit display for containers
             }
 
-            // Get market price (for base item, enhancement level 0)
-            const price = marketAPI.getPrice(itemHrid, 0);
-
             // Only check enhancement level for regular item tooltips (not collection tooltips)
             let enhancementLevel = 0;
             if (isItemTooltip && !isCollectionTooltip) {
                 enhancementLevel = this.extractEnhancementLevel(tooltipElement);
             }
+
+            // Get market price for the specific enhancement level (0 for base items, 1-20 for enhanced)
+            const price = marketAPI.getPrice(itemHrid, enhancementLevel);
 
             // Inject price display only if we have market data
             if (price && (price.ask > 0 || price.bid > 0)) {
@@ -11883,14 +11911,14 @@
         const profitPerDay = Math.round(profitData.profitPerDay);
         const revenue = Math.round(profitData.revenuePerHour);
         const costs = Math.round(profitData.drinkCostPerHour);
-        const summary = `${formatWithSeparator(profit)}/hr, ${formatWithSeparator(profitPerDay)}/day`;
+        const summary = `${formatLargeNumber(profit)}/hr, ${formatLargeNumber(profitPerDay)}/day`;
 
         // ===== Build Detailed Breakdown Content =====
         const detailsContent = document.createElement('div');
 
         // Revenue Section
         const revenueDiv = document.createElement('div');
-        revenueDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY}); margin-bottom: 4px;">Revenue: ${formatWithSeparator(revenue)}/hr</div>`;
+        revenueDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY}); margin-bottom: 4px;">Revenue: ${formatLargeNumber(revenue)}/hr</div>`;
 
         // Base Output subsection
         const baseOutputContent = document.createElement('div');
@@ -11903,9 +11931,9 @@
                 // Show processing percentage for processed items
                 if (output.isProcessed && output.processingChance) {
                     const processingPercent = formatPercentage(output.processingChance, 1);
-                    line.textContent = `• ${output.name}: (${processingPercent}) ${output.itemsPerHour.toFixed(decimals)}/hr @ ${formatWithSeparator(output.priceEach)} each → ${formatWithSeparator(Math.round(output.revenuePerHour))}/hr`;
+                    line.textContent = `• ${output.name}: (${processingPercent}) ${output.itemsPerHour.toFixed(decimals)}/hr @ ${formatWithSeparator(output.priceEach)} each → ${formatLargeNumber(Math.round(output.revenuePerHour))}/hr`;
                 } else {
-                    line.textContent = `• ${output.name}: ${output.itemsPerHour.toFixed(decimals)}/hr @ ${formatWithSeparator(output.priceEach)} each → ${formatWithSeparator(Math.round(output.revenuePerHour))}/hr`;
+                    line.textContent = `• ${output.name}: ${output.itemsPerHour.toFixed(decimals)}/hr @ ${formatWithSeparator(output.priceEach)} each → ${formatLargeNumber(Math.round(output.revenuePerHour))}/hr`;
                 }
 
                 baseOutputContent.appendChild(line);
@@ -11915,7 +11943,7 @@
         const baseRevenue = profitData.baseOutputs?.reduce((sum, o) => sum + o.revenuePerHour, 0) || 0;
         const baseOutputSection = createCollapsibleSection(
             '',
-            `Base Output: ${formatWithSeparator(Math.round(baseRevenue))}/hr (${profitData.baseOutputs?.length || 0} item${profitData.baseOutputs?.length !== 1 ? 's' : ''})`,
+            `Base Output: ${formatLargeNumber(Math.round(baseRevenue))}/hr (${profitData.baseOutputs?.length || 0} item${profitData.baseOutputs?.length !== 1 ? 's' : ''})`,
             null,
             baseOutputContent,
             false,
@@ -11936,7 +11964,7 @@
                 const line = document.createElement('div');
                 line.style.marginLeft = '8px';
                 const dropRatePct = formatPercentage(drop.dropRate, drop.dropRate < 0.01 ? 3 : 2);
-                line.textContent = `• ${drop.itemName}: ${drop.dropsPerHour.toFixed(decimals)}/hr (${dropRatePct}) → ${formatWithSeparator(Math.round(drop.revenuePerHour))}/hr`;
+                line.textContent = `• ${drop.itemName}: ${drop.dropsPerHour.toFixed(decimals)}/hr (${dropRatePct}) → ${formatLargeNumber(Math.round(drop.revenuePerHour))}/hr`;
                 essenceContent.appendChild(line);
             }
 
@@ -11944,7 +11972,7 @@
             const essenceFindBonus = profitData.bonusRevenue?.essenceFindBonus || 0;
             essenceSection = createCollapsibleSection(
                 '',
-                `Essence Drops: ${formatWithSeparator(Math.round(essenceRevenue))}/hr (${essenceDrops.length} item${essenceDrops.length !== 1 ? 's' : ''}, ${essenceFindBonus.toFixed(1)}% essence find)`,
+                `Essence Drops: ${formatLargeNumber(Math.round(essenceRevenue))}/hr (${essenceDrops.length} item${essenceDrops.length !== 1 ? 's' : ''}, ${essenceFindBonus.toFixed(1)}% essence find)`,
                 null,
                 essenceContent,
                 false,
@@ -11961,7 +11989,7 @@
                 const line = document.createElement('div');
                 line.style.marginLeft = '8px';
                 const dropRatePct = formatPercentage(drop.dropRate, drop.dropRate < 0.01 ? 3 : 2);
-                line.textContent = `• ${drop.itemName}: ${drop.dropsPerHour.toFixed(decimals)}/hr (${dropRatePct}) → ${formatWithSeparator(Math.round(drop.revenuePerHour))}/hr`;
+                line.textContent = `• ${drop.itemName}: ${drop.dropsPerHour.toFixed(decimals)}/hr (${dropRatePct}) → ${formatLargeNumber(Math.round(drop.revenuePerHour))}/hr`;
                 rareFindContent.appendChild(line);
             }
 
@@ -11969,7 +11997,7 @@
             const rareFindBonus = profitData.bonusRevenue?.rareFindBonus || 0;
             rareFindSection = createCollapsibleSection(
                 '',
-                `Rare Finds: ${formatWithSeparator(Math.round(rareFindRevenue))}/hr (${rareFinds.length} item${rareFinds.length !== 1 ? 's' : ''}, ${rareFindBonus.toFixed(1)}% rare find)`,
+                `Rare Finds: ${formatLargeNumber(Math.round(rareFindRevenue))}/hr (${rareFinds.length} item${rareFinds.length !== 1 ? 's' : ''}, ${rareFindBonus.toFixed(1)}% rare find)`,
                 null,
                 rareFindContent,
                 false,
@@ -11987,7 +12015,7 @@
 
         // Costs Section
         const costsDiv = document.createElement('div');
-        costsDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY}); margin-top: 12px; margin-bottom: 4px;">Costs: ${formatWithSeparator(costs)}/hr</div>`;
+        costsDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY}); margin-top: 12px; margin-bottom: 4px;">Costs: ${formatLargeNumber(costs)}/hr</div>`;
 
         // Drink Costs subsection
         const drinkCostsContent = document.createElement('div');
@@ -11995,7 +12023,7 @@
             for (const drink of profitData.drinkCosts) {
                 const line = document.createElement('div');
                 line.style.marginLeft = '8px';
-                line.textContent = `• ${drink.name}: ${drink.drinksPerHour.toFixed(1)}/hr @ ${formatWithSeparator(drink.priceEach)} → ${formatWithSeparator(Math.round(drink.costPerHour))}/hr`;
+                line.textContent = `• ${drink.name}: ${drink.drinksPerHour.toFixed(1)}/hr @ ${formatWithSeparator(drink.priceEach)} → ${formatLargeNumber(Math.round(drink.costPerHour))}/hr`;
                 drinkCostsContent.appendChild(line);
             }
         }
@@ -12003,7 +12031,7 @@
         const drinkCount = profitData.drinkCosts?.length || 0;
         const drinkCostsSection = createCollapsibleSection(
             '',
-            `Drink Costs: ${formatWithSeparator(costs)}/hr (${drinkCount} drink${drinkCount !== 1 ? 's' : ''})`,
+            `Drink Costs: ${formatLargeNumber(costs)}/hr (${drinkCount} drink${drinkCount !== 1 ? 's' : ''})`,
             null,
             drinkCostsContent,
             false,
@@ -12077,7 +12105,7 @@
         color: ${profitColor};
         margin-bottom: 8px;
     `;
-        netProfitLine.textContent = `Net Profit: ${formatWithSeparator(profit)}/hr, ${formatWithSeparator(profitPerDay)}/day`;
+        netProfitLine.textContent = `Net Profit: ${formatLargeNumber(profit)}/hr, ${formatLargeNumber(profitPerDay)}/day`;
         topLevelContent.appendChild(netProfitLine);
 
         const detailedBreakdownSection = createCollapsibleSection(
@@ -12164,20 +12192,20 @@
         const bonusRevenueTotal = profitData.bonusRevenue?.totalBonusRevenue || 0;
         const revenue = Math.round(profitData.itemsPerHour * profitData.priceAfterTax + profitData.gourmetBonusItems * profitData.priceAfterTax + bonusRevenueTotal);
         const costs = Math.round(profitData.materialCostPerHour + profitData.totalTeaCostPerHour);
-        const summary = `${formatWithSeparator(profit)}/hr, ${formatWithSeparator(profitPerDay)}/day`;
+        const summary = `${formatLargeNumber(profit)}/hr, ${formatLargeNumber(profitPerDay)}/day`;
 
         // ===== Build Detailed Breakdown Content =====
         const detailsContent = document.createElement('div');
 
         // Revenue Section
         const revenueDiv = document.createElement('div');
-        revenueDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY}); margin-bottom: 4px;">Revenue: ${formatWithSeparator(revenue)}/hr</div>`;
+        revenueDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY}); margin-bottom: 4px;">Revenue: ${formatLargeNumber(revenue)}/hr</div>`;
 
         // Base Output subsection
         const baseOutputContent = document.createElement('div');
         const baseOutputLine = document.createElement('div');
         baseOutputLine.style.marginLeft = '8px';
-        baseOutputLine.textContent = `• Base Output: ${profitData.itemsPerHour.toFixed(1)}/hr @ ${formatWithSeparator(Math.round(profitData.priceAfterTax))} each → ${formatWithSeparator(Math.round(profitData.itemsPerHour * profitData.priceAfterTax))}/hr`;
+        baseOutputLine.textContent = `• Base Output: ${profitData.itemsPerHour.toFixed(1)}/hr @ ${formatWithSeparator(Math.round(profitData.priceAfterTax))} each → ${formatLargeNumber(Math.round(profitData.itemsPerHour * profitData.priceAfterTax))}/hr`;
         baseOutputContent.appendChild(baseOutputLine);
 
         const baseRevenue = profitData.itemsPerHour * profitData.priceAfterTax;
@@ -12196,13 +12224,13 @@
             const gourmetContent = document.createElement('div');
             const gourmetLine = document.createElement('div');
             gourmetLine.style.marginLeft = '8px';
-            gourmetLine.textContent = `• Gourmet Bonus: ${profitData.gourmetBonusItems.toFixed(1)}/hr @ ${formatWithSeparator(Math.round(profitData.priceAfterTax))} each → ${formatWithSeparator(Math.round(profitData.gourmetBonusItems * profitData.priceAfterTax))}/hr`;
+            gourmetLine.textContent = `• Gourmet Bonus: ${profitData.gourmetBonusItems.toFixed(1)}/hr @ ${formatWithSeparator(Math.round(profitData.priceAfterTax))} each → ${formatLargeNumber(Math.round(profitData.gourmetBonusItems * profitData.priceAfterTax))}/hr`;
             gourmetContent.appendChild(gourmetLine);
 
             const gourmetRevenue = profitData.gourmetBonusItems * profitData.priceAfterTax;
             gourmetSection = createCollapsibleSection(
                 '',
-                `Gourmet Bonus: ${formatWithSeparator(Math.round(gourmetRevenue))}/hr (${formatPercentage(profitData.gourmetBonus, 1)} gourmet)`,
+                `Gourmet Bonus: ${formatLargeNumber(Math.round(gourmetRevenue))}/hr (${formatPercentage(profitData.gourmetBonus, 1)} gourmet)`,
                 null,
                 gourmetContent,
                 false,
@@ -12229,7 +12257,7 @@
                 const line = document.createElement('div');
                 line.style.marginLeft = '8px';
                 const dropRatePct = formatPercentage(drop.dropRate, drop.dropRate < 0.01 ? 3 : 2);
-                line.textContent = `• ${drop.itemName}: ${drop.dropsPerHour.toFixed(decimals)}/hr (${dropRatePct}) → ${formatWithSeparator(Math.round(drop.revenuePerHour))}/hr`;
+                line.textContent = `• ${drop.itemName}: ${drop.dropsPerHour.toFixed(decimals)}/hr (${dropRatePct}) → ${formatLargeNumber(Math.round(drop.revenuePerHour))}/hr`;
                 essenceContent.appendChild(line);
             }
 
@@ -12237,7 +12265,7 @@
             const essenceFindBonus = profitData.bonusRevenue?.essenceFindBonus || 0;
             essenceSection = createCollapsibleSection(
                 '',
-                `Essence Drops: ${formatWithSeparator(Math.round(essenceRevenue))}/hr (${essenceDrops.length} item${essenceDrops.length !== 1 ? 's' : ''}, ${essenceFindBonus.toFixed(1)}% essence find)`,
+                `Essence Drops: ${formatLargeNumber(Math.round(essenceRevenue))}/hr (${essenceDrops.length} item${essenceDrops.length !== 1 ? 's' : ''}, ${essenceFindBonus.toFixed(1)}% essence find)`,
                 null,
                 essenceContent,
                 false,
@@ -12254,7 +12282,7 @@
                 const line = document.createElement('div');
                 line.style.marginLeft = '8px';
                 const dropRatePct = formatPercentage(drop.dropRate, drop.dropRate < 0.01 ? 3 : 2);
-                line.textContent = `• ${drop.itemName}: ${drop.dropsPerHour.toFixed(decimals)}/hr (${dropRatePct}) → ${formatWithSeparator(Math.round(drop.revenuePerHour))}/hr`;
+                line.textContent = `• ${drop.itemName}: ${drop.dropsPerHour.toFixed(decimals)}/hr (${dropRatePct}) → ${formatLargeNumber(Math.round(drop.revenuePerHour))}/hr`;
                 rareFindContent.appendChild(line);
             }
 
@@ -12262,7 +12290,7 @@
             const rareFindBonus = profitData.bonusRevenue?.rareFindBonus || 0;
             rareFindSection = createCollapsibleSection(
                 '',
-                `Rare Finds: ${formatWithSeparator(Math.round(rareFindRevenue))}/hr (${rareFinds.length} item${rareFinds.length !== 1 ? 's' : ''}, ${rareFindBonus.toFixed(1)}% rare find)`,
+                `Rare Finds: ${formatLargeNumber(Math.round(rareFindRevenue))}/hr (${rareFinds.length} item${rareFinds.length !== 1 ? 's' : ''}, ${rareFindBonus.toFixed(1)}% rare find)`,
                 null,
                 rareFindContent,
                 false,
@@ -12279,7 +12307,7 @@
 
         // Costs Section
         const costsDiv = document.createElement('div');
-        costsDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY}); margin-top: 12px; margin-bottom: 4px;">Costs: ${formatWithSeparator(costs)}/hr</div>`;
+        costsDiv.innerHTML = `<div style="font-weight: 500; color: var(--text-color-primary, ${config.COLOR_TEXT_PRIMARY}); margin-top: 12px; margin-bottom: 4px;">Costs: ${formatLargeNumber(costs)}/hr</div>`;
 
         // Material Costs subsection
         const materialCostsContent = document.createElement('div');
@@ -12300,7 +12328,7 @@
                     materialText += ` (${baseAmountPerHour.toFixed(1)} base -${formatPercentage(profitData.artisanBonus, 1)} 🍵)`;
                 }
 
-                materialText += ` @ ${formatWithSeparator(Math.round(material.askPrice))} → ${formatWithSeparator(Math.round(material.totalCost * profitData.actionsPerHour))}/hr`;
+                materialText += ` @ ${formatWithSeparator(Math.round(material.askPrice))} → ${formatLargeNumber(Math.round(material.totalCost * profitData.actionsPerHour))}/hr`;
 
                 line.textContent = materialText;
                 materialCostsContent.appendChild(line);
@@ -12309,7 +12337,7 @@
 
         const materialCostsSection = createCollapsibleSection(
             '',
-            `Material Costs: ${formatWithSeparator(Math.round(profitData.materialCostPerHour))}/hr (${profitData.materialCosts?.length || 0} material${profitData.materialCosts?.length !== 1 ? 's' : ''})`,
+            `Material Costs: ${formatLargeNumber(Math.round(profitData.materialCostPerHour))}/hr (${profitData.materialCosts?.length || 0} material${profitData.materialCosts?.length !== 1 ? 's' : ''})`,
             null,
             materialCostsContent,
             false,
@@ -12323,7 +12351,7 @@
                 const line = document.createElement('div');
                 line.style.marginLeft = '8px';
                 // Tea structure: { itemName, pricePerDrink, drinksPerHour, totalCost }
-                line.textContent = `• ${tea.itemName}: ${tea.drinksPerHour.toFixed(1)}/hr @ ${formatWithSeparator(Math.round(tea.pricePerDrink))} → ${formatWithSeparator(Math.round(tea.totalCost))}/hr`;
+                line.textContent = `• ${tea.itemName}: ${tea.drinksPerHour.toFixed(1)}/hr @ ${formatWithSeparator(Math.round(tea.pricePerDrink))} → ${formatLargeNumber(Math.round(tea.totalCost))}/hr`;
                 teaCostsContent.appendChild(line);
             }
         }
@@ -12331,7 +12359,7 @@
         const teaCount = profitData.teaCosts?.length || 0;
         const teaCostsSection = createCollapsibleSection(
             '',
-            `Drink Costs: ${formatWithSeparator(Math.round(profitData.totalTeaCostPerHour))}/hr (${teaCount} drink${teaCount !== 1 ? 's' : ''})`,
+            `Drink Costs: ${formatLargeNumber(Math.round(profitData.totalTeaCostPerHour))}/hr (${teaCount} drink${teaCount !== 1 ? 's' : ''})`,
             null,
             teaCostsContent,
             false,
@@ -12387,7 +12415,7 @@
         color: ${profitColor};
         margin-bottom: 8px;
     `;
-        netProfitLine.textContent = `Net Profit: ${formatWithSeparator(profit)}/hr, ${formatWithSeparator(profitPerDay)}/day`;
+        netProfitLine.textContent = `Net Profit: ${formatLargeNumber(profit)}/hr, ${formatLargeNumber(profitPerDay)}/day`;
         topLevelContent.appendChild(netProfitLine);
 
         const detailedBreakdownSection = createCollapsibleSection(
@@ -29027,12 +29055,21 @@
             // Get all runs from unified storage
             const allRuns = await storage.getJSON('allRuns', this.unifiedStoreName, []);
 
-            // Check for duplicates (same timestamp, team, and duration)
-            const isDuplicate = allRuns.some(r =>
-                r.timestamp === run.timestamp &&
-                r.teamKey === teamKey &&
-                Math.abs(r.duration - run.duration) < 1000 // Within 1 second
-            );
+            // Parse incoming timestamp
+            const newTimestamp = new Date(run.timestamp).getTime();
+
+            // Check for duplicates (same time window, team, and duration)
+            const isDuplicate = allRuns.some(r => {
+                const existingTimestamp = new Date(r.timestamp).getTime();
+                const timeDiff = Math.abs(existingTimestamp - newTimestamp);
+                const durationDiff = Math.abs(r.duration - run.duration);
+
+                // Consider duplicate if:
+                // - Within 10 seconds of each other (handles timestamp precision differences)
+                // - Same team
+                // - Duration within 2 seconds (handles minor timing differences)
+                return timeDiff < 10000 && r.teamKey === teamKey && durationDiff < 2000;
+            });
 
             if (!isDuplicate) {
                 // Create unified format run
@@ -29048,7 +29085,8 @@
                     validated: true,
                     source: 'chat',
                     waveTimes: null,
-                    avgWaveTime: null
+                    avgWaveTime: null,
+                    keyCountsMap: run.keyCountsMap || null  // Include key counts if available
                 };
 
                 // Add to front of list (most recent first)
@@ -30148,24 +30186,37 @@
                 slowestWave,
                 wavesCompleted: completedRunData.wavesCompleted,
                 waveTimes: completedWaveTimes,
-                keyCountMessages: completedKeyCountMessages  // Store key data for history
+                keyCountMessages: completedKeyCountMessages,  // Store key data for history
+                keyCountsMap: completedRunData.keyCountsMap  // Include for backward compatibility
             };
 
-            // Phase 5: Run history is now built exclusively from party chat messages
-            // by dungeon-tracker-chat-annotations.js (saveRunsFromEvents method).
-            //
-            // This approach uses server-provided chat timestamps instead of wall-clock time,
-            // which prevents hibernation-corrupted durations (e.g., 625-minute runs when
-            // the computer sleeps mid-dungeon).
-            //
-            // WebSocket tracking is still active for live UI features:
-            // - Elapsed time display
-            // - Wave counter
-            // - Progress bar
-            // - Key counts display
-            //
-            // But we NO LONGER save runs to storage from WebSocket events.
-            // Chat message parsing is the single source of truth for historical run data.
+            // Auto-save completed run to history if we have complete data
+            // Only saves runs completed during live tracking (Option A)
+            if (validated && completedRunData.keyCountsMap && completedRunData.dungeonHrid) {
+                try {
+                    // Extract team from keyCountsMap
+                    const team = Object.keys(completedRunData.keyCountsMap).sort();
+                    const teamKey = dungeonTrackerStorage.getTeamKey(team);
+
+                    // Get dungeon name from HRID
+                    const dungeonInfo = dungeonTrackerStorage.getDungeonInfo(completedRunData.dungeonHrid);
+                    const dungeonName = dungeonInfo ? dungeonInfo.name : 'Unknown';
+
+                    // Build run object in unified format
+                    const runToSave = {
+                        timestamp: new Date(firstTimestamp).toISOString(),  // Use party message timestamp
+                        duration: partyMessageDuration,  // Server-validated duration
+                        dungeonName: dungeonName,
+                        keyCountsMap: completedRunData.keyCountsMap  // Include key counts
+                    };
+
+                    // Save to database (with duplicate detection)
+                    await dungeonTrackerStorage.saveTeamRun(teamKey, runToSave);
+                    console.log('[Dungeon Tracker] Auto-saved completed run to history');
+                } catch (error) {
+                    console.error('[Dungeon Tracker] Failed to auto-save run:', error);
+                }
+            }
 
             // Notify completion
             this.notifyCompletion(completedRun);
@@ -32898,11 +32949,11 @@
                 headerRuns.textContent = stats.totalRuns.toString();
             }
 
-            // Update header keys (always visible)
+            // Update header keys (always visible) - show current key count from current run
             const headerKeys = this.container.querySelector('#mwi-dt-header-keys');
             if (headerKeys) {
-                const selfKeyCount = (run.keyCountsMap && run.keyCountsMap[characterName]) || 0;
-                headerKeys.textContent = selfKeyCount.toLocaleString();
+                const currentKeys = (run.keyCountsMap && run.keyCountsMap[characterName]) || 0;
+                headerKeys.textContent = currentKeys.toLocaleString();
             }
 
             // Update run-level stats in content area (2x2 grid)
@@ -35133,7 +35184,7 @@
         const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
         targetWindow.Toolasha = {
-            version: '0.4.935',
+            version: '0.4.936',
 
             // Feature toggle API (for users to manage settings via console)
             features: {

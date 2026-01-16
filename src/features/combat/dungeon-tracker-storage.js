@@ -314,12 +314,21 @@ class DungeonTrackerStorage {
         // Get all runs from unified storage
         const allRuns = await storage.getJSON('allRuns', this.unifiedStoreName, []);
 
-        // Check for duplicates (same timestamp, team, and duration)
-        const isDuplicate = allRuns.some(r =>
-            r.timestamp === run.timestamp &&
-            r.teamKey === teamKey &&
-            Math.abs(r.duration - run.duration) < 1000 // Within 1 second
-        );
+        // Parse incoming timestamp
+        const newTimestamp = new Date(run.timestamp).getTime();
+
+        // Check for duplicates (same time window, team, and duration)
+        const isDuplicate = allRuns.some(r => {
+            const existingTimestamp = new Date(r.timestamp).getTime();
+            const timeDiff = Math.abs(existingTimestamp - newTimestamp);
+            const durationDiff = Math.abs(r.duration - run.duration);
+
+            // Consider duplicate if:
+            // - Within 10 seconds of each other (handles timestamp precision differences)
+            // - Same team
+            // - Duration within 2 seconds (handles minor timing differences)
+            return timeDiff < 10000 && r.teamKey === teamKey && durationDiff < 2000;
+        });
 
         if (!isDuplicate) {
             // Create unified format run
@@ -335,7 +344,8 @@ class DungeonTrackerStorage {
                 validated: true,
                 source: 'chat',
                 waveTimes: null,
-                avgWaveTime: null
+                avgWaveTime: null,
+                keyCountsMap: run.keyCountsMap || null  // Include key counts if available
             };
 
             // Add to front of list (most recent first)
