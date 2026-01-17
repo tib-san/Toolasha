@@ -77,6 +77,10 @@ if (isCombatSimulatorPage()) {
         // Initialize all features using the feature registry
         setTimeout(async () => {
             try {
+                // Reload config settings with character-specific data
+                await config.loadSettings();
+                config.applyColorSettings();
+
                 await featureRegistry.initializeFeatures();
 
                 // Setup character switch handler (re-initializes features on character switch)
@@ -114,7 +118,7 @@ if (isCombatSimulatorPage()) {
     const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
     targetWindow.Toolasha = {
-        version: '0.4.943',
+        version: '0.4.944',
 
         // Feature toggle API (for users to manage settings via console)
         features: {
