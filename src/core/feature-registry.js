@@ -16,6 +16,8 @@ import autoFillPrice from '../features/market/auto-fill-price.js';
 import itemCountDisplay from '../features/market/item-count-display.js';
 import listingPriceDisplay from '../features/market/listing-price-display.js';
 import estimatedListingAge from '../features/market/estimated-listing-age.js';
+import tradeHistory from '../features/market/trade-history.js';
+import tradeHistoryDisplay from '../features/market/trade-history-display.js';
 import { initActionPanelObserver } from '../features/actions/panel-observer.js';
 import actionTimeDisplay from '../features/actions/action-time-display.js';
 import quickInputButtons from '../features/actions/quick-input-buttons.js';
@@ -108,6 +110,16 @@ const featureRegistry = [
         category: 'Market',
         initialize: () => estimatedListingAge.initialize(),
         async: true // Uses IndexedDB storage
+    },
+    {
+        key: 'market_tradeHistory',
+        name: 'Personal Trade History',
+        category: 'Market',
+        initialize: async () => {
+            await tradeHistory.initialize();
+            tradeHistoryDisplay.initialize();
+        },
+        async: true
     },
 
     // Action Features

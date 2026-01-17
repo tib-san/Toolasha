@@ -623,6 +623,13 @@ export const settingsGroups = {
                 default: true,
                 help: 'Displays top order price and total value on each listing in My Listings table'
             },
+            market_tradeHistory: {
+                id: 'market_tradeHistory',
+                label: 'Market: Show personal trade history',
+                type: 'checkbox',
+                default: true,
+                help: 'Displays your last buy/sell prices for items in marketplace'
+            },
             market_listingPricePrecision: {
                 id: 'market_listingPricePrecision',
                 label: 'Market: Listing price decimal precision',
