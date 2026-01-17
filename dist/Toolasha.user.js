@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.940
+// @version      0.4.941
 // @downloadURL  https://greasyfork.org/scripts/562662-toolasha/code/Toolasha.user.js
 // @updateURL    https://greasyfork.org/scripts/562662-toolasha/code/Toolasha.meta.js
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
@@ -1223,8 +1223,31 @@
 
     class SettingsStorage {
         constructor() {
-            this.storageKey = 'script_settingsMap';
+            this.storageKey = 'script_settingsMap'; // Legacy global key (used as template)
             this.storageArea = 'settings';
+            this.currentCharacterId = null; // Current character ID (set after login)
+            this.knownCharactersKey = 'known_character_ids'; // List of character IDs
+        }
+
+        /**
+         * Set the current character ID
+         * Must be called after character_initialized event
+         * @param {string} characterId - Character ID
+         */
+        setCharacterId(characterId) {
+            this.currentCharacterId = characterId;
+        }
+
+        /**
+         * Get the storage key for current character
+         * Falls back to global key if no character ID set
+         * @returns {string} Storage key
+         */
+        getCharacterStorageKey() {
+            if (this.currentCharacterId) {
+                return `${this.storageKey}_${this.currentCharacterId}`;
+            }
+            return this.storageKey; // Fallback to global key
         }
 
         /**
@@ -1233,7 +1256,23 @@
          * @returns {Promise<Object>} Settings map
          */
         async loadSettings() {
-            const saved = await storage.getJSON(this.storageKey, this.storageArea, null);
+            const characterKey = this.getCharacterStorageKey();
+            let saved = await storage.getJSON(characterKey, this.storageArea, null);
+
+            // Migration: If this is a character-specific key and it doesn't exist
+            // Copy from global template (old 'script_settingsMap' key)
+            if (this.currentCharacterId && !saved) {
+                const globalTemplate = await storage.getJSON(this.storageKey, this.storageArea, null);
+                if (globalTemplate) {
+                    // Copy global template to this character
+                    saved = globalTemplate;
+                    await storage.setJSON(characterKey, saved, this.storageArea, true);
+                }
+
+                // Add character to known characters list
+                await this.addToKnownCharacters(this.currentCharacterId);
+            }
+
             const settings = {};
 
             // Build default settings from config
@@ -1293,7 +1332,53 @@
          * @returns {Promise<void>}
          */
         async saveSettings(settings) {
-            await storage.setJSON(this.storageKey, settings, this.storageArea, true);
+            const characterKey = this.getCharacterStorageKey();
+            await storage.setJSON(characterKey, settings, this.storageArea, true);
+        }
+
+        /**
+         * Add character to known characters list
+         * @param {string} characterId - Character ID
+         * @returns {Promise<void>}
+         */
+        async addToKnownCharacters(characterId) {
+            const knownCharacters = await storage.getJSON(this.knownCharactersKey, this.storageArea, []);
+            if (!knownCharacters.includes(characterId)) {
+                knownCharacters.push(characterId);
+                await storage.setJSON(this.knownCharactersKey, knownCharacters, this.storageArea, true);
+            }
+        }
+
+        /**
+         * Get list of known character IDs
+         * @returns {Promise<Array<string>>} Character IDs
+         */
+        async getKnownCharacters() {
+            return await storage.getJSON(this.knownCharactersKey, this.storageArea, []);
+        }
+
+        /**
+         * Sync current settings to all other characters
+         * @param {Object} settings - Current settings to copy
+         * @returns {Promise<number>} Number of characters synced
+         */
+        async syncSettingsToAllCharacters(settings) {
+            const knownCharacters = await this.getKnownCharacters();
+            let syncedCount = 0;
+
+            for (const characterId of knownCharacters) {
+                // Skip current character (already has these settings)
+                if (characterId === this.currentCharacterId) {
+                    continue;
+                }
+
+                // Write settings to this character's key
+                const characterKey = `${this.storageKey}_${characterId}`;
+                await storage.setJSON(characterKey, settings, this.storageArea, true);
+                syncedCount++;
+            }
+
+            return syncedCount;
         }
 
         /**
@@ -1380,618 +1465,6 @@
 
     // Create and export singleton instance
     const settingsStorage = new SettingsStorage();
-
-    /**
-     * Configuration Module
-     * Manages all script constants and user settings
-     */
-
-
-    /**
-     * Config class manages all script configuration
-     * - Constants (colors, URLs, formatters)
-     * - User settings with persistence
-     */
-    class Config {
-        constructor() {
-            // === CONSTANTS ===
-
-            // Number formatting separators (locale-aware)
-            this.THOUSAND_SEPARATOR = new Intl.NumberFormat().format(1111).replaceAll("1", "").at(0) || "";
-            this.DECIMAL_SEPARATOR = new Intl.NumberFormat().format(1.1).replaceAll("1", "").at(0);
-
-            // Extended color palette (configurable)
-            // Dark background colors (for UI elements on dark backgrounds)
-            this.COLOR_PROFIT = "#047857";      // Emerald green for positive values
-            this.COLOR_LOSS = "#f87171";        // Red for negative values
-            this.COLOR_WARNING = "#ffa500";     // Orange for warnings
-            this.COLOR_INFO = "#60a5fa";        // Blue for informational
-            this.COLOR_ESSENCE = "#c084fc";     // Purple for essences
-
-            // Tooltip colors (for text on light/tooltip backgrounds)
-            this.COLOR_TOOLTIP_PROFIT = "#047857";  // Green for tooltips
-            this.COLOR_TOOLTIP_LOSS = "#dc2626";    // Darker red for tooltips
-            this.COLOR_TOOLTIP_INFO = "#2563eb";    // Darker blue for tooltips
-            this.COLOR_TOOLTIP_WARNING = "#ea580c"; // Darker orange for tooltips
-
-            // General colors
-            this.COLOR_TEXT_PRIMARY = "#ffffff"; // Primary text color
-            this.COLOR_TEXT_SECONDARY = "#888888"; // Secondary text color
-            this.COLOR_BORDER = "#444444";      // Border color
-            this.COLOR_GOLD = "#ffa500";        // Gold/currency color
-            this.COLOR_ACCENT = "#22c55e";      // Script accent color (green)
-            this.COLOR_REMAINING_XP = "#FFFFFF"; // Remaining XP text color
-
-            // Legacy color constants (mapped to COLOR_ACCENT)
-            this.SCRIPT_COLOR_MAIN = this.COLOR_ACCENT;
-            this.SCRIPT_COLOR_TOOLTIP = this.COLOR_ACCENT;
-            this.SCRIPT_COLOR_ALERT = "red";
-
-            // Market API URL
-            this.MARKET_API_URL = "https://www.milkywayidle.com/game_data/marketplace.json";
-
-            // === SETTINGS MAP ===
-
-            // Settings loaded from settings-config.js via settings-storage.js
-            this.settingsMap = {};
-
-            // === SETTING CHANGE CALLBACKS ===
-            // Map of setting keys to callback functions
-            this.settingChangeCallbacks = {};
-
-            // === FEATURE REGISTRY ===
-            // Feature toggles with metadata for future UI
-            this.features = {
-                // Market Features
-                tooltipPrices: {
-                    enabled: true,
-                    name: 'Market Prices in Tooltips',
-                    category: 'Market',
-                    description: 'Shows bid/ask prices in item tooltips',
-                    settingKey: 'itemTooltip_prices'
-                },
-                tooltipProfit: {
-                    enabled: true,
-                    name: 'Profit Calculator in Tooltips',
-                    category: 'Market',
-                    description: 'Shows production cost and profit in tooltips',
-                    settingKey: 'itemTooltip_profit'
-                },
-                tooltipConsumables: {
-                    enabled: true,
-                    name: 'Consumable Effects in Tooltips',
-                    category: 'Market',
-                    description: 'Shows buff effects and durations for food/drinks',
-                    settingKey: 'showConsumTips'
-                },
-                expectedValueCalculator: {
-                    enabled: true,
-                    name: 'Expected Value Calculator',
-                    category: 'Market',
-                    description: 'Shows EV for openable containers (crates, chests)',
-                    settingKey: 'itemTooltip_expectedValue'
-                },
-                market_showListingPrices: {
-                    enabled: true,
-                    name: 'Market Listing Price Display',
-                    category: 'Market',
-                    description: 'Shows top order price, total value, and listing age on My Listings',
-                    settingKey: 'market_showListingPrices'
-                },
-                market_showEstimatedListingAge: {
-                    enabled: true,
-                    name: 'Estimated Listing Age',
-                    category: 'Market',
-                    description: 'Estimates creation time for all market listings using listing ID interpolation',
-                    settingKey: 'market_showEstimatedListingAge'
-                },
-
-                // Action Features
-                actionTimeDisplay: {
-                    enabled: true,
-                    name: 'Action Queue Time Display',
-                    category: 'Actions',
-                    description: 'Shows total time and completion time for queued actions',
-                    settingKey: 'totalActionTime'
-                },
-                quickInputButtons: {
-                    enabled: true,
-                    name: 'Quick Input Buttons',
-                    category: 'Actions',
-                    description: 'Adds 1/10/100/1000 buttons to action inputs',
-                    settingKey: 'actionPanel_totalTime_quickInputs'
-                },
-                actionPanelProfit: {
-                    enabled: true,
-                    name: 'Action Profit Display',
-                    category: 'Actions',
-                    description: 'Shows profit/loss for gathering and production',
-                    settingKey: 'actionPanel_foragingTotal'
-                },
-                requiredMaterials: {
-                    enabled: true,
-                    name: 'Required Materials Display',
-                    category: 'Actions',
-                    description: 'Shows total required and missing materials for production actions',
-                    settingKey: 'requiredMaterials'
-                },
-
-                // Combat Features
-                abilityBookCalculator: {
-                    enabled: true,
-                    name: 'Ability Book Requirements',
-                    category: 'Combat',
-                    description: 'Shows books needed to reach target level',
-                    settingKey: 'skillbook'
-                },
-                zoneIndices: {
-                    enabled: true,
-                    name: 'Combat Zone Indices',
-                    category: 'Combat',
-                    description: 'Shows zone numbers in combat location list',
-                    settingKey: 'mapIndex'
-                },
-                taskZoneIndices: {
-                    enabled: true,
-                    name: 'Task Zone Indices',
-                    category: 'Tasks',
-                    description: 'Shows zone numbers on combat tasks',
-                    settingKey: 'taskMapIndex'
-                },
-                combatScore: {
-                    enabled: true,
-                    name: 'Profile Gear Score',
-                    category: 'Combat',
-                    description: 'Shows gear score on profile',
-                    settingKey: 'combatScore'
-                },
-                dungeonTracker: {
-                    enabled: true,
-                    name: 'Dungeon Tracker',
-                    category: 'Combat',
-                    description: 'Real-time dungeon progress tracking in top bar with wave times, statistics, and party chat completion messages',
-                    settingKey: 'dungeonTracker'
-                },
-                combatSimIntegration: {
-                    enabled: true,
-                    name: 'Combat Simulator Integration',
-                    category: 'Combat',
-                    description: 'Auto-import character/party data into Shykai Combat Simulator',
-                    settingKey: null // New feature, no legacy setting
-                },
-                enhancementSimulator: {
-                    enabled: true,
-                    name: 'Enhancement Simulator',
-                    category: 'Market',
-                    description: 'Shows enhancement cost calculations in item tooltips',
-                    settingKey: 'enhanceSim'
-                },
-
-                // UI Features
-                equipmentLevelDisplay: {
-                    enabled: true,
-                    name: 'Equipment Level on Icons',
-                    category: 'UI',
-                    description: 'Shows item level number on equipment icons',
-                    settingKey: 'itemIconLevel'
-                },
-                alchemyItemDimming: {
-                    enabled: true,
-                    name: 'Alchemy Item Dimming',
-                    category: 'UI',
-                    description: 'Dims items requiring higher Alchemy level',
-                    settingKey: 'alchemyItemDimming'
-                },
-                skillExperiencePercentage: {
-                    enabled: true,
-                    name: 'Skill Experience Percentage',
-                    category: 'UI',
-                    description: 'Shows XP progress percentage in left sidebar',
-                    settingKey: 'expPercentage'
-                },
-                largeNumberFormatting: {
-                    enabled: true,
-                    name: 'Use K/M/B Number Formatting',
-                    category: 'UI',
-                    description: 'Display large numbers as 1.5M instead of 1,500,000',
-                    settingKey: 'formatting_useKMBFormat'
-                },
-
-                // Task Features
-                taskProfitDisplay: {
-                    enabled: true,
-                    name: 'Task Profit Calculator',
-                    category: 'Tasks',
-                    description: 'Shows expected profit from task rewards',
-                    settingKey: 'taskProfitCalculator'
-                },
-                taskRerollTracker: {
-                    enabled: true,
-                    name: 'Task Reroll Tracker',
-                    category: 'Tasks',
-                    description: 'Tracks reroll costs and history',
-                    settingKey: 'taskRerollTracker'
-                },
-                taskSorter: {
-                    enabled: true,
-                    name: 'Task Sorting',
-                    category: 'Tasks',
-                    description: 'Adds button to sort tasks by skill type',
-                    settingKey: 'taskSorter'
-                },
-                taskIcons: {
-                    enabled: true,
-                    name: 'Task Icons',
-                    category: 'Tasks',
-                    description: 'Shows visual icons on task cards',
-                    settingKey: 'taskIcons'
-                },
-                taskIconsDungeons: {
-                    enabled: false,
-                    name: 'Task Icons - Dungeons',
-                    category: 'Tasks',
-                    description: 'Shows dungeon icons for combat tasks',
-                    settingKey: 'taskIconsDungeons',
-                    dependencies: ['taskIcons']
-                },
-
-                // Skills Features
-                skillRemainingXP: {
-                    enabled: true,
-                    name: 'Remaining XP Display',
-                    category: 'Skills',
-                    description: 'Shows remaining XP to next level on skill bars',
-                    settingKey: 'skillRemainingXP'
-                },
-
-                // House Features
-                houseCostDisplay: {
-                    enabled: true,
-                    name: 'House Upgrade Costs',
-                    category: 'House',
-                    description: 'Shows market value of upgrade materials',
-                    settingKey: 'houseUpgradeCosts'
-                },
-
-                // Economy Features
-                networth: {
-                    enabled: true,
-                    name: 'Net Worth Calculator',
-                    category: 'Economy',
-                    description: 'Shows total asset value in header (Current Assets)',
-                    settingKey: 'networth'
-                },
-                inventorySummary: {
-                    enabled: true,
-                    name: 'Inventory Summary Panel',
-                    category: 'Economy',
-                    description: 'Shows detailed networth breakdown below inventory',
-                    settingKey: 'invWorth'
-                },
-                inventorySort: {
-                    enabled: true,
-                    name: 'Inventory Sort',
-                    category: 'Economy',
-                    description: 'Sorts inventory by Ask/Bid price',
-                    settingKey: 'invSort'
-                },
-                inventorySortBadges: {
-                    enabled: false,
-                    name: 'Inventory Sort Price Badges',
-                    category: 'Economy',
-                    description: 'Shows stack value badges on items when sorting',
-                    settingKey: 'invSort_showBadges'
-                },
-                inventoryBadgePrices: {
-                    enabled: false,
-                    name: 'Inventory Price Badges',
-                    category: 'Economy',
-                    description: 'Shows stack value badges on items (independent of sorting)',
-                    settingKey: 'invBadgePrices'
-                },
-
-                // Enhancement Features
-                enhancementTracker: {
-                    enabled: false,
-                    name: 'Enhancement Tracker',
-                    category: 'Enhancement',
-                    description: 'Tracks enhancement attempts, costs, and statistics',
-                    settingKey: 'enhancementTracker'
-                },
-
-                // Notification Features
-                notifiEmptyAction: {
-                    enabled: false,
-                    name: 'Empty Queue Notification',
-                    category: 'Notifications',
-                    description: 'Browser notification when action queue becomes empty',
-                    settingKey: 'notifiEmptyAction'
-                }
-            };
-
-            // Note: loadSettings() must be called separately (async)
-        }
-
-        /**
-         * Initialize config (async) - loads settings from storage
-         * @returns {Promise<void>}
-         */
-        async initialize() {
-            await this.loadSettings();
-            this.applyColorSettings();
-        }
-
-        /**
-         * Load settings from storage (async)
-         * @returns {Promise<void>}
-         */
-        async loadSettings() {
-            // Load settings from settings-storage (which uses settings-config.js as source of truth)
-            this.settingsMap = await settingsStorage.loadSettings();
-        }
-
-        /**
-         * Clear settings cache (for character switching)
-         */
-        clearSettingsCache() {
-            this.settingsMap = {};
-        }
-
-        /**
-         * Save settings to storage (immediately)
-         */
-        saveSettings() {
-            settingsStorage.saveSettings(this.settingsMap);
-        }
-
-        /**
-         * Get a setting value
-         * @param {string} key - Setting key
-         * @returns {boolean} Setting value
-         */
-        getSetting(key) {
-            return this.settingsMap[key]?.isTrue ?? false;
-        }
-
-        /**
-         * Get a setting value (for non-boolean settings)
-         * @param {string} key - Setting key
-         * @param {*} defaultValue - Default value if key doesn't exist
-         * @returns {*} Setting value
-         */
-        getSettingValue(key, defaultValue = null) {
-            const setting = this.settingsMap[key];
-            if (!setting) {
-                return defaultValue;
-            }
-            // Handle both boolean (isTrue) and value-based settings
-            if (setting.hasOwnProperty('value')) {
-                return setting.value;
-            } else if (setting.hasOwnProperty('isTrue')) {
-                return setting.isTrue;
-            }
-            return defaultValue;
-        }
-
-        /**
-         * Set a setting value (auto-saves)
-         * @param {string} key - Setting key
-         * @param {boolean} value - Setting value
-         */
-        setSetting(key, value) {
-            if (this.settingsMap[key]) {
-                this.settingsMap[key].isTrue = value;
-                this.saveSettings();
-
-                // Re-apply colors if color setting changed
-                if (key === 'useOrangeAsMainColor') {
-                    this.applyColorSettings();
-                }
-            }
-        }
-
-        /**
-         * Set a setting value (for non-boolean settings, auto-saves)
-         * @param {string} key - Setting key
-         * @param {*} value - Setting value
-         */
-        setSettingValue(key, value) {
-            if (this.settingsMap[key]) {
-                this.settingsMap[key].value = value;
-                this.saveSettings();
-
-                // Re-apply color settings if this is a color setting
-                if (key.startsWith('color_')) {
-                    this.applyColorSettings();
-                }
-
-                // Trigger registered callbacks for this setting
-                if (this.settingChangeCallbacks[key]) {
-                    this.settingChangeCallbacks[key](value);
-                }
-            }
-        }
-
-        /**
-         * Register a callback to be called when a specific setting changes
-         * @param {string} key - Setting key to watch
-         * @param {Function} callback - Callback function to call when setting changes
-         */
-        onSettingChange(key, callback) {
-            this.settingChangeCallbacks[key] = callback;
-        }
-
-        /**
-         * Toggle a setting (auto-saves)
-         * @param {string} key - Setting key
-         * @returns {boolean} New value
-         */
-        toggleSetting(key) {
-            const newValue = !this.getSetting(key);
-            this.setSetting(key, newValue);
-            return newValue;
-        }
-
-        /**
-         * Get all settings as an array (useful for UI)
-         * @returns {Array} Array of setting objects
-         */
-        getAllSettings() {
-            return Object.values(this.settingsMap);
-        }
-
-        /**
-         * Reset all settings to defaults
-         */
-        resetToDefaults() {
-            // Find default values from constructor (all true except notifiEmptyAction)
-            for (const key in this.settingsMap) {
-                this.settingsMap[key].isTrue = (key === 'notifiEmptyAction') ? false : true;
-            }
-
-            this.saveSettings();
-            this.applyColorSettings();
-        }
-
-        /**
-         * Apply color settings to color constants
-         */
-        applyColorSettings() {
-            // Apply extended color palette from settings
-            this.COLOR_PROFIT = this.getSettingValue('color_profit', "#047857");
-            this.COLOR_LOSS = this.getSettingValue('color_loss', "#f87171");
-            this.COLOR_WARNING = this.getSettingValue('color_warning', "#ffa500");
-            this.COLOR_INFO = this.getSettingValue('color_info', "#60a5fa");
-            this.COLOR_ESSENCE = this.getSettingValue('color_essence', "#c084fc");
-            this.COLOR_TOOLTIP_PROFIT = this.getSettingValue('color_tooltip_profit', "#047857");
-            this.COLOR_TOOLTIP_LOSS = this.getSettingValue('color_tooltip_loss', "#dc2626");
-            this.COLOR_TOOLTIP_INFO = this.getSettingValue('color_tooltip_info', "#2563eb");
-            this.COLOR_TOOLTIP_WARNING = this.getSettingValue('color_tooltip_warning', "#ea580c");
-            this.COLOR_TEXT_PRIMARY = this.getSettingValue('color_text_primary', "#ffffff");
-            this.COLOR_TEXT_SECONDARY = this.getSettingValue('color_text_secondary', "#888888");
-            this.COLOR_BORDER = this.getSettingValue('color_border', "#444444");
-            this.COLOR_GOLD = this.getSettingValue('color_gold', "#ffa500");
-            this.COLOR_ACCENT = this.getSettingValue('color_accent', "#22c55e");
-            this.COLOR_REMAINING_XP = this.getSettingValue('color_remaining_xp', "#FFFFFF");
-            this.COLOR_INVBADGE_ASK = this.getSettingValue('color_invBadge_ask', "#047857");
-            this.COLOR_INVBADGE_BID = this.getSettingValue('color_invBadge_bid', "#60a5fa");
-
-            // Set legacy SCRIPT_COLOR_MAIN to accent color
-            this.SCRIPT_COLOR_MAIN = this.COLOR_ACCENT;
-            this.SCRIPT_COLOR_TOOLTIP = this.COLOR_ACCENT; // Keep tooltip same as main
-        }
-
-        // === FEATURE TOGGLE METHODS ===
-
-        /**
-         * Check if a feature is enabled
-         * Uses legacy settingKey if available, otherwise uses feature.enabled
-         * @param {string} featureKey - Feature key (e.g., 'tooltipPrices')
-         * @returns {boolean} Whether feature is enabled
-         */
-        isFeatureEnabled(featureKey) {
-            const feature = this.features?.[featureKey];
-            if (!feature) {
-                return true; // Default to enabled if not found
-            }
-
-            // Check legacy setting first (for backward compatibility)
-            if (feature.settingKey && this.settingsMap[feature.settingKey]) {
-                return this.settingsMap[feature.settingKey].isTrue ?? true;
-            }
-
-            // Otherwise use feature.enabled
-            return feature.enabled ?? true;
-        }
-
-        /**
-         * Enable or disable a feature
-         * @param {string} featureKey - Feature key
-         * @param {boolean} enabled - Enable state
-         */
-        async setFeatureEnabled(featureKey, enabled) {
-            const feature = this.features?.[featureKey];
-            if (!feature) {
-                console.warn(`Feature '${featureKey}' not found`);
-                return;
-            }
-
-            // Update legacy setting if it exists
-            if (feature.settingKey && this.settingsMap[feature.settingKey]) {
-                this.settingsMap[feature.settingKey].isTrue = enabled;
-            }
-
-            // Update feature registry
-            feature.enabled = enabled;
-
-            await this.saveSettings();
-        }
-
-        /**
-         * Toggle a feature
-         * @param {string} featureKey - Feature key
-         * @returns {boolean} New enabled state
-         */
-        async toggleFeature(featureKey) {
-            const current = this.isFeatureEnabled(featureKey);
-            await this.setFeatureEnabled(featureKey, !current);
-            return !current;
-        }
-
-        /**
-         * Get all features grouped by category
-         * @returns {Object} Features grouped by category
-         */
-        getFeaturesByCategory() {
-            const grouped = {};
-
-            for (const [key, feature] of Object.entries(this.features)) {
-                const category = feature.category || 'Other';
-                if (!grouped[category]) {
-                    grouped[category] = [];
-                }
-                grouped[category].push({
-                    key,
-                    name: feature.name,
-                    description: feature.description,
-                    enabled: this.isFeatureEnabled(key)
-                });
-            }
-
-            return grouped;
-        }
-
-        /**
-         * Get all feature keys
-         * @returns {string[]} Array of feature keys
-         */
-        getFeatureKeys() {
-            return Object.keys(this.features || {});
-        }
-
-        /**
-         * Get feature info
-         * @param {string} featureKey - Feature key
-         * @returns {Object|null} Feature info with current enabled state
-         */
-        getFeatureInfo(featureKey) {
-            const feature = this.features?.[featureKey];
-            if (!feature) {
-                return null;
-            }
-
-            return {
-                key: featureKey,
-                name: feature.name,
-                category: feature.category,
-                description: feature.description,
-                enabled: this.isFeatureEnabled(featureKey)
-            };
-        }
-    }
-
-    // Create and export singleton instance
-    const config = new Config();
 
     /**
      * WebSocket Hook Module
@@ -2255,212 +1728,6 @@
 
     // Create and export singleton instance
     const webSocketHook = new WebSocketHook();
-
-    /**
-     * Centralized DOM Observer
-     * Single MutationObserver that dispatches to registered handlers
-     * Replaces 15 separate observers watching document.body
-     * Supports optional debouncing to reduce CPU usage during bulk DOM changes
-     */
-
-    class DOMObserver {
-        constructor() {
-            this.observer = null;
-            this.handlers = [];
-            this.isObserving = false;
-            this.debounceTimers = new Map(); // Track debounce timers per handler
-            this.debouncedElements = new Map(); // Track pending elements per handler
-            this.DEFAULT_DEBOUNCE_DELAY = 50; // 50ms default delay
-        }
-
-        /**
-         * Start observing DOM changes
-         */
-        start() {
-            if (this.isObserving) return;
-
-            // Wait for document.body to exist (critical for @run-at document-start)
-            const startObserver = () => {
-                if (!document.body) {
-                    // Body doesn't exist yet, wait and try again
-                    setTimeout(startObserver, 10);
-                    return;
-                }
-
-                this.observer = new MutationObserver((mutations) => {
-                    for (const mutation of mutations) {
-                        for (const node of mutation.addedNodes) {
-                            if (node.nodeType !== Node.ELEMENT_NODE) continue;
-
-                            // Dispatch to all registered handlers
-                            this.handlers.forEach(handler => {
-                                try {
-                                    if (handler.debounce) {
-                                        this.debouncedCallback(handler, node, mutation);
-                                    } else {
-                                        handler.callback(node, mutation);
-                                    }
-                                } catch (error) {
-                                    console.error(`[DOM Observer] Handler error (${handler.name}):`, error);
-                                }
-                            });
-                        }
-                    }
-                });
-
-                this.observer.observe(document.body, {
-                    childList: true,
-                    subtree: true
-                });
-
-                this.isObserving = true;
-            };
-
-            startObserver();
-        }
-
-        /**
-         * Debounced callback handler
-         * Collects elements and fires callback after delay
-         * @private
-         */
-        debouncedCallback(handler, node, mutation) {
-            const handlerName = handler.name;
-            const delay = handler.debounceDelay || this.DEFAULT_DEBOUNCE_DELAY;
-
-            // Store element for batched processing
-            if (!this.debouncedElements.has(handlerName)) {
-                this.debouncedElements.set(handlerName, []);
-            }
-            this.debouncedElements.get(handlerName).push({ node, mutation });
-
-            // Clear existing timer
-            if (this.debounceTimers.has(handlerName)) {
-                clearTimeout(this.debounceTimers.get(handlerName));
-            }
-
-            // Set new timer
-            const timer = setTimeout(() => {
-                const elements = this.debouncedElements.get(handlerName) || [];
-                this.debouncedElements.delete(handlerName);
-                this.debounceTimers.delete(handlerName);
-
-                // Process all collected elements
-                // For most handlers, we only need to process the last element
-                // (e.g., task list updated multiple times, we only care about final state)
-                if (elements.length > 0) {
-                    const lastElement = elements[elements.length - 1];
-                    handler.callback(lastElement.node, lastElement.mutation);
-                }
-            }, delay);
-
-            this.debounceTimers.set(handlerName, timer);
-        }
-
-        /**
-         * Stop observing DOM changes
-         */
-        stop() {
-            if (this.observer) {
-                this.observer.disconnect();
-                this.observer = null;
-            }
-
-            // Clear all debounce timers
-            this.debounceTimers.forEach(timer => clearTimeout(timer));
-            this.debounceTimers.clear();
-            this.debouncedElements.clear();
-
-            this.isObserving = false;
-        }
-
-        /**
-         * Register a handler for DOM changes
-         * @param {string} name - Handler name for debugging
-         * @param {Function} callback - Function to call when nodes are added (receives node, mutation)
-         * @param {Object} options - Optional configuration
-         * @param {boolean} options.debounce - Enable debouncing (default: false)
-         * @param {number} options.debounceDelay - Debounce delay in ms (default: 50)
-         * @returns {Function} Unregister function
-         */
-        register(name, callback, options = {}) {
-            const handler = {
-                name,
-                callback,
-                debounce: options.debounce || false,
-                debounceDelay: options.debounceDelay
-            };
-            this.handlers.push(handler);
-
-            // Return unregister function
-            return () => {
-                const index = this.handlers.indexOf(handler);
-                if (index > -1) {
-                    this.handlers.splice(index, 1);
-
-                    // Clean up any pending debounced callbacks
-                    if (this.debounceTimers.has(name)) {
-                        clearTimeout(this.debounceTimers.get(name));
-                        this.debounceTimers.delete(name);
-                        this.debouncedElements.delete(name);
-                    }
-                }
-            };
-        }
-
-        /**
-         * Register a handler for specific class names
-         * @param {string} name - Handler name for debugging
-         * @param {string|string[]} classNames - Class name(s) to watch for (supports partial matches)
-         * @param {Function} callback - Function to call when matching elements appear
-         * @param {Object} options - Optional configuration
-         * @param {boolean} options.debounce - Enable debouncing (default: false for immediate response)
-         * @param {number} options.debounceDelay - Debounce delay in ms (default: 50)
-         * @returns {Function} Unregister function
-         */
-        onClass(name, classNames, callback, options = {}) {
-            const classArray = Array.isArray(classNames) ? classNames : [classNames];
-
-            return this.register(name, (node) => {
-                // Safely get className as string (handles SVG elements)
-                const className = typeof node.className === 'string' ? node.className : '';
-
-                // Check if node matches any of the target classes
-                for (const targetClass of classArray) {
-                    if (className.includes(targetClass)) {
-                        callback(node);
-                        return; // Only call once per node
-                    }
-                }
-
-                // Also check if node contains matching elements
-                if (node.querySelector) {
-                    for (const targetClass of classArray) {
-                        const matches = node.querySelectorAll(`[class*="${targetClass}"]`);
-                        matches.forEach(match => callback(match));
-                    }
-                }
-            }, options);
-        }
-
-        /**
-         * Get stats about registered handlers
-         */
-        getStats() {
-            return {
-                isObserving: this.isObserving,
-                handlerCount: this.handlers.length,
-                handlers: this.handlers.map(h => ({
-                    name: h.name,
-                    debounced: h.debounce || false
-                })),
-                pendingCallbacks: this.debounceTimers.size
-            };
-        }
-    }
-
-    // Create singleton instance
-    const domObserver = new DOMObserver();
 
     /**
      * Data Manager Module
@@ -3085,7 +2352,881 @@
     // Create and export singleton instance
     const dataManager = new DataManager();
 
-    var settingsCSS = "/* Toolasha Settings UI Styles\n * Modern, compact design\n */\n\n/* CSS Variables */\n:root {\n    --toolasha-accent: #5b8def;\n    --toolasha-accent-hover: #7aa3f3;\n    --toolasha-accent-dim: rgba(91, 141, 239, 0.15);\n    --toolasha-secondary: #8A2BE2;\n    --toolasha-text: rgba(255, 255, 255, 0.9);\n    --toolasha-text-dim: rgba(255, 255, 255, 0.5);\n    --toolasha-bg: rgba(20, 25, 35, 0.6);\n    --toolasha-border: rgba(91, 141, 239, 0.2);\n    --toolasha-toggle-off: rgba(100, 100, 120, 0.4);\n    --toolasha-toggle-on: var(--toolasha-accent);\n}\n\n/* Settings Card Container */\n.toolasha-settings-card {\n    display: flex;\n    flex-direction: column;\n    padding: 12px 16px;\n    font-size: 12px;\n    line-height: 1.3;\n    color: var(--toolasha-text);\n    position: relative;\n    overflow-y: auto;\n    gap: 6px;\n    max-height: calc(100vh - 250px);\n}\n\n/* Top gradient line */\n.toolasha-settings-card::before {\n    display: none;\n}\n\n/* Scrollbar styling */\n.toolasha-settings-card::-webkit-scrollbar {\n    width: 6px;\n}\n\n.toolasha-settings-card::-webkit-scrollbar-track {\n    background: transparent;\n}\n\n.toolasha-settings-card::-webkit-scrollbar-thumb {\n    background: var(--toolasha-accent);\n    border-radius: 3px;\n    opacity: 0.5;\n}\n\n.toolasha-settings-card::-webkit-scrollbar-thumb:hover {\n    opacity: 1;\n}\n\n/* Collapsible Settings Groups */\n.toolasha-settings-group {\n    margin-bottom: 8px;\n}\n\n.toolasha-settings-group-header {\n    cursor: pointer;\n    user-select: none;\n    margin: 10px 0 4px 0;\n    color: var(--toolasha-accent);\n    font-weight: 600;\n    font-size: 13px;\n    display: flex;\n    align-items: center;\n    gap: 6px;\n    border-bottom: 1px solid var(--toolasha-border);\n    padding-bottom: 3px;\n    text-transform: uppercase;\n    letter-spacing: 0.5px;\n    transition: color 0.2s ease;\n}\n\n.toolasha-settings-group-header:hover {\n    color: var(--toolasha-accent-hover);\n}\n\n.toolasha-settings-group-header .collapse-icon {\n    font-size: 10px;\n    transition: transform 0.2s ease;\n}\n\n.toolasha-settings-group.collapsed .collapse-icon {\n    transform: rotate(-90deg);\n}\n\n.toolasha-settings-group-content {\n    max-height: 5000px;\n    overflow: hidden;\n    transition: max-height 0.3s ease-out;\n}\n\n.toolasha-settings-group.collapsed .toolasha-settings-group-content {\n    max-height: 0;\n}\n\n/* Section Headers */\n.toolasha-settings-card h3 {\n    margin: 10px 0 4px 0;\n    color: var(--toolasha-accent);\n    font-weight: 600;\n    font-size: 13px;\n    display: flex;\n    align-items: center;\n    gap: 6px;\n    border-bottom: 1px solid var(--toolasha-border);\n    padding-bottom: 3px;\n    text-transform: uppercase;\n    letter-spacing: 0.5px;\n}\n\n.toolasha-settings-card h3:first-child {\n    margin-top: 0;\n}\n\n.toolasha-settings-card h3 .icon {\n    font-size: 14px;\n}\n\n/* Individual Setting Row */\n.toolasha-setting {\n    display: flex;\n    align-items: center;\n    justify-content: space-between;\n    gap: 10px;\n    margin: 0;\n    padding: 6px 8px;\n    background: var(--toolasha-bg);\n    border: 1px solid var(--toolasha-border);\n    border-radius: 4px;\n    min-height: unset;\n    transition: all 0.2s ease;\n}\n\n.toolasha-setting:hover {\n    background: rgba(30, 35, 45, 0.7);\n    border-color: var(--toolasha-accent);\n}\n\n.toolasha-setting.disabled {\n    opacity: 0.3;\n    pointer-events: none;\n}\n\n.toolasha-setting.not-implemented .toolasha-setting-label {\n    color: #ff6b6b;\n}\n\n.toolasha-setting.not-implemented .toolasha-setting-help {\n    color: rgba(255, 107, 107, 0.7);\n}\n\n.toolasha-setting-label {\n    text-align: left;\n    flex: 1;\n    margin-right: 10px;\n    line-height: 1.3;\n    font-size: 12px;\n}\n\n.toolasha-setting-help {\n    display: block;\n    font-size: 10px;\n    color: var(--toolasha-text-dim);\n    margin-top: 2px;\n    font-style: italic;\n}\n\n.toolasha-setting-input {\n    flex-shrink: 0;\n}\n\n/* Modern Toggle Switch */\n.toolasha-switch {\n    position: relative;\n    width: 38px;\n    height: 20px;\n    flex-shrink: 0;\n    display: inline-block;\n}\n\n.toolasha-switch input {\n    opacity: 0;\n    width: 0;\n    height: 0;\n    position: absolute;\n}\n\n.toolasha-slider {\n    position: absolute;\n    top: 0;\n    left: 0;\n    right: 0;\n    bottom: 0;\n    background: var(--toolasha-toggle-off);\n    border-radius: 20px;\n    cursor: pointer;\n    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);\n    border: 2px solid transparent;\n}\n\n.toolasha-slider:before {\n    content: \"\";\n    position: absolute;\n    height: 12px;\n    width: 12px;\n    left: 2px;\n    bottom: 2px;\n    background: white;\n    border-radius: 50%;\n    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);\n    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);\n}\n\n.toolasha-switch input:checked + .toolasha-slider {\n    background: var(--toolasha-toggle-on);\n    border-color: var(--toolasha-accent-hover);\n    box-shadow: 0 0 6px var(--toolasha-accent-dim);\n}\n\n.toolasha-switch input:checked + .toolasha-slider:before {\n    transform: translateX(18px);\n}\n\n.toolasha-switch:hover .toolasha-slider {\n    border-color: var(--toolasha-accent);\n}\n\n/* Text Input */\n.toolasha-text-input {\n    padding: 5px 8px;\n    border: 1px solid var(--toolasha-border);\n    border-radius: 3px;\n    background: rgba(0, 0, 0, 0.3);\n    color: var(--toolasha-text);\n    min-width: 100px;\n    font-size: 12px;\n    transition: all 0.2s ease;\n}\n\n.toolasha-text-input:focus {\n    outline: none;\n    border-color: var(--toolasha-accent);\n    box-shadow: 0 0 0 2px var(--toolasha-accent-dim);\n}\n\n/* Number Input */\n.toolasha-number-input {\n    padding: 5px 8px;\n    border: 1px solid var(--toolasha-border);\n    border-radius: 3px;\n    background: rgba(0, 0, 0, 0.3);\n    color: var(--toolasha-text);\n    min-width: 80px;\n    font-size: 12px;\n    transition: all 0.2s ease;\n}\n\n.toolasha-number-input:focus {\n    outline: none;\n    border-color: var(--toolasha-accent);\n    box-shadow: 0 0 0 2px var(--toolasha-accent-dim);\n}\n\n/* Select Dropdown */\n.toolasha-select-input {\n    padding: 5px 8px;\n    border: 1px solid var(--toolasha-border);\n    border-radius: 3px;\n    background: rgba(0, 0, 0, 0.3);\n    color: var(--toolasha-accent);\n    font-weight: 600;\n    min-width: 150px;\n    cursor: pointer;\n    font-size: 12px;\n    -webkit-appearance: none;\n    -moz-appearance: none;\n    appearance: none;\n    background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207l5%205%205-5z%22%20fill%3D%22%235b8def%22%2F%3E%3C%2Fsvg%3E');\n    background-repeat: no-repeat;\n    background-position: right 6px center;\n    background-size: 14px;\n    padding-right: 28px;\n    transition: all 0.2s ease;\n}\n\n.toolasha-select-input:focus {\n    outline: none;\n    border-color: var(--toolasha-accent);\n    box-shadow: 0 0 0 2px var(--toolasha-accent-dim);\n}\n\n.toolasha-select-input option {\n    background: #1a1a2e;\n    color: var(--toolasha-text);\n    padding: 8px;\n}\n\n/* Utility Buttons Container */\n.toolasha-utility-buttons {\n    display: flex;\n    gap: 8px;\n    margin-top: 12px;\n    padding-top: 10px;\n    border-top: 1px solid var(--toolasha-border);\n    flex-wrap: wrap;\n}\n\n.toolasha-utility-button {\n    background: linear-gradient(135deg, var(--toolasha-secondary), #6A1B9A);\n    border: 1px solid rgba(138, 43, 226, 0.4);\n    color: #ffffff;\n    padding: 6px 12px;\n    border-radius: 4px;\n    font-size: 11px;\n    font-weight: 600;\n    cursor: pointer;\n    transition: all 0.2s ease;\n    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);\n}\n\n.toolasha-utility-button:hover {\n    background: linear-gradient(135deg, #9A4BCF, var(--toolasha-secondary));\n    box-shadow: 0 0 10px rgba(138, 43, 226, 0.3);\n    transform: translateY(-1px);\n}\n\n.toolasha-utility-button:active {\n    transform: translateY(0);\n}\n\n/* Refresh Notice */\n.toolasha-refresh-notice {\n    background: rgba(255, 152, 0, 0.1);\n    border: 1px solid rgba(255, 152, 0, 0.3);\n    border-radius: 4px;\n    padding: 8px 12px;\n    margin-top: 10px;\n    color: #ffa726;\n    font-size: 11px;\n    display: flex;\n    align-items: center;\n    gap: 8px;\n}\n\n.toolasha-refresh-notice::before {\n    content: \"⚠️\";\n    font-size: 14px;\n}\n\n/* Dependency Indicator */\n.toolasha-setting.has-dependency::before {\n    content: \"↳\";\n    position: absolute;\n    left: -4px;\n    color: var(--toolasha-accent);\n    font-size: 14px;\n    opacity: 0.5;\n}\n\n.toolasha-setting.has-dependency {\n    margin-left: 16px;\n    position: relative;\n}\n\n/* Nested setting collapse icons */\n.setting-collapse-icon {\n    flex-shrink: 0;\n    color: var(--toolasha-accent);\n    opacity: 0.7;\n}\n\n.toolasha-setting.dependents-collapsed .setting-collapse-icon {\n    opacity: 1;\n}\n\n.toolasha-setting-label-container:hover .setting-collapse-icon {\n    opacity: 1;\n}\n\n/* Tab Panel Override (for game's settings panel) */\n.TabPanel_tabPanel__tXMJF#toolasha-settings {\n    display: block !important;\n}\n\n.TabPanel_tabPanel__tXMJF#toolasha-settings.TabPanel_hidden__26UM3 {\n    display: none !important;\n}\n";
+    /**
+     * Configuration Module
+     * Manages all script constants and user settings
+     */
+
+
+    /**
+     * Config class manages all script configuration
+     * - Constants (colors, URLs, formatters)
+     * - User settings with persistence
+     */
+    class Config {
+        constructor() {
+            // === CONSTANTS ===
+
+            // Number formatting separators (locale-aware)
+            this.THOUSAND_SEPARATOR = new Intl.NumberFormat().format(1111).replaceAll("1", "").at(0) || "";
+            this.DECIMAL_SEPARATOR = new Intl.NumberFormat().format(1.1).replaceAll("1", "").at(0);
+
+            // Extended color palette (configurable)
+            // Dark background colors (for UI elements on dark backgrounds)
+            this.COLOR_PROFIT = "#047857";      // Emerald green for positive values
+            this.COLOR_LOSS = "#f87171";        // Red for negative values
+            this.COLOR_WARNING = "#ffa500";     // Orange for warnings
+            this.COLOR_INFO = "#60a5fa";        // Blue for informational
+            this.COLOR_ESSENCE = "#c084fc";     // Purple for essences
+
+            // Tooltip colors (for text on light/tooltip backgrounds)
+            this.COLOR_TOOLTIP_PROFIT = "#047857";  // Green for tooltips
+            this.COLOR_TOOLTIP_LOSS = "#dc2626";    // Darker red for tooltips
+            this.COLOR_TOOLTIP_INFO = "#2563eb";    // Darker blue for tooltips
+            this.COLOR_TOOLTIP_WARNING = "#ea580c"; // Darker orange for tooltips
+
+            // General colors
+            this.COLOR_TEXT_PRIMARY = "#ffffff"; // Primary text color
+            this.COLOR_TEXT_SECONDARY = "#888888"; // Secondary text color
+            this.COLOR_BORDER = "#444444";      // Border color
+            this.COLOR_GOLD = "#ffa500";        // Gold/currency color
+            this.COLOR_ACCENT = "#22c55e";      // Script accent color (green)
+            this.COLOR_REMAINING_XP = "#FFFFFF"; // Remaining XP text color
+
+            // Legacy color constants (mapped to COLOR_ACCENT)
+            this.SCRIPT_COLOR_MAIN = this.COLOR_ACCENT;
+            this.SCRIPT_COLOR_TOOLTIP = this.COLOR_ACCENT;
+            this.SCRIPT_COLOR_ALERT = "red";
+
+            // Market API URL
+            this.MARKET_API_URL = "https://www.milkywayidle.com/game_data/marketplace.json";
+
+            // === SETTINGS MAP ===
+
+            // Settings loaded from settings-config.js via settings-storage.js
+            this.settingsMap = {};
+
+            // === SETTING CHANGE CALLBACKS ===
+            // Map of setting keys to callback functions
+            this.settingChangeCallbacks = {};
+
+            // === FEATURE REGISTRY ===
+            // Feature toggles with metadata for future UI
+            this.features = {
+                // Market Features
+                tooltipPrices: {
+                    enabled: true,
+                    name: 'Market Prices in Tooltips',
+                    category: 'Market',
+                    description: 'Shows bid/ask prices in item tooltips',
+                    settingKey: 'itemTooltip_prices'
+                },
+                tooltipProfit: {
+                    enabled: true,
+                    name: 'Profit Calculator in Tooltips',
+                    category: 'Market',
+                    description: 'Shows production cost and profit in tooltips',
+                    settingKey: 'itemTooltip_profit'
+                },
+                tooltipConsumables: {
+                    enabled: true,
+                    name: 'Consumable Effects in Tooltips',
+                    category: 'Market',
+                    description: 'Shows buff effects and durations for food/drinks',
+                    settingKey: 'showConsumTips'
+                },
+                expectedValueCalculator: {
+                    enabled: true,
+                    name: 'Expected Value Calculator',
+                    category: 'Market',
+                    description: 'Shows EV for openable containers (crates, chests)',
+                    settingKey: 'itemTooltip_expectedValue'
+                },
+                market_showListingPrices: {
+                    enabled: true,
+                    name: 'Market Listing Price Display',
+                    category: 'Market',
+                    description: 'Shows top order price, total value, and listing age on My Listings',
+                    settingKey: 'market_showListingPrices'
+                },
+                market_showEstimatedListingAge: {
+                    enabled: true,
+                    name: 'Estimated Listing Age',
+                    category: 'Market',
+                    description: 'Estimates creation time for all market listings using listing ID interpolation',
+                    settingKey: 'market_showEstimatedListingAge'
+                },
+
+                // Action Features
+                actionTimeDisplay: {
+                    enabled: true,
+                    name: 'Action Queue Time Display',
+                    category: 'Actions',
+                    description: 'Shows total time and completion time for queued actions',
+                    settingKey: 'totalActionTime'
+                },
+                quickInputButtons: {
+                    enabled: true,
+                    name: 'Quick Input Buttons',
+                    category: 'Actions',
+                    description: 'Adds 1/10/100/1000 buttons to action inputs',
+                    settingKey: 'actionPanel_totalTime_quickInputs'
+                },
+                actionPanelProfit: {
+                    enabled: true,
+                    name: 'Action Profit Display',
+                    category: 'Actions',
+                    description: 'Shows profit/loss for gathering and production',
+                    settingKey: 'actionPanel_foragingTotal'
+                },
+                requiredMaterials: {
+                    enabled: true,
+                    name: 'Required Materials Display',
+                    category: 'Actions',
+                    description: 'Shows total required and missing materials for production actions',
+                    settingKey: 'requiredMaterials'
+                },
+
+                // Combat Features
+                abilityBookCalculator: {
+                    enabled: true,
+                    name: 'Ability Book Requirements',
+                    category: 'Combat',
+                    description: 'Shows books needed to reach target level',
+                    settingKey: 'skillbook'
+                },
+                zoneIndices: {
+                    enabled: true,
+                    name: 'Combat Zone Indices',
+                    category: 'Combat',
+                    description: 'Shows zone numbers in combat location list',
+                    settingKey: 'mapIndex'
+                },
+                taskZoneIndices: {
+                    enabled: true,
+                    name: 'Task Zone Indices',
+                    category: 'Tasks',
+                    description: 'Shows zone numbers on combat tasks',
+                    settingKey: 'taskMapIndex'
+                },
+                combatScore: {
+                    enabled: true,
+                    name: 'Profile Gear Score',
+                    category: 'Combat',
+                    description: 'Shows gear score on profile',
+                    settingKey: 'combatScore'
+                },
+                dungeonTracker: {
+                    enabled: true,
+                    name: 'Dungeon Tracker',
+                    category: 'Combat',
+                    description: 'Real-time dungeon progress tracking in top bar with wave times, statistics, and party chat completion messages',
+                    settingKey: 'dungeonTracker'
+                },
+                combatSimIntegration: {
+                    enabled: true,
+                    name: 'Combat Simulator Integration',
+                    category: 'Combat',
+                    description: 'Auto-import character/party data into Shykai Combat Simulator',
+                    settingKey: null // New feature, no legacy setting
+                },
+                enhancementSimulator: {
+                    enabled: true,
+                    name: 'Enhancement Simulator',
+                    category: 'Market',
+                    description: 'Shows enhancement cost calculations in item tooltips',
+                    settingKey: 'enhanceSim'
+                },
+
+                // UI Features
+                equipmentLevelDisplay: {
+                    enabled: true,
+                    name: 'Equipment Level on Icons',
+                    category: 'UI',
+                    description: 'Shows item level number on equipment icons',
+                    settingKey: 'itemIconLevel'
+                },
+                alchemyItemDimming: {
+                    enabled: true,
+                    name: 'Alchemy Item Dimming',
+                    category: 'UI',
+                    description: 'Dims items requiring higher Alchemy level',
+                    settingKey: 'alchemyItemDimming'
+                },
+                skillExperiencePercentage: {
+                    enabled: true,
+                    name: 'Skill Experience Percentage',
+                    category: 'UI',
+                    description: 'Shows XP progress percentage in left sidebar',
+                    settingKey: 'expPercentage'
+                },
+                largeNumberFormatting: {
+                    enabled: true,
+                    name: 'Use K/M/B Number Formatting',
+                    category: 'UI',
+                    description: 'Display large numbers as 1.5M instead of 1,500,000',
+                    settingKey: 'formatting_useKMBFormat'
+                },
+
+                // Task Features
+                taskProfitDisplay: {
+                    enabled: true,
+                    name: 'Task Profit Calculator',
+                    category: 'Tasks',
+                    description: 'Shows expected profit from task rewards',
+                    settingKey: 'taskProfitCalculator'
+                },
+                taskRerollTracker: {
+                    enabled: true,
+                    name: 'Task Reroll Tracker',
+                    category: 'Tasks',
+                    description: 'Tracks reroll costs and history',
+                    settingKey: 'taskRerollTracker'
+                },
+                taskSorter: {
+                    enabled: true,
+                    name: 'Task Sorting',
+                    category: 'Tasks',
+                    description: 'Adds button to sort tasks by skill type',
+                    settingKey: 'taskSorter'
+                },
+                taskIcons: {
+                    enabled: true,
+                    name: 'Task Icons',
+                    category: 'Tasks',
+                    description: 'Shows visual icons on task cards',
+                    settingKey: 'taskIcons'
+                },
+                taskIconsDungeons: {
+                    enabled: false,
+                    name: 'Task Icons - Dungeons',
+                    category: 'Tasks',
+                    description: 'Shows dungeon icons for combat tasks',
+                    settingKey: 'taskIconsDungeons',
+                    dependencies: ['taskIcons']
+                },
+
+                // Skills Features
+                skillRemainingXP: {
+                    enabled: true,
+                    name: 'Remaining XP Display',
+                    category: 'Skills',
+                    description: 'Shows remaining XP to next level on skill bars',
+                    settingKey: 'skillRemainingXP'
+                },
+
+                // House Features
+                houseCostDisplay: {
+                    enabled: true,
+                    name: 'House Upgrade Costs',
+                    category: 'House',
+                    description: 'Shows market value of upgrade materials',
+                    settingKey: 'houseUpgradeCosts'
+                },
+
+                // Economy Features
+                networth: {
+                    enabled: true,
+                    name: 'Net Worth Calculator',
+                    category: 'Economy',
+                    description: 'Shows total asset value in header (Current Assets)',
+                    settingKey: 'networth'
+                },
+                inventorySummary: {
+                    enabled: true,
+                    name: 'Inventory Summary Panel',
+                    category: 'Economy',
+                    description: 'Shows detailed networth breakdown below inventory',
+                    settingKey: 'invWorth'
+                },
+                inventorySort: {
+                    enabled: true,
+                    name: 'Inventory Sort',
+                    category: 'Economy',
+                    description: 'Sorts inventory by Ask/Bid price',
+                    settingKey: 'invSort'
+                },
+                inventorySortBadges: {
+                    enabled: false,
+                    name: 'Inventory Sort Price Badges',
+                    category: 'Economy',
+                    description: 'Shows stack value badges on items when sorting',
+                    settingKey: 'invSort_showBadges'
+                },
+                inventoryBadgePrices: {
+                    enabled: false,
+                    name: 'Inventory Price Badges',
+                    category: 'Economy',
+                    description: 'Shows stack value badges on items (independent of sorting)',
+                    settingKey: 'invBadgePrices'
+                },
+
+                // Enhancement Features
+                enhancementTracker: {
+                    enabled: false,
+                    name: 'Enhancement Tracker',
+                    category: 'Enhancement',
+                    description: 'Tracks enhancement attempts, costs, and statistics',
+                    settingKey: 'enhancementTracker'
+                },
+
+                // Notification Features
+                notifiEmptyAction: {
+                    enabled: false,
+                    name: 'Empty Queue Notification',
+                    category: 'Notifications',
+                    description: 'Browser notification when action queue becomes empty',
+                    settingKey: 'notifiEmptyAction'
+                }
+            };
+
+            // Note: loadSettings() must be called separately (async)
+        }
+
+        /**
+         * Initialize config (async) - loads settings from storage
+         * @returns {Promise<void>}
+         */
+        async initialize() {
+            await this.loadSettings();
+            this.applyColorSettings();
+        }
+
+        /**
+         * Load settings from storage (async)
+         * @returns {Promise<void>}
+         */
+        async loadSettings() {
+            // Set character ID in settings storage for per-character settings
+            const characterId = dataManager.getCurrentCharacterId();
+            if (characterId) {
+                settingsStorage.setCharacterId(characterId);
+            }
+
+            // Load settings from settings-storage (which uses settings-config.js as source of truth)
+            this.settingsMap = await settingsStorage.loadSettings();
+        }
+
+        /**
+         * Clear settings cache (for character switching)
+         */
+        clearSettingsCache() {
+            this.settingsMap = {};
+        }
+
+        /**
+         * Save settings to storage (immediately)
+         */
+        saveSettings() {
+            settingsStorage.saveSettings(this.settingsMap);
+        }
+
+        /**
+         * Get a setting value
+         * @param {string} key - Setting key
+         * @returns {boolean} Setting value
+         */
+        getSetting(key) {
+            return this.settingsMap[key]?.isTrue ?? false;
+        }
+
+        /**
+         * Get a setting value (for non-boolean settings)
+         * @param {string} key - Setting key
+         * @param {*} defaultValue - Default value if key doesn't exist
+         * @returns {*} Setting value
+         */
+        getSettingValue(key, defaultValue = null) {
+            const setting = this.settingsMap[key];
+            if (!setting) {
+                return defaultValue;
+            }
+            // Handle both boolean (isTrue) and value-based settings
+            if (setting.hasOwnProperty('value')) {
+                return setting.value;
+            } else if (setting.hasOwnProperty('isTrue')) {
+                return setting.isTrue;
+            }
+            return defaultValue;
+        }
+
+        /**
+         * Set a setting value (auto-saves)
+         * @param {string} key - Setting key
+         * @param {boolean} value - Setting value
+         */
+        setSetting(key, value) {
+            if (this.settingsMap[key]) {
+                this.settingsMap[key].isTrue = value;
+                this.saveSettings();
+
+                // Re-apply colors if color setting changed
+                if (key === 'useOrangeAsMainColor') {
+                    this.applyColorSettings();
+                }
+            }
+        }
+
+        /**
+         * Set a setting value (for non-boolean settings, auto-saves)
+         * @param {string} key - Setting key
+         * @param {*} value - Setting value
+         */
+        setSettingValue(key, value) {
+            if (this.settingsMap[key]) {
+                this.settingsMap[key].value = value;
+                this.saveSettings();
+
+                // Re-apply color settings if this is a color setting
+                if (key.startsWith('color_')) {
+                    this.applyColorSettings();
+                }
+
+                // Trigger registered callbacks for this setting
+                if (this.settingChangeCallbacks[key]) {
+                    this.settingChangeCallbacks[key](value);
+                }
+            }
+        }
+
+        /**
+         * Register a callback to be called when a specific setting changes
+         * @param {string} key - Setting key to watch
+         * @param {Function} callback - Callback function to call when setting changes
+         */
+        onSettingChange(key, callback) {
+            this.settingChangeCallbacks[key] = callback;
+        }
+
+        /**
+         * Toggle a setting (auto-saves)
+         * @param {string} key - Setting key
+         * @returns {boolean} New value
+         */
+        toggleSetting(key) {
+            const newValue = !this.getSetting(key);
+            this.setSetting(key, newValue);
+            return newValue;
+        }
+
+        /**
+         * Get all settings as an array (useful for UI)
+         * @returns {Array} Array of setting objects
+         */
+        getAllSettings() {
+            return Object.values(this.settingsMap);
+        }
+
+        /**
+         * Reset all settings to defaults
+         */
+        resetToDefaults() {
+            // Find default values from constructor (all true except notifiEmptyAction)
+            for (const key in this.settingsMap) {
+                this.settingsMap[key].isTrue = (key === 'notifiEmptyAction') ? false : true;
+            }
+
+            this.saveSettings();
+            this.applyColorSettings();
+        }
+
+        /**
+         * Sync current settings to all other characters
+         * @returns {Promise<{success: boolean, count: number, error?: string}>} Result object
+         */
+        async syncSettingsToAllCharacters() {
+            try {
+                // Ensure character ID is set
+                const characterId = dataManager.getCurrentCharacterId();
+                if (!characterId) {
+                    return {
+                        success: false,
+                        count: 0,
+                        error: 'No character ID available'
+                    };
+                }
+
+                // Set character ID in settings storage
+                settingsStorage.setCharacterId(characterId);
+
+                // Sync settings to all other characters
+                const syncedCount = await settingsStorage.syncSettingsToAllCharacters(this.settingsMap);
+
+                return {
+                    success: true,
+                    count: syncedCount
+                };
+            } catch (error) {
+                console.error('[Config] Failed to sync settings:', error);
+                return {
+                    success: false,
+                    count: 0,
+                    error: error.message
+                };
+            }
+        }
+
+        /**
+         * Get number of known characters (including current)
+         * @returns {Promise<number>} Number of characters
+         */
+        async getKnownCharacterCount() {
+            try {
+                const knownCharacters = await settingsStorage.getKnownCharacters();
+                return knownCharacters.length;
+            } catch (error) {
+                console.error('[Config] Failed to get character count:', error);
+                return 0;
+            }
+        }
+
+        /**
+         * Apply color settings to color constants
+         */
+        applyColorSettings() {
+            // Apply extended color palette from settings
+            this.COLOR_PROFIT = this.getSettingValue('color_profit', "#047857");
+            this.COLOR_LOSS = this.getSettingValue('color_loss', "#f87171");
+            this.COLOR_WARNING = this.getSettingValue('color_warning', "#ffa500");
+            this.COLOR_INFO = this.getSettingValue('color_info', "#60a5fa");
+            this.COLOR_ESSENCE = this.getSettingValue('color_essence', "#c084fc");
+            this.COLOR_TOOLTIP_PROFIT = this.getSettingValue('color_tooltip_profit', "#047857");
+            this.COLOR_TOOLTIP_LOSS = this.getSettingValue('color_tooltip_loss', "#dc2626");
+            this.COLOR_TOOLTIP_INFO = this.getSettingValue('color_tooltip_info', "#2563eb");
+            this.COLOR_TOOLTIP_WARNING = this.getSettingValue('color_tooltip_warning', "#ea580c");
+            this.COLOR_TEXT_PRIMARY = this.getSettingValue('color_text_primary', "#ffffff");
+            this.COLOR_TEXT_SECONDARY = this.getSettingValue('color_text_secondary', "#888888");
+            this.COLOR_BORDER = this.getSettingValue('color_border', "#444444");
+            this.COLOR_GOLD = this.getSettingValue('color_gold', "#ffa500");
+            this.COLOR_ACCENT = this.getSettingValue('color_accent', "#22c55e");
+            this.COLOR_REMAINING_XP = this.getSettingValue('color_remaining_xp', "#FFFFFF");
+            this.COLOR_INVBADGE_ASK = this.getSettingValue('color_invBadge_ask', "#047857");
+            this.COLOR_INVBADGE_BID = this.getSettingValue('color_invBadge_bid', "#60a5fa");
+
+            // Set legacy SCRIPT_COLOR_MAIN to accent color
+            this.SCRIPT_COLOR_MAIN = this.COLOR_ACCENT;
+            this.SCRIPT_COLOR_TOOLTIP = this.COLOR_ACCENT; // Keep tooltip same as main
+        }
+
+        // === FEATURE TOGGLE METHODS ===
+
+        /**
+         * Check if a feature is enabled
+         * Uses legacy settingKey if available, otherwise uses feature.enabled
+         * @param {string} featureKey - Feature key (e.g., 'tooltipPrices')
+         * @returns {boolean} Whether feature is enabled
+         */
+        isFeatureEnabled(featureKey) {
+            const feature = this.features?.[featureKey];
+            if (!feature) {
+                return true; // Default to enabled if not found
+            }
+
+            // Check legacy setting first (for backward compatibility)
+            if (feature.settingKey && this.settingsMap[feature.settingKey]) {
+                return this.settingsMap[feature.settingKey].isTrue ?? true;
+            }
+
+            // Otherwise use feature.enabled
+            return feature.enabled ?? true;
+        }
+
+        /**
+         * Enable or disable a feature
+         * @param {string} featureKey - Feature key
+         * @param {boolean} enabled - Enable state
+         */
+        async setFeatureEnabled(featureKey, enabled) {
+            const feature = this.features?.[featureKey];
+            if (!feature) {
+                console.warn(`Feature '${featureKey}' not found`);
+                return;
+            }
+
+            // Update legacy setting if it exists
+            if (feature.settingKey && this.settingsMap[feature.settingKey]) {
+                this.settingsMap[feature.settingKey].isTrue = enabled;
+            }
+
+            // Update feature registry
+            feature.enabled = enabled;
+
+            await this.saveSettings();
+        }
+
+        /**
+         * Toggle a feature
+         * @param {string} featureKey - Feature key
+         * @returns {boolean} New enabled state
+         */
+        async toggleFeature(featureKey) {
+            const current = this.isFeatureEnabled(featureKey);
+            await this.setFeatureEnabled(featureKey, !current);
+            return !current;
+        }
+
+        /**
+         * Get all features grouped by category
+         * @returns {Object} Features grouped by category
+         */
+        getFeaturesByCategory() {
+            const grouped = {};
+
+            for (const [key, feature] of Object.entries(this.features)) {
+                const category = feature.category || 'Other';
+                if (!grouped[category]) {
+                    grouped[category] = [];
+                }
+                grouped[category].push({
+                    key,
+                    name: feature.name,
+                    description: feature.description,
+                    enabled: this.isFeatureEnabled(key)
+                });
+            }
+
+            return grouped;
+        }
+
+        /**
+         * Get all feature keys
+         * @returns {string[]} Array of feature keys
+         */
+        getFeatureKeys() {
+            return Object.keys(this.features || {});
+        }
+
+        /**
+         * Get feature info
+         * @param {string} featureKey - Feature key
+         * @returns {Object|null} Feature info with current enabled state
+         */
+        getFeatureInfo(featureKey) {
+            const feature = this.features?.[featureKey];
+            if (!feature) {
+                return null;
+            }
+
+            return {
+                key: featureKey,
+                name: feature.name,
+                category: feature.category,
+                description: feature.description,
+                enabled: this.isFeatureEnabled(featureKey)
+            };
+        }
+    }
+
+    // Create and export singleton instance
+    const config = new Config();
+
+    /**
+     * Centralized DOM Observer
+     * Single MutationObserver that dispatches to registered handlers
+     * Replaces 15 separate observers watching document.body
+     * Supports optional debouncing to reduce CPU usage during bulk DOM changes
+     */
+
+    class DOMObserver {
+        constructor() {
+            this.observer = null;
+            this.handlers = [];
+            this.isObserving = false;
+            this.debounceTimers = new Map(); // Track debounce timers per handler
+            this.debouncedElements = new Map(); // Track pending elements per handler
+            this.DEFAULT_DEBOUNCE_DELAY = 50; // 50ms default delay
+        }
+
+        /**
+         * Start observing DOM changes
+         */
+        start() {
+            if (this.isObserving) return;
+
+            // Wait for document.body to exist (critical for @run-at document-start)
+            const startObserver = () => {
+                if (!document.body) {
+                    // Body doesn't exist yet, wait and try again
+                    setTimeout(startObserver, 10);
+                    return;
+                }
+
+                this.observer = new MutationObserver((mutations) => {
+                    for (const mutation of mutations) {
+                        for (const node of mutation.addedNodes) {
+                            if (node.nodeType !== Node.ELEMENT_NODE) continue;
+
+                            // Dispatch to all registered handlers
+                            this.handlers.forEach(handler => {
+                                try {
+                                    if (handler.debounce) {
+                                        this.debouncedCallback(handler, node, mutation);
+                                    } else {
+                                        handler.callback(node, mutation);
+                                    }
+                                } catch (error) {
+                                    console.error(`[DOM Observer] Handler error (${handler.name}):`, error);
+                                }
+                            });
+                        }
+                    }
+                });
+
+                this.observer.observe(document.body, {
+                    childList: true,
+                    subtree: true
+                });
+
+                this.isObserving = true;
+            };
+
+            startObserver();
+        }
+
+        /**
+         * Debounced callback handler
+         * Collects elements and fires callback after delay
+         * @private
+         */
+        debouncedCallback(handler, node, mutation) {
+            const handlerName = handler.name;
+            const delay = handler.debounceDelay || this.DEFAULT_DEBOUNCE_DELAY;
+
+            // Store element for batched processing
+            if (!this.debouncedElements.has(handlerName)) {
+                this.debouncedElements.set(handlerName, []);
+            }
+            this.debouncedElements.get(handlerName).push({ node, mutation });
+
+            // Clear existing timer
+            if (this.debounceTimers.has(handlerName)) {
+                clearTimeout(this.debounceTimers.get(handlerName));
+            }
+
+            // Set new timer
+            const timer = setTimeout(() => {
+                const elements = this.debouncedElements.get(handlerName) || [];
+                this.debouncedElements.delete(handlerName);
+                this.debounceTimers.delete(handlerName);
+
+                // Process all collected elements
+                // For most handlers, we only need to process the last element
+                // (e.g., task list updated multiple times, we only care about final state)
+                if (elements.length > 0) {
+                    const lastElement = elements[elements.length - 1];
+                    handler.callback(lastElement.node, lastElement.mutation);
+                }
+            }, delay);
+
+            this.debounceTimers.set(handlerName, timer);
+        }
+
+        /**
+         * Stop observing DOM changes
+         */
+        stop() {
+            if (this.observer) {
+                this.observer.disconnect();
+                this.observer = null;
+            }
+
+            // Clear all debounce timers
+            this.debounceTimers.forEach(timer => clearTimeout(timer));
+            this.debounceTimers.clear();
+            this.debouncedElements.clear();
+
+            this.isObserving = false;
+        }
+
+        /**
+         * Register a handler for DOM changes
+         * @param {string} name - Handler name for debugging
+         * @param {Function} callback - Function to call when nodes are added (receives node, mutation)
+         * @param {Object} options - Optional configuration
+         * @param {boolean} options.debounce - Enable debouncing (default: false)
+         * @param {number} options.debounceDelay - Debounce delay in ms (default: 50)
+         * @returns {Function} Unregister function
+         */
+        register(name, callback, options = {}) {
+            const handler = {
+                name,
+                callback,
+                debounce: options.debounce || false,
+                debounceDelay: options.debounceDelay
+            };
+            this.handlers.push(handler);
+
+            // Return unregister function
+            return () => {
+                const index = this.handlers.indexOf(handler);
+                if (index > -1) {
+                    this.handlers.splice(index, 1);
+
+                    // Clean up any pending debounced callbacks
+                    if (this.debounceTimers.has(name)) {
+                        clearTimeout(this.debounceTimers.get(name));
+                        this.debounceTimers.delete(name);
+                        this.debouncedElements.delete(name);
+                    }
+                }
+            };
+        }
+
+        /**
+         * Register a handler for specific class names
+         * @param {string} name - Handler name for debugging
+         * @param {string|string[]} classNames - Class name(s) to watch for (supports partial matches)
+         * @param {Function} callback - Function to call when matching elements appear
+         * @param {Object} options - Optional configuration
+         * @param {boolean} options.debounce - Enable debouncing (default: false for immediate response)
+         * @param {number} options.debounceDelay - Debounce delay in ms (default: 50)
+         * @returns {Function} Unregister function
+         */
+        onClass(name, classNames, callback, options = {}) {
+            const classArray = Array.isArray(classNames) ? classNames : [classNames];
+
+            return this.register(name, (node) => {
+                // Safely get className as string (handles SVG elements)
+                const className = typeof node.className === 'string' ? node.className : '';
+
+                // Check if node matches any of the target classes
+                for (const targetClass of classArray) {
+                    if (className.includes(targetClass)) {
+                        callback(node);
+                        return; // Only call once per node
+                    }
+                }
+
+                // Also check if node contains matching elements
+                if (node.querySelector) {
+                    for (const targetClass of classArray) {
+                        const matches = node.querySelectorAll(`[class*="${targetClass}"]`);
+                        matches.forEach(match => callback(match));
+                    }
+                }
+            }, options);
+        }
+
+        /**
+         * Get stats about registered handlers
+         */
+        getStats() {
+            return {
+                isObserving: this.isObserving,
+                handlerCount: this.handlers.length,
+                handlers: this.handlers.map(h => ({
+                    name: h.name,
+                    debounced: h.debounce || false
+                })),
+                pendingCallbacks: this.debounceTimers.size
+            };
+        }
+    }
+
+    // Create singleton instance
+    const domObserver = new DOMObserver();
+
+    var settingsCSS = "/* Toolasha Settings UI Styles\n * Modern, compact design\n */\n\n/* CSS Variables */\n:root {\n    --toolasha-accent: #5b8def;\n    --toolasha-accent-hover: #7aa3f3;\n    --toolasha-accent-dim: rgba(91, 141, 239, 0.15);\n    --toolasha-secondary: #8A2BE2;\n    --toolasha-text: rgba(255, 255, 255, 0.9);\n    --toolasha-text-dim: rgba(255, 255, 255, 0.5);\n    --toolasha-bg: rgba(20, 25, 35, 0.6);\n    --toolasha-border: rgba(91, 141, 239, 0.2);\n    --toolasha-toggle-off: rgba(100, 100, 120, 0.4);\n    --toolasha-toggle-on: var(--toolasha-accent);\n}\n\n/* Settings Card Container */\n.toolasha-settings-card {\n    display: flex;\n    flex-direction: column;\n    padding: 12px 16px;\n    font-size: 12px;\n    line-height: 1.3;\n    color: var(--toolasha-text);\n    position: relative;\n    overflow-y: auto;\n    gap: 6px;\n    max-height: calc(100vh - 250px);\n}\n\n/* Top gradient line */\n.toolasha-settings-card::before {\n    display: none;\n}\n\n/* Scrollbar styling */\n.toolasha-settings-card::-webkit-scrollbar {\n    width: 6px;\n}\n\n.toolasha-settings-card::-webkit-scrollbar-track {\n    background: transparent;\n}\n\n.toolasha-settings-card::-webkit-scrollbar-thumb {\n    background: var(--toolasha-accent);\n    border-radius: 3px;\n    opacity: 0.5;\n}\n\n.toolasha-settings-card::-webkit-scrollbar-thumb:hover {\n    opacity: 1;\n}\n\n/* Collapsible Settings Groups */\n.toolasha-settings-group {\n    margin-bottom: 8px;\n}\n\n.toolasha-settings-group-header {\n    cursor: pointer;\n    user-select: none;\n    margin: 10px 0 4px 0;\n    color: var(--toolasha-accent);\n    font-weight: 600;\n    font-size: 13px;\n    display: flex;\n    align-items: center;\n    gap: 6px;\n    border-bottom: 1px solid var(--toolasha-border);\n    padding-bottom: 3px;\n    text-transform: uppercase;\n    letter-spacing: 0.5px;\n    transition: color 0.2s ease;\n}\n\n.toolasha-settings-group-header:hover {\n    color: var(--toolasha-accent-hover);\n}\n\n.toolasha-settings-group-header .collapse-icon {\n    font-size: 10px;\n    transition: transform 0.2s ease;\n}\n\n.toolasha-settings-group.collapsed .collapse-icon {\n    transform: rotate(-90deg);\n}\n\n.toolasha-settings-group-content {\n    max-height: 5000px;\n    overflow: hidden;\n    transition: max-height 0.3s ease-out;\n}\n\n.toolasha-settings-group.collapsed .toolasha-settings-group-content {\n    max-height: 0;\n}\n\n/* Section Headers */\n.toolasha-settings-card h3 {\n    margin: 10px 0 4px 0;\n    color: var(--toolasha-accent);\n    font-weight: 600;\n    font-size: 13px;\n    display: flex;\n    align-items: center;\n    gap: 6px;\n    border-bottom: 1px solid var(--toolasha-border);\n    padding-bottom: 3px;\n    text-transform: uppercase;\n    letter-spacing: 0.5px;\n}\n\n.toolasha-settings-card h3:first-child {\n    margin-top: 0;\n}\n\n.toolasha-settings-card h3 .icon {\n    font-size: 14px;\n}\n\n/* Individual Setting Row */\n.toolasha-setting {\n    display: flex;\n    align-items: center;\n    justify-content: space-between;\n    gap: 10px;\n    margin: 0;\n    padding: 6px 8px;\n    background: var(--toolasha-bg);\n    border: 1px solid var(--toolasha-border);\n    border-radius: 4px;\n    min-height: unset;\n    transition: all 0.2s ease;\n}\n\n.toolasha-setting:hover {\n    background: rgba(30, 35, 45, 0.7);\n    border-color: var(--toolasha-accent);\n}\n\n.toolasha-setting.disabled {\n    opacity: 0.3;\n    pointer-events: none;\n}\n\n.toolasha-setting.not-implemented .toolasha-setting-label {\n    color: #ff6b6b;\n}\n\n.toolasha-setting.not-implemented .toolasha-setting-help {\n    color: rgba(255, 107, 107, 0.7);\n}\n\n.toolasha-setting-label {\n    text-align: left;\n    flex: 1;\n    margin-right: 10px;\n    line-height: 1.3;\n    font-size: 12px;\n}\n\n.toolasha-setting-help {\n    display: block;\n    font-size: 10px;\n    color: var(--toolasha-text-dim);\n    margin-top: 2px;\n    font-style: italic;\n}\n\n.toolasha-setting-input {\n    flex-shrink: 0;\n}\n\n/* Modern Toggle Switch */\n.toolasha-switch {\n    position: relative;\n    width: 38px;\n    height: 20px;\n    flex-shrink: 0;\n    display: inline-block;\n}\n\n.toolasha-switch input {\n    opacity: 0;\n    width: 0;\n    height: 0;\n    position: absolute;\n}\n\n.toolasha-slider {\n    position: absolute;\n    top: 0;\n    left: 0;\n    right: 0;\n    bottom: 0;\n    background: var(--toolasha-toggle-off);\n    border-radius: 20px;\n    cursor: pointer;\n    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);\n    border: 2px solid transparent;\n}\n\n.toolasha-slider:before {\n    content: \"\";\n    position: absolute;\n    height: 12px;\n    width: 12px;\n    left: 2px;\n    bottom: 2px;\n    background: white;\n    border-radius: 50%;\n    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);\n    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);\n}\n\n.toolasha-switch input:checked + .toolasha-slider {\n    background: var(--toolasha-toggle-on);\n    border-color: var(--toolasha-accent-hover);\n    box-shadow: 0 0 6px var(--toolasha-accent-dim);\n}\n\n.toolasha-switch input:checked + .toolasha-slider:before {\n    transform: translateX(18px);\n}\n\n.toolasha-switch:hover .toolasha-slider {\n    border-color: var(--toolasha-accent);\n}\n\n/* Text Input */\n.toolasha-text-input {\n    padding: 5px 8px;\n    border: 1px solid var(--toolasha-border);\n    border-radius: 3px;\n    background: rgba(0, 0, 0, 0.3);\n    color: var(--toolasha-text);\n    min-width: 100px;\n    font-size: 12px;\n    transition: all 0.2s ease;\n}\n\n.toolasha-text-input:focus {\n    outline: none;\n    border-color: var(--toolasha-accent);\n    box-shadow: 0 0 0 2px var(--toolasha-accent-dim);\n}\n\n/* Number Input */\n.toolasha-number-input {\n    padding: 5px 8px;\n    border: 1px solid var(--toolasha-border);\n    border-radius: 3px;\n    background: rgba(0, 0, 0, 0.3);\n    color: var(--toolasha-text);\n    min-width: 80px;\n    font-size: 12px;\n    transition: all 0.2s ease;\n}\n\n.toolasha-number-input:focus {\n    outline: none;\n    border-color: var(--toolasha-accent);\n    box-shadow: 0 0 0 2px var(--toolasha-accent-dim);\n}\n\n/* Select Dropdown */\n.toolasha-select-input {\n    padding: 5px 8px;\n    border: 1px solid var(--toolasha-border);\n    border-radius: 3px;\n    background: rgba(0, 0, 0, 0.3);\n    color: var(--toolasha-accent);\n    font-weight: 600;\n    min-width: 150px;\n    cursor: pointer;\n    font-size: 12px;\n    -webkit-appearance: none;\n    -moz-appearance: none;\n    appearance: none;\n    background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207l5%205%205-5z%22%20fill%3D%22%235b8def%22%2F%3E%3C%2Fsvg%3E');\n    background-repeat: no-repeat;\n    background-position: right 6px center;\n    background-size: 14px;\n    padding-right: 28px;\n    transition: all 0.2s ease;\n}\n\n.toolasha-select-input:focus {\n    outline: none;\n    border-color: var(--toolasha-accent);\n    box-shadow: 0 0 0 2px var(--toolasha-accent-dim);\n}\n\n.toolasha-select-input option {\n    background: #1a1a2e;\n    color: var(--toolasha-text);\n    padding: 8px;\n}\n\n/* Utility Buttons Container */\n.toolasha-utility-buttons {\n    display: flex;\n    gap: 8px;\n    margin-top: 12px;\n    padding-top: 10px;\n    border-top: 1px solid var(--toolasha-border);\n    flex-wrap: wrap;\n}\n\n.toolasha-utility-button {\n    background: linear-gradient(135deg, var(--toolasha-secondary), #6A1B9A);\n    border: 1px solid rgba(138, 43, 226, 0.4);\n    color: #ffffff;\n    padding: 6px 12px;\n    border-radius: 4px;\n    font-size: 11px;\n    font-weight: 600;\n    cursor: pointer;\n    transition: all 0.2s ease;\n    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);\n}\n\n.toolasha-utility-button:hover {\n    background: linear-gradient(135deg, #9A4BCF, var(--toolasha-secondary));\n    box-shadow: 0 0 10px rgba(138, 43, 226, 0.3);\n    transform: translateY(-1px);\n}\n\n.toolasha-utility-button:active {\n    transform: translateY(0);\n}\n\n/* Sync button - special styling for prominence */\n.toolasha-sync-button {\n    background: linear-gradient(135deg, #047857, #059669) !important;\n    border: 1px solid rgba(4, 120, 87, 0.4) !important;\n    flex: 1 1 auto; /* Allow it to grow and take more space */\n    min-width: 200px; /* Ensure it's wide enough for the text */\n}\n\n.toolasha-sync-button:hover {\n    background: linear-gradient(135deg, #059669, #10b981) !important;\n    box-shadow: 0 0 10px rgba(16, 185, 129, 0.3) !important;\n}\n\n/* Refresh Notice */\n.toolasha-refresh-notice {\n    background: rgba(255, 152, 0, 0.1);\n    border: 1px solid rgba(255, 152, 0, 0.3);\n    border-radius: 4px;\n    padding: 8px 12px;\n    margin-top: 10px;\n    color: #ffa726;\n    font-size: 11px;\n    display: flex;\n    align-items: center;\n    gap: 8px;\n}\n\n.toolasha-refresh-notice::before {\n    content: \"⚠️\";\n    font-size: 14px;\n}\n\n/* Dependency Indicator */\n.toolasha-setting.has-dependency::before {\n    content: \"↳\";\n    position: absolute;\n    left: -4px;\n    color: var(--toolasha-accent);\n    font-size: 14px;\n    opacity: 0.5;\n}\n\n.toolasha-setting.has-dependency {\n    margin-left: 16px;\n    position: relative;\n}\n\n/* Nested setting collapse icons */\n.setting-collapse-icon {\n    flex-shrink: 0;\n    color: var(--toolasha-accent);\n    opacity: 0.7;\n}\n\n.toolasha-setting.dependents-collapsed .setting-collapse-icon {\n    opacity: 1;\n}\n\n.toolasha-setting-label-container:hover .setting-collapse-icon {\n    opacity: 1;\n}\n\n/* Tab Panel Override (for game's settings panel) */\n.TabPanel_tabPanel__tXMJF#toolasha-settings {\n    display: block !important;\n}\n\n.TabPanel_tabPanel__tXMJF#toolasha-settings.TabPanel_hidden__26UM3 {\n    display: none !important;\n}\n";
 
     /**
      * Settings UI Module
@@ -3683,6 +3824,12 @@
             const buttonsDiv = document.createElement('div');
             buttonsDiv.className = 'toolasha-utility-buttons';
 
+            // Sync button (at top - most important)
+            const syncBtn = document.createElement('button');
+            syncBtn.textContent = 'Copy Settings to All Characters';
+            syncBtn.className = 'toolasha-utility-button toolasha-sync-button';
+            syncBtn.addEventListener('click', () => this.handleSync());
+
             // Reset button
             const resetBtn = document.createElement('button');
             resetBtn.textContent = 'Reset to Defaults';
@@ -3701,6 +3848,7 @@
             importBtn.className = 'toolasha-utility-button';
             importBtn.addEventListener('click', () => this.handleImport());
 
+            buttonsDiv.appendChild(syncBtn);
             buttonsDiv.appendChild(resetBtn);
             buttonsDiv.appendChild(exportBtn);
             buttonsDiv.appendChild(importBtn);
@@ -3868,6 +4016,38 @@
                     settingEl.classList.add('disabled');
                 }
             });
+        }
+
+        /**
+         * Handle sync settings to all characters
+         */
+        async handleSync() {
+            // Get character count to show in confirmation
+            const characterCount = await this.config.getKnownCharacterCount();
+
+            // If only 1 character (current), no need to sync
+            if (characterCount <= 1) {
+                alert('You only have one character. Settings are already saved for this character.');
+                return;
+            }
+
+            // Confirm action
+            const otherCharacters = characterCount - 1;
+            const message = `This will copy your current settings to ${otherCharacters} other character${otherCharacters > 1 ? 's' : ''}. Their existing settings will be overwritten.\n\nContinue?`;
+
+            if (!confirm(message)) {
+                return;
+            }
+
+            // Perform sync
+            const result = await this.config.syncSettingsToAllCharacters();
+
+            // Show result
+            if (result.success) {
+                alert(`Settings successfully copied to ${result.count} character${result.count > 1 ? 's' : ''}!`);
+            } else {
+                alert(`Failed to sync settings: ${result.error || 'Unknown error'}`);
+            }
         }
 
         /**
@@ -31226,6 +31406,17 @@
         }
 
         /**
+         * Unregister a callback for run updates
+         * @param {Function} callback - Callback function to remove
+         */
+        offUpdate(callback) {
+            const index = this.updateCallbacks.indexOf(callback);
+            if (index > -1) {
+                this.updateCallbacks.splice(index, 1);
+            }
+        }
+
+        /**
          * Notify all registered callbacks of an update
          */
         notifyUpdate() {
@@ -33393,6 +33584,11 @@
             this.chart = null;
             this.history = null;
             this.interactions = null;
+
+            // Callback references for cleanup
+            this.dungeonUpdateHandler = null;
+            this.characterSwitchingHandler = null;
+            this.characterSelectObserver = null;
         }
 
         /**
@@ -33423,8 +33619,8 @@
             // Hide UI initially - only show when dungeon is active
             this.hide();
 
-            // Register for dungeon tracker updates
-            dungeonTracker.onUpdate((currentRun, completedRun) => {
+            // Store callback reference for cleanup
+            this.dungeonUpdateHandler = (currentRun, completedRun) => {
                 // Check if UI is enabled
                 if (!config.isFeatureEnabled('dungeonTrackerUI')) {
                     this.hide();
@@ -33443,14 +33639,37 @@
                     // No active dungeon
                     this.hide();
                 }
-            });
+            };
+
+            // Register for dungeon tracker updates
+            dungeonTracker.onUpdate(this.dungeonUpdateHandler);
 
             // Start update loop (updates current wave time every second)
             this.startUpdateLoop();
 
-            // Listen for character switching to clean up
-            dataManager.on('character_switching', () => {
+            // Store listener reference for cleanup
+            this.characterSwitchingHandler = () => {
                 this.cleanup();
+            };
+
+            // Listen for character switching to clean up
+            dataManager.on('character_switching', this.characterSwitchingHandler);
+
+            // Watch for character selection screen appearing (when user clicks "Switch Character")
+            this.characterSelectObserver = new MutationObserver(() => {
+                // Check if character selection screen is visible
+                const headings = document.querySelectorAll('h1, h2, h3');
+                for (const heading of headings) {
+                    if (heading.textContent?.includes('Select Character')) {
+                        this.hide();
+                        break;
+                    }
+                }
+            });
+
+            this.characterSelectObserver.observe(document.body, {
+                childList: true,
+                subtree: true
             });
         }
 
@@ -34027,6 +34246,27 @@
          * Cleanup for character switching
          */
         cleanup() {
+            // Immediately hide UI to prevent visual artifacts during character switch
+            this.hide();
+
+            // Unregister dungeon update callback
+            if (this.dungeonUpdateHandler) {
+                dungeonTracker.offUpdate(this.dungeonUpdateHandler);
+                this.dungeonUpdateHandler = null;
+            }
+
+            // Unregister character switching listener
+            if (this.characterSwitchingHandler) {
+                dataManager.off('character_switching', this.characterSwitchingHandler);
+                this.characterSwitchingHandler = null;
+            }
+
+            // Disconnect character selection screen observer
+            if (this.characterSelectObserver) {
+                this.characterSelectObserver.disconnect();
+                this.characterSelectObserver = null;
+            }
+
             // Clear update interval
             if (this.updateInterval) {
                 clearInterval(this.updateInterval);
@@ -35224,7 +35464,7 @@
         const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
         targetWindow.Toolasha = {
-            version: '0.4.940',
+            version: '0.4.941',
 
             // Feature toggle API (for users to manage settings via console)
             features: {

@@ -25,6 +25,11 @@ class DungeonTrackerUI {
         this.chart = null;
         this.history = null;
         this.interactions = null;
+
+        // Callback references for cleanup
+        this.dungeonUpdateHandler = null;
+        this.characterSwitchingHandler = null;
+        this.characterSelectObserver = null;
     }
 
     /**
@@ -55,8 +60,8 @@ class DungeonTrackerUI {
         // Hide UI initially - only show when dungeon is active
         this.hide();
 
-        // Register for dungeon tracker updates
-        dungeonTracker.onUpdate((currentRun, completedRun) => {
+        // Store callback reference for cleanup
+        this.dungeonUpdateHandler = (currentRun, completedRun) => {
             // Check if UI is enabled
             if (!config.isFeatureEnabled('dungeonTrackerUI')) {
                 this.hide();
@@ -75,14 +80,37 @@ class DungeonTrackerUI {
                 // No active dungeon
                 this.hide();
             }
-        });
+        };
+
+        // Register for dungeon tracker updates
+        dungeonTracker.onUpdate(this.dungeonUpdateHandler);
 
         // Start update loop (updates current wave time every second)
         this.startUpdateLoop();
 
-        // Listen for character switching to clean up
-        dataManager.on('character_switching', () => {
+        // Store listener reference for cleanup
+        this.characterSwitchingHandler = () => {
             this.cleanup();
+        };
+
+        // Listen for character switching to clean up
+        dataManager.on('character_switching', this.characterSwitchingHandler);
+
+        // Watch for character selection screen appearing (when user clicks "Switch Character")
+        this.characterSelectObserver = new MutationObserver(() => {
+            // Check if character selection screen is visible
+            const headings = document.querySelectorAll('h1, h2, h3');
+            for (const heading of headings) {
+                if (heading.textContent?.includes('Select Character')) {
+                    this.hide();
+                    break;
+                }
+            }
+        });
+
+        this.characterSelectObserver.observe(document.body, {
+            childList: true,
+            subtree: true
         });
     }
 
@@ -659,6 +687,27 @@ class DungeonTrackerUI {
      * Cleanup for character switching
      */
     cleanup() {
+        // Immediately hide UI to prevent visual artifacts during character switch
+        this.hide();
+
+        // Unregister dungeon update callback
+        if (this.dungeonUpdateHandler) {
+            dungeonTracker.offUpdate(this.dungeonUpdateHandler);
+            this.dungeonUpdateHandler = null;
+        }
+
+        // Unregister character switching listener
+        if (this.characterSwitchingHandler) {
+            dataManager.off('character_switching', this.characterSwitchingHandler);
+            this.characterSwitchingHandler = null;
+        }
+
+        // Disconnect character selection screen observer
+        if (this.characterSelectObserver) {
+            this.characterSelectObserver.disconnect();
+            this.characterSelectObserver = null;
+        }
+
         // Clear update interval
         if (this.updateInterval) {
             clearInterval(this.updateInterval);

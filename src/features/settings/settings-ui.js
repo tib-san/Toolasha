@@ -600,6 +600,12 @@ class SettingsUI {
         const buttonsDiv = document.createElement('div');
         buttonsDiv.className = 'toolasha-utility-buttons';
 
+        // Sync button (at top - most important)
+        const syncBtn = document.createElement('button');
+        syncBtn.textContent = 'Copy Settings to All Characters';
+        syncBtn.className = 'toolasha-utility-button toolasha-sync-button';
+        syncBtn.addEventListener('click', () => this.handleSync());
+
         // Reset button
         const resetBtn = document.createElement('button');
         resetBtn.textContent = 'Reset to Defaults';
@@ -618,6 +624,7 @@ class SettingsUI {
         importBtn.className = 'toolasha-utility-button';
         importBtn.addEventListener('click', () => this.handleImport());
 
+        buttonsDiv.appendChild(syncBtn);
         buttonsDiv.appendChild(resetBtn);
         buttonsDiv.appendChild(exportBtn);
         buttonsDiv.appendChild(importBtn);
@@ -785,6 +792,38 @@ class SettingsUI {
                 settingEl.classList.add('disabled');
             }
         });
+    }
+
+    /**
+     * Handle sync settings to all characters
+     */
+    async handleSync() {
+        // Get character count to show in confirmation
+        const characterCount = await this.config.getKnownCharacterCount();
+
+        // If only 1 character (current), no need to sync
+        if (characterCount <= 1) {
+            alert('You only have one character. Settings are already saved for this character.');
+            return;
+        }
+
+        // Confirm action
+        const otherCharacters = characterCount - 1;
+        const message = `This will copy your current settings to ${otherCharacters} other character${otherCharacters > 1 ? 's' : ''}. Their existing settings will be overwritten.\n\nContinue?`;
+
+        if (!confirm(message)) {
+            return;
+        }
+
+        // Perform sync
+        const result = await this.config.syncSettingsToAllCharacters();
+
+        // Show result
+        if (result.success) {
+            alert(`Settings successfully copied to ${result.count} character${result.count > 1 ? 's' : ''}!`);
+        } else {
+            alert(`Failed to sync settings: ${result.error || 'Unknown error'}`);
+        }
     }
 
     /**

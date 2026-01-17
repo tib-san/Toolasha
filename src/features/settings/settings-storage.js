@@ -8,8 +8,31 @@ import { settingsGroups, getAllSettingIds } from './settings-config.js';
 
 class SettingsStorage {
     constructor() {
-        this.storageKey = 'script_settingsMap';
+        this.storageKey = 'script_settingsMap'; // Legacy global key (used as template)
         this.storageArea = 'settings';
+        this.currentCharacterId = null; // Current character ID (set after login)
+        this.knownCharactersKey = 'known_character_ids'; // List of character IDs
+    }
+
+    /**
+     * Set the current character ID
+     * Must be called after character_initialized event
+     * @param {string} characterId - Character ID
+     */
+    setCharacterId(characterId) {
+        this.currentCharacterId = characterId;
+    }
+
+    /**
+     * Get the storage key for current character
+     * Falls back to global key if no character ID set
+     * @returns {string} Storage key
+     */
+    getCharacterStorageKey() {
+        if (this.currentCharacterId) {
+            return `${this.storageKey}_${this.currentCharacterId}`;
+        }
+        return this.storageKey; // Fallback to global key
     }
 
     /**
@@ -18,7 +41,23 @@ class SettingsStorage {
      * @returns {Promise<Object>} Settings map
      */
     async loadSettings() {
-        const saved = await storage.getJSON(this.storageKey, this.storageArea, null);
+        const characterKey = this.getCharacterStorageKey();
+        let saved = await storage.getJSON(characterKey, this.storageArea, null);
+
+        // Migration: If this is a character-specific key and it doesn't exist
+        // Copy from global template (old 'script_settingsMap' key)
+        if (this.currentCharacterId && !saved) {
+            const globalTemplate = await storage.getJSON(this.storageKey, this.storageArea, null);
+            if (globalTemplate) {
+                // Copy global template to this character
+                saved = globalTemplate;
+                await storage.setJSON(characterKey, saved, this.storageArea, true);
+            }
+
+            // Add character to known characters list
+            await this.addToKnownCharacters(this.currentCharacterId);
+        }
+
         const settings = {};
 
         // Build default settings from config
@@ -78,7 +117,53 @@ class SettingsStorage {
      * @returns {Promise<void>}
      */
     async saveSettings(settings) {
-        await storage.setJSON(this.storageKey, settings, this.storageArea, true);
+        const characterKey = this.getCharacterStorageKey();
+        await storage.setJSON(characterKey, settings, this.storageArea, true);
+    }
+
+    /**
+     * Add character to known characters list
+     * @param {string} characterId - Character ID
+     * @returns {Promise<void>}
+     */
+    async addToKnownCharacters(characterId) {
+        const knownCharacters = await storage.getJSON(this.knownCharactersKey, this.storageArea, []);
+        if (!knownCharacters.includes(characterId)) {
+            knownCharacters.push(characterId);
+            await storage.setJSON(this.knownCharactersKey, knownCharacters, this.storageArea, true);
+        }
+    }
+
+    /**
+     * Get list of known character IDs
+     * @returns {Promise<Array<string>>} Character IDs
+     */
+    async getKnownCharacters() {
+        return await storage.getJSON(this.knownCharactersKey, this.storageArea, []);
+    }
+
+    /**
+     * Sync current settings to all other characters
+     * @param {Object} settings - Current settings to copy
+     * @returns {Promise<number>} Number of characters synced
+     */
+    async syncSettingsToAllCharacters(settings) {
+        const knownCharacters = await this.getKnownCharacters();
+        let syncedCount = 0;
+
+        for (const characterId of knownCharacters) {
+            // Skip current character (already has these settings)
+            if (characterId === this.currentCharacterId) {
+                continue;
+            }
+
+            // Write settings to this character's key
+            const characterKey = `${this.storageKey}_${characterId}`;
+            await storage.setJSON(characterKey, settings, this.storageArea, true);
+            syncedCount++;
+        }
+
+        return syncedCount;
     }
 
     /**

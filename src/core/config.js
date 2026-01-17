@@ -5,6 +5,7 @@
 
 import storage from './storage.js';
 import settingsStorage from '../features/settings/settings-storage.js';
+import dataManager from './data-manager.js';
 
 /**
  * Config class manages all script configuration
@@ -345,6 +346,12 @@ class Config {
      * @returns {Promise<void>}
      */
     async loadSettings() {
+        // Set character ID in settings storage for per-character settings
+        const characterId = dataManager.getCurrentCharacterId();
+        if (characterId) {
+            settingsStorage.setCharacterId(characterId);
+        }
+
         // Load settings from settings-storage (which uses settings-config.js as source of truth)
         this.settingsMap = await settingsStorage.loadSettings();
     }
@@ -470,6 +477,56 @@ class Config {
 
         this.saveSettings();
         this.applyColorSettings();
+    }
+
+    /**
+     * Sync current settings to all other characters
+     * @returns {Promise<{success: boolean, count: number, error?: string}>} Result object
+     */
+    async syncSettingsToAllCharacters() {
+        try {
+            // Ensure character ID is set
+            const characterId = dataManager.getCurrentCharacterId();
+            if (!characterId) {
+                return {
+                    success: false,
+                    count: 0,
+                    error: 'No character ID available'
+                };
+            }
+
+            // Set character ID in settings storage
+            settingsStorage.setCharacterId(characterId);
+
+            // Sync settings to all other characters
+            const syncedCount = await settingsStorage.syncSettingsToAllCharacters(this.settingsMap);
+
+            return {
+                success: true,
+                count: syncedCount
+            };
+        } catch (error) {
+            console.error('[Config] Failed to sync settings:', error);
+            return {
+                success: false,
+                count: 0,
+                error: error.message
+            };
+        }
+    }
+
+    /**
+     * Get number of known characters (including current)
+     * @returns {Promise<number>} Number of characters
+     */
+    async getKnownCharacterCount() {
+        try {
+            const knownCharacters = await settingsStorage.getKnownCharacters();
+            return knownCharacters.length;
+        } catch (error) {
+            console.error('[Config] Failed to get character count:', error);
+            return 0;
+        }
     }
 
     /**

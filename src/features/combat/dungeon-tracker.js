@@ -1148,6 +1148,17 @@ class DungeonTracker {
     }
 
     /**
+     * Unregister a callback for run updates
+     * @param {Function} callback - Callback function to remove
+     */
+    offUpdate(callback) {
+        const index = this.updateCallbacks.indexOf(callback);
+        if (index > -1) {
+            this.updateCallbacks.splice(index, 1);
+        }
+    }
+
+    /**
      * Notify all registered callbacks of an update
      */
     notifyUpdate() {
