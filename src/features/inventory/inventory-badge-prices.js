@@ -383,7 +383,7 @@ class InventoryBadgePrices {
         const badge = document.createElement('div');
         badge.className = `mwi-badge-price-${type}`;
 
-        // Position: vertically centered on left (bid) or right (ask)
+        // Position: vertically centered on left (ask) or right (bid)
         const isAsk = type === 'ask';
         const color = isAsk ? config.COLOR_INVBADGE_ASK : config.COLOR_INVBADGE_BID;
 
@@ -391,12 +391,12 @@ class InventoryBadgePrices {
             position: absolute;
             top: 50%;
             transform: translateY(-50%);
-            ${isAsk ? 'right: 2px;' : 'left: 2px;'}
+            ${isAsk ? 'left: 2px;' : 'right: 2px;'}
             z-index: 1;
             color: ${color};
             font-size: 0.7rem;
             font-weight: bold;
-            text-align: ${isAsk ? 'right' : 'left'};
+            text-align: ${isAsk ? 'left' : 'right'};
             pointer-events: none;
             text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 3px #000;
         `;
