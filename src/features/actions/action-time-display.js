@@ -458,7 +458,7 @@ class ActionTimeDisplay {
             // Finite action: maxCount is the target, currentCount is progress toward that target
             remainingActions = action.maxCount - action.currentCount;
         } else if (materialLimit !== null) {
-            // Infinite action limited by materials
+            // Infinite action limited by materials (materialLimit is attempts, not actions)
             remainingActions = materialLimit;
         } else if (inventoryCount !== null) {
             // Infinite action: currentCount is lifetime total, so just use inventory count directly
@@ -468,7 +468,15 @@ class ActionTimeDisplay {
         }
 
         // Calculate actual attempts needed (time-consuming operations)
-        const actualAttempts = Math.ceil(remainingActions / avgActionsPerAttempt);
+        // NOTE: materialLimit returns attempts, but finite/inventory counts are items
+        let actualAttempts;
+        if (!action.hasMaxCount && materialLimit !== null) {
+            // Material-limited infinite action - materialLimit is already attempts
+            actualAttempts = materialLimit;
+        } else {
+            // Finite action or inventory-count infinite - remainingActions is items, convert to attempts
+            actualAttempts = Math.ceil(remainingActions / avgActionsPerAttempt);
+        }
         const totalTimeSeconds = actualAttempts * actionTime;
 
         // Calculate completion time
@@ -664,9 +672,11 @@ class ActionTimeDisplay {
         const chanceForExtra = totalEfficiency % 100;
         const avgActionsPerAttempt = guaranteedActions + (chanceForExtra / 100);
 
-        // Check for primaryItemHash (Alchemy actions: Coinify, Decompose, Transmute)
+        // Check for primaryItemHash (ONLY for Alchemy actions: Coinify, Decompose, Transmute)
+        // Crafting actions also have primaryItemHash but should use the standard input/upgrade logic
         // Format: "characterID::itemLocation::itemHrid::enhancementLevel"
-        if (actionObj && actionObj.primaryItemHash) {
+        const isAlchemyAction = actionDetails.type === '/action_types/alchemy';
+        if (isAlchemyAction && actionObj && actionObj.primaryItemHash) {
             const parts = actionObj.primaryItemHash.split('::');
             if (parts.length >= 3) {
                 const itemHrid = parts[2]; // Extract item HRID
@@ -686,10 +696,10 @@ class ActionTimeDisplay {
                 const bulkMultiplier = itemDetails?.alchemyDetail?.bulkMultiplier || 1;
 
                 // Calculate max attempts (how many times we can perform the action)
+                // NOTE: Return attempts, not total actions - efficiency is applied separately in time calc
                 const maxAttempts = Math.floor(availableCount / bulkMultiplier);
 
-                // Apply efficiency multiplier to get total actions possible
-                return Math.floor(maxAttempts * avgActionsPerAttempt);
+                return maxAttempts;
             }
         }
 
@@ -718,12 +728,10 @@ class ActionTimeDisplay {
                 const requiredPerAction = inputItem.count * (1 - artisanBonus);
 
                 // Calculate max attempts for this material
+                // NOTE: Return attempts, not total actions - efficiency is applied separately in time calc
                 const maxAttempts = Math.floor(availableCount / requiredPerAction);
 
-                // Apply efficiency multiplier to get total actions possible
-                const maxActions = Math.floor(maxAttempts * avgActionsPerAttempt);
-
-                minLimit = Math.min(minLimit, maxActions);
+                minLimit = Math.min(minLimit, maxAttempts);
             }
         }
 
@@ -736,9 +744,8 @@ class ActionTimeDisplay {
 
             const availableCount = inventoryItem?.count || 0;
 
-            // Apply efficiency multiplier to get total actions possible
-            const maxActions = Math.floor(availableCount * avgActionsPerAttempt);
-            minLimit = Math.min(minLimit, maxActions);
+            // NOTE: Return attempts, not total actions - efficiency is applied separately in time calc
+            minLimit = Math.min(minLimit, availableCount);
         }
 
         return minLimit === Infinity ? null : minLimit;
@@ -908,15 +915,8 @@ class ActionTimeDisplay {
 
                                 if (materialLimit !== null) {
                                     // Material-limited infinite action - calculate time
-                                    const count = materialLimit;
-
-                                    // Calculate average actions per attempt from efficiency
-                                    const guaranteedActions = 1 + Math.floor(totalEfficiency / 100);
-                                    const chanceForExtra = totalEfficiency % 100;
-                                    const avgActionsPerAttempt = guaranteedActions + (chanceForExtra / 100);
-
-                                    // Calculate actual attempts needed
-                                    const actualAttempts = Math.ceil(count / avgActionsPerAttempt);
+                                    // NOTE: materialLimit is already attempts, not actions
+                                    const actualAttempts = materialLimit;
                                     const totalTime = actualAttempts * actionTime;
                                     accumulatedTime += totalTime;
                                 }
@@ -1022,13 +1022,19 @@ class ActionTimeDisplay {
                 if (isTrulyInfinite) {
                     totalTime = Infinity;
                 } else {
-                    // Calculate average actions per attempt from efficiency
-                    const guaranteedActions = 1 + Math.floor(totalEfficiency / 100);
-                    const chanceForExtra = totalEfficiency % 100;
-                    const avgActionsPerAttempt = guaranteedActions + (chanceForExtra / 100);
-
                     // Calculate actual attempts needed
-                    const actualAttempts = Math.ceil(count / avgActionsPerAttempt);
+                    // NOTE: materialLimit returns attempts, but finite counts are items
+                    let actualAttempts;
+                    if (materialLimit !== null) {
+                        // Material-limited - count is already attempts
+                        actualAttempts = count;
+                    } else {
+                        // Finite action - count is items, convert to attempts
+                        const guaranteedActions = 1 + Math.floor(totalEfficiency / 100);
+                        const chanceForExtra = totalEfficiency % 100;
+                        const avgActionsPerAttempt = guaranteedActions + (chanceForExtra / 100);
+                        actualAttempts = Math.ceil(count / avgActionsPerAttempt);
+                    }
                     totalTime = actualAttempts * actionTime;
                     accumulatedTime += totalTime;
                 }
