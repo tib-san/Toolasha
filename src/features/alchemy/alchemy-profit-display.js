@@ -360,7 +360,14 @@ class AlchemyProfitDisplay {
 
                 // Show enhancement level if > 0
                 const enhText = material.enhancementLevel > 0 ? ` +${material.enhancementLevel}` : '';
-                line.textContent = `• ${itemName}${enhText}: ${amountPerHour.toFixed(1)}/hr (consumed on all attempts) @ ${formatWithSeparator(Math.round(material.price))} → ${formatLargeNumber(Math.round(material.costPerHour))}/hr`;
+
+                // Show decomposition value if enhanced
+                if (material.enhancementLevel > 0 && material.decompositionValuePerHour > 0) {
+                    const netCostPerHour = material.costPerHour - material.decompositionValuePerHour;
+                    line.textContent = `• ${itemName}${enhText}: ${amountPerHour.toFixed(1)}/hr @ ${formatWithSeparator(Math.round(material.price))} → ${formatLargeNumber(Math.round(material.costPerHour))}/hr (recovers ${formatLargeNumber(Math.round(material.decompositionValuePerHour))}/hr, net ${formatLargeNumber(Math.round(netCostPerHour))}/hr)`;
+                } else {
+                    line.textContent = `• ${itemName}${enhText}: ${amountPerHour.toFixed(1)}/hr (consumed on all attempts) @ ${formatWithSeparator(Math.round(material.price))} → ${formatLargeNumber(Math.round(material.costPerHour))}/hr`;
+                }
 
                 materialCostsContent.appendChild(line);
             }

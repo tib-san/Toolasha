@@ -559,6 +559,97 @@ class AlchemyProfit {
     }
 
     /**
+     * Calculate the cost to create an enhanced item
+     * @param {string} itemHrid - Item HRID
+     * @param {number} targetLevel - Target enhancement level
+     * @param {string} priceType - 'ask' or 'bid'
+     * @returns {number} Total cost to create the enhanced item
+     */
+    calculateEnhancementCost(itemHrid, targetLevel, priceType) {
+        if (targetLevel === 0) {
+            const priceData = marketAPI.getPrice(itemHrid, 0);
+            return priceType === 'ask' ? (priceData?.ask || 0) : (priceData?.bid || 0);
+        }
+
+        const gameData = dataManager.getInitClientData();
+        if (!gameData) return 0;
+
+        const itemData = gameData.itemDetailMap?.[itemHrid];
+        if (!itemData) return 0;
+
+        // Start with base item cost
+        const basePriceData = marketAPI.getPrice(itemHrid, 0);
+        let totalCost = priceType === 'ask' ? (basePriceData?.ask || 0) : (basePriceData?.bid || 0);
+
+        // Add enhancement material costs for each level
+        const enhancementMaterials = itemData.enhancementCosts;
+        if (!enhancementMaterials || !Array.isArray(enhancementMaterials)) {
+            return totalCost;
+        }
+
+        // Enhance from level 0 to targetLevel
+        for (let level = 0; level < targetLevel; level++) {
+            for (const cost of enhancementMaterials) {
+                const materialHrid = cost.itemHrid;
+                const materialCount = cost.count || 0;
+
+                if (materialHrid === '/items/coin') {
+                    totalCost += materialCount; // Coins are 1:1
+                } else {
+                    const materialPrice = marketAPI.getPrice(materialHrid, 0);
+                    const price = priceType === 'ask' ? (materialPrice?.ask || 0) : (materialPrice?.bid || 0);
+                    totalCost += price * materialCount;
+                }
+            }
+        }
+
+        return totalCost;
+    }
+
+    /**
+     * Calculate value recovered from decomposing an enhanced item
+     * @param {string} itemHrid - Item HRID
+     * @param {number} enhancementLevel - Enhancement level
+     * @param {string} priceType - 'ask' or 'bid'
+     * @returns {number} Total value recovered from decomposition
+     */
+    calculateDecompositionValue(itemHrid, enhancementLevel, priceType) {
+        if (enhancementLevel === 0) return 0;
+
+        const gameData = dataManager.getInitClientData();
+        if (!gameData) return 0;
+
+        const itemDetails = gameData.itemDetailMap?.[itemHrid];
+        if (!itemDetails) return 0;
+
+        let totalValue = 0;
+
+        // 1. Base item decomposition outputs
+        if (itemDetails.decompositionDetail?.results) {
+            for (const result of itemDetails.decompositionDetail.results) {
+                const priceData = marketAPI.getPrice(result.itemHrid, 0);
+                if (priceData) {
+                    const price = priceType === 'ask' ? priceData.ask : priceData.bid;
+                    totalValue += price * result.amount * 0.98; // 2% market tax
+                }
+            }
+        }
+
+        // 2. Enhancing Essence from enhancement level
+        // Formula: round(2 × (0.5 + 0.1 × (1.05^itemLevel)) × (2^enhancementLevel))
+        const itemLevel = itemDetails.itemLevel || 1;
+        const essenceAmount = Math.round(2 * (0.5 + 0.1 * Math.pow(1.05, itemLevel)) * Math.pow(2, enhancementLevel));
+
+        const essencePriceData = marketAPI.getPrice('/items/enhancing_essence', 0);
+        if (essencePriceData) {
+            const essencePrice = priceType === 'ask' ? essencePriceData.ask : essencePriceData.bid;
+            totalValue += essencePrice * essenceAmount * 0.98; // 2% market tax
+        }
+
+        return totalValue;
+    }
+
+    /**
      * Extract item data (HRID, prices, count, drop rate) from DOM element
      * @param {HTMLElement} element - Item container element
      * @param {boolean} isRequirement - True if this is a requirement (has count), false if drop (has drop rate)
@@ -595,9 +686,14 @@ class AlchemyProfit {
                 ask = bid = 1;
             } else {
                 const priceData = marketAPI.getPrice(itemHrid, enhancementLevel);
-                if (priceData) {
+                if (priceData && (priceData.ask > 0 || priceData.bid > 0)) {
+                    // Market data exists for this specific enhancement level
                     ask = priceData.ask || 0;
                     bid = priceData.bid || 0;
+                } else {
+                    // No market data for this enhancement level - calculate cost
+                    ask = this.calculateEnhancementCost(itemHrid, enhancementLevel, 'ask');
+                    bid = this.calculateEnhancementCost(itemHrid, enhancementLevel, 'bid');
                 }
             }
 
@@ -693,10 +789,16 @@ class AlchemyProfit {
                 sellType = 'ask'; // Patient sell (Ask)
             }
 
-            // Calculate material cost (accounting for failures)
+            // Calculate material cost (accounting for failures and decomposition value)
             const materialCost = data.requirements.reduce((sum, req) => {
                 const price = buyType === 'ask' ? req.ask : req.bid;
-                return sum + (price * (req.count || 1));
+                const itemCost = price * (req.count || 1);
+
+                // Subtract decomposition value for enhanced items
+                const decompValue = this.calculateDecompositionValue(req.itemHrid, req.enhancementLevel || 0, buyType);
+                const netCost = itemCost - decompValue;
+
+                return sum + netCost;
             }, 0);
 
             // Calculate cost per attempt (materials consumed on failure, materials + catalyst on success)
@@ -767,13 +869,19 @@ class AlchemyProfit {
                 const costPerAction = price * (req.count || 1);
                 const costPerHour = costPerAction * actionsPerHour;
 
+                // Calculate decomposition value
+                const decompositionValue = this.calculateDecompositionValue(req.itemHrid, req.enhancementLevel || 0, buyType);
+                const decompositionValuePerHour = decompositionValue * actionsPerHour;
+
                 return {
                     itemHrid: req.itemHrid,
                     count: req.count || 1,
                     price: price,
                     costPerAction: costPerAction,
                     costPerHour: costPerHour,
-                    enhancementLevel: req.enhancementLevel || 0
+                    enhancementLevel: req.enhancementLevel || 0,
+                    decompositionValue: decompositionValue,
+                    decompositionValuePerHour: decompositionValuePerHour
                 };
             });
 
