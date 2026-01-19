@@ -655,6 +655,14 @@ export const settingsGroups = {
                 dependencies: ['market_showListingPrices'],
                 help: 'Display how long ago each listing was created on the My Listings tab (e.g., "3h 45m")'
             },
+            market_showTopOrderAge: {
+                id: 'market_showTopOrderAge',
+                label: 'Market: Show top order age on My Listings',
+                type: 'checkbox',
+                default: false,
+                dependencies: ['market_showListingPrices', 'market_showEstimatedListingAge'],
+                help: 'Display estimated age of the top competing order for each of your listings (requires estimated listing age feature to be active)'
+            },
             market_showEstimatedListingAge: {
                 id: 'market_showEstimatedListingAge',
                 label: 'Market: Show estimated age on order book',

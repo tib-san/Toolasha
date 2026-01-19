@@ -156,6 +156,11 @@ class EstimatedListingAge {
                 document.querySelectorAll('.mwi-estimated-age-set').forEach(container => {
                     container.classList.remove('mwi-estimated-age-set');
                 });
+
+                // Also clear listing price display flags so Top Order Age updates
+                document.querySelectorAll('.mwi-listing-prices-set').forEach(table => {
+                    table.classList.remove('mwi-listing-prices-set');
+                });
             }
         };
 

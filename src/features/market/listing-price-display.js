@@ -12,6 +12,7 @@ import domObserver from '../../core/dom-observer.js';
 import config from '../../core/config.js';
 import webSocketHook from '../../core/websocket.js';
 import marketAPI from '../../api/marketplace.js';
+import estimatedListingAge from './estimated-listing-age.js';
 import { coinFormatter, formatRelativeTime } from '../../utils/formatters.js';
 
 class ListingPriceDisplay {
@@ -81,10 +82,30 @@ class ListingPriceDisplay {
         webSocketHook.on('init_character_data', initHandler);
         webSocketHook.on('market_listings_updated', updateHandler);
 
+        // Handle order book updates to re-render with populated cache (if Top Order Age enabled)
+        let orderBookHandler = null;
+        if (config.getSetting('market_showTopOrderAge')) {
+            orderBookHandler = (data) => {
+                if (data.marketItemOrderBooks) {
+                    // Delay re-render to let estimatedListingAge populate cache first (race condition)
+                    setTimeout(() => {
+                        document.querySelectorAll('[class*="MarketplacePanel_myListingsTable"]').forEach(table => {
+                            table.classList.remove('mwi-listing-prices-set');
+                            this.updateTable(table);
+                        });
+                    }, 10);
+                }
+            };
+            webSocketHook.on('market_item_order_books_updated', orderBookHandler);
+        }
+
         // Store for cleanup
         this.unregisterWebSocket = () => {
             webSocketHook.off('init_character_data', initHandler);
             webSocketHook.off('market_listings_updated', updateHandler);
+            if (orderBookHandler) {
+                webSocketHook.off('market_item_order_books_updated', orderBookHandler);
+            }
         };
     }
 
@@ -198,6 +219,10 @@ class ListingPriceDisplay {
             return;
         }
 
+        // Clear any existing price displays from this table before re-rendering
+        tableNode.querySelectorAll('.mwi-listing-price-header').forEach(el => el.remove());
+        tableNode.querySelectorAll('.mwi-listing-price-cell').forEach(el => el.remove());
+
         // Wait until row count matches listing count
         const tbody = tableNode.querySelector('tbody');
         if (!tbody) {
@@ -210,9 +235,6 @@ class ListingPriceDisplay {
         if (rowCount !== listingCount) {
             return; // Table not fully populated yet
         }
-
-        // Mark as processed
-        tableNode.classList.add('mwi-listing-prices-set');
 
         // OPTIMIZATION: Pre-fetch all market prices in one batch
         const itemsToPrice = Object.values(this.allListings).map(listing => ({
@@ -229,6 +251,25 @@ class ListingPriceDisplay {
 
         // Add price displays to each row
         this.addPriceDisplays(tbody, priceCache);
+
+        // Check if we should mark as fully processed
+        let fullyProcessed = true;
+
+        if (config.getSetting('market_showTopOrderAge')) {
+            // Only mark as processed if cache has data for all listings
+            for (const listing of Object.values(this.allListings)) {
+                const orderBookData = estimatedListingAge.orderBooksCache[listing.itemHrid];
+                if (!orderBookData || !orderBookData.orderBooks || orderBookData.orderBooks.length === 0) {
+                    fullyProcessed = false;
+                    break;
+                }
+            }
+        }
+
+        // Only mark as processed if fully complete
+        if (fullyProcessed) {
+            tableNode.classList.add('mwi-listing-prices-set');
+        }
     }
 
     /**
@@ -249,6 +290,15 @@ class ListingPriceDisplay {
         topOrderHeader.classList.add('mwi-listing-price-header');
         topOrderHeader.textContent = 'Top Order Price';
 
+        // Create "Top Order Age" header (if setting enabled)
+        let topOrderAgeHeader = null;
+        if (config.getSetting('market_showTopOrderAge')) {
+            topOrderAgeHeader = document.createElement('th');
+            topOrderAgeHeader.classList.add('mwi-listing-price-header');
+            topOrderAgeHeader.textContent = 'Top Order Age';
+            topOrderAgeHeader.title = 'Estimated age of the top competing order';
+        }
+
         // Create "Total Price" header
         const totalPriceHeader = document.createElement('th');
         totalPriceHeader.classList.add('mwi-listing-price-header');
@@ -262,11 +312,15 @@ class ListingPriceDisplay {
             listedHeader.textContent = 'Listed';
         }
 
-        // Insert headers (Listed goes last if present)
-        thead.insertBefore(topOrderHeader, thead.children[4]);
-        thead.insertBefore(totalPriceHeader, thead.children[5]);
+        // Insert headers (order: Top Order Price, Top Order Age, Total Price, Listed)
+        let insertIndex = 4;
+        thead.insertBefore(topOrderHeader, thead.children[insertIndex++]);
+        if (topOrderAgeHeader) {
+            thead.insertBefore(topOrderAgeHeader, thead.children[insertIndex++]);
+        }
+        thead.insertBefore(totalPriceHeader, thead.children[insertIndex++]);
         if (listedHeader) {
-            thead.insertBefore(listedHeader, thead.children[6]);
+            thead.insertBefore(listedHeader, thead.children[insertIndex++]);
         }
     }
 
@@ -399,18 +453,27 @@ class ListingPriceDisplay {
             const orderQuantity = Number(dataset.orderQuantity);
             const filledQuantity = Number(dataset.filledQuantity);
 
+            // Track insertion index
+            let insertIndex = 4;
+
             // Create Top Order Price cell
             const topOrderCell = this.createTopOrderPriceCell(itemHrid, enhancementLevel, isSell, price, priceCache);
-            row.insertBefore(topOrderCell, row.children[4]);
+            row.insertBefore(topOrderCell, row.children[insertIndex++]);
+
+            // Create Top Order Age cell (if setting enabled)
+            if (config.getSetting('market_showTopOrderAge')) {
+                const topOrderAgeCell = this.createTopOrderAgeCell(itemHrid, enhancementLevel, isSell);
+                row.insertBefore(topOrderAgeCell, row.children[insertIndex++]);
+            }
 
             // Create Total Price cell
             const totalPriceCell = this.createTotalPriceCell(itemHrid, isSell, price, orderQuantity, filledQuantity);
-            row.insertBefore(totalPriceCell, row.children[5]);
+            row.insertBefore(totalPriceCell, row.children[insertIndex++]);
 
             // Create Listed Age cell (if setting enabled)
             if (config.getSetting('market_showListingAge') && dataset.createdTimestamp) {
                 const listedAgeCell = this.createListedAgeCell(dataset.createdTimestamp);
-                row.insertBefore(listedAgeCell, row.children[6]);
+                row.insertBefore(listedAgeCell, row.children[insertIndex++]);
             }
         }
     }
@@ -451,6 +514,79 @@ class ListingPriceDisplay {
                 span.style.color = topOrderPrice > price ? '#FF0000' : '#00FF00';
             }
         }
+
+        cell.appendChild(span);
+        return cell;
+    }
+
+    /**
+     * Create Top Order Age cell
+     * @param {string} itemHrid - Item HRID
+     * @param {number} enhancementLevel - Enhancement level
+     * @param {boolean} isSell - Is sell order
+     * @returns {HTMLElement} Table cell element
+     */
+    createTopOrderAgeCell(itemHrid, enhancementLevel, isSell) {
+        const cell = document.createElement('td');
+        cell.classList.add('mwi-listing-price-cell');
+
+        const span = document.createElement('span');
+        span.classList.add('mwi-listing-price-value');
+
+        // Get order book data from estimatedListingAge module (shared cache)
+        const orderBookData = estimatedListingAge.orderBooksCache[itemHrid];
+
+        if (!orderBookData || !orderBookData.orderBooks || orderBookData.orderBooks.length === 0) {
+            // No order book data available
+            span.textContent = 'N/A';
+            span.style.color = '#666666';
+            span.style.fontSize = '0.9em';
+            cell.appendChild(span);
+            return cell;
+        }
+
+        // Find matching order book for this enhancement level
+        let orderBook = orderBookData.orderBooks.find(ob => ob.enhancementLevel === enhancementLevel);
+
+        // For non-enhanceable items (enh level 0), orderBook won't have enhancementLevel field
+        // Just use the first (and only) orderBook entry
+        if (!orderBook && enhancementLevel === 0 && orderBookData.orderBooks.length > 0) {
+            orderBook = orderBookData.orderBooks[0];
+        }
+
+        if (!orderBook) {
+            span.textContent = 'N/A';
+            span.style.color = '#666666';
+            span.style.fontSize = '0.9em';
+            cell.appendChild(span);
+            return cell;
+        }
+
+        // Get top order (first in array)
+        const topOrders = isSell ? orderBook.asks : orderBook.bids;
+
+        if (!topOrders || topOrders.length === 0) {
+            // No competing orders
+            span.textContent = 'None';
+            span.style.color = '#00FF00'; // Green = you're the only one
+            span.style.fontSize = '0.9em';
+            cell.appendChild(span);
+            return cell;
+        }
+
+        const topOrder = topOrders[0];
+        const topListingId = topOrder.listingId;
+
+        // Estimate timestamp using existing logic
+        const estimatedTimestamp = estimatedListingAge.estimateTimestamp(topListingId);
+
+        // Format as elapsed time
+        const ageMs = Date.now() - estimatedTimestamp;
+        const formatted = formatRelativeTime(ageMs);
+
+        span.textContent = `~${formatted}`;
+        span.style.color = '#999999'; // Gray to indicate estimate
+        span.style.fontSize = '0.9em';
 
         cell.appendChild(span);
         return cell;
