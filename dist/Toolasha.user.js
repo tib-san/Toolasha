@@ -1507,7 +1507,7 @@
      * Set current profile in memory
      * @param {Object} profileData - Profile data from profile_shared message
      */
-    function setCurrentProfile$1(profileData) {
+    function setCurrentProfile(profileData) {
         currentProfileCache = profileData;
     }
 
@@ -1699,7 +1699,7 @@
                     }
 
                     // Store in memory for Steam users (works without GM storage)
-                    setCurrentProfile$1(parsed);
+                    setCurrentProfile(parsed);
 
                     // Load existing profile list from GM storage (cross-origin accessible)
                     const profileListJson = await this.loadFromStorage('toolasha_profile_list', '[]');
