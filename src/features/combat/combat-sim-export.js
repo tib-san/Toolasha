@@ -6,6 +6,7 @@
  */
 
 import webSocketHook from '../../core/websocket.js';
+import { getCurrentProfile } from './profile-cache.js';
 
 /**
  * Get saved character data from storage
@@ -369,8 +370,15 @@ export async function constructExportObject(externalProfileId = null, singlePlay
 
     // Check if exporting another player's profile
     if (externalProfileId && externalProfileId !== characterObj.character.id) {
-        // Find the profile in storage
-        const profile = profileList.find(p => p.characterID === externalProfileId);
+        // Try to find profile in GM storage first, then fall back to memory cache
+        let profile = profileList.find(p => p.characterID === externalProfileId);
+
+        // If not found in GM storage, check memory cache (works on Steam)
+        const cachedProfile = getCurrentProfile();
+        if (!profile && cachedProfile && cachedProfile.characterID === externalProfileId) {
+            profile = cachedProfile;
+        }
+
         if (!profile) {
             console.error('[Combat Sim Export] Profile not found for:', externalProfileId);
             return null; // Profile not in cache

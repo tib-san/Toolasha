@@ -6,6 +6,7 @@
  */
 
 import storage from './storage.js';
+import { setCurrentProfile } from '../features/combat/profile-cache.js';
 
 class WebSocketHook {
     constructor() {
@@ -170,6 +171,9 @@ class WebSocketHook {
                     console.error('[Toolasha] Failed to extract characterID from profile:', parsed);
                     return;
                 }
+
+                // Store in memory for Steam users (works without GM storage)
+                setCurrentProfile(parsed);
 
                 // Load existing profile list from GM storage (cross-origin accessible)
                 const profileListJson = await this.loadFromStorage('toolasha_profile_list', '[]');
