@@ -2475,10 +2475,18 @@
                 }
 
                 const sortIndex = action.sortIndex;
-                const monsters = action.combatZoneInfo?.fightInfo?.randomSpawnInfo?.spawns || [];
+
+                // Get regular spawn monsters
+                const regularMonsters = action.combatZoneInfo?.fightInfo?.randomSpawnInfo?.spawns || [];
+
+                // Get boss monsters (every 10 battles)
+                const bossMonsters = action.combatZoneInfo?.fightInfo?.bossSpawns || [];
+
+                // Combine all monsters from this zone
+                const allMonsters = [...regularMonsters, ...bossMonsters];
 
                 // Map each monster to this zone's sortIndex
-                for (const spawn of monsters) {
+                for (const spawn of allMonsters) {
                     const monsterHrid = spawn.combatMonsterHrid;
                     if (!monsterHrid) continue;
 
