@@ -74,11 +74,13 @@ export function createCollapsibleSection(icon, title, summary, content, defaultO
         color: var(--text-color-secondary, #888);
         font-size: 0.9em;
         line-height: 1.6;
+        text-align: left;
     `;
     contentWrapper.appendChild(content);
 
     // Toggle functionality
-    header.addEventListener('click', () => {
+    header.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent event from bubbling to parent collapsible sections
         const isOpen = contentWrapper.style.display === 'block';
         contentWrapper.style.display = isOpen ? 'none' : 'block';
         if (summary) {

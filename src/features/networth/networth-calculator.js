@@ -386,14 +386,17 @@ export async function calculateNetworth() {
         return createEmptyNetworthData();
     }
 
-    // Fetch market data and invalidate cache if needed
-    const marketData = await marketAPI.fetch();
-    if (!marketData) {
-        console.error('[Networth] Failed to fetch market data');
-        return createEmptyNetworthData();
+    // Ensure market data is loaded (check in-memory first to avoid storage reads)
+    if (!marketAPI.isLoaded()) {
+        const marketData = await marketAPI.fetch();
+        if (!marketData) {
+            console.error('[Networth] Failed to fetch market data');
+            return createEmptyNetworthData();
+        }
     }
 
-    networthCache.checkAndInvalidate(marketData);
+    // Invalidate cache if market data changed (wrap for cache compatibility)
+    networthCache.checkAndInvalidate({ marketData: marketAPI.marketData });
 
     // Get pricing mode from settings
     const pricingMode = config.getSettingValue('networth_pricingMode', 'ask');

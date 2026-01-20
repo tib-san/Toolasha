@@ -10,9 +10,22 @@ import config from '../../core/config.js';
 import { setReactInputValue } from '../../utils/react-input.js';
 
 /**
+ * Check if running on Steam client (no extension manager)
+ * @returns {boolean} True if on Steam client
+ */
+function isSteamClient() {
+    return typeof GM === 'undefined' && typeof GM_setValue === 'undefined';
+}
+
+/**
  * Initialize combat sim integration (runs on sim page only)
  */
 export function initialize() {
+    // Don't inject import button on Steam client (no cross-domain storage)
+    if (isSteamClient()) {
+        return;
+    }
+
     // Wait for simulator UI to load
     waitForSimulatorUI();
 }

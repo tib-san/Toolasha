@@ -554,6 +554,13 @@ export const settingsGroups = {
                 default: true,
                 help: 'Applies to tooltips, action panels, profit displays, and all number formatting throughout the UI'
             },
+            ui_externalLinks: {
+                id: 'ui_externalLinks',
+                label: 'Left sidebar: Show external tool links',
+                type: 'checkbox',
+                default: true,
+                help: 'Adds quick links to Combat Sim, Market Tracker, Enhancelator, and Milkonomy'
+            },
             expPercentage: {
                 id: 'expPercentage',
                 label: 'Left sidebar: Show skill XP percentages',

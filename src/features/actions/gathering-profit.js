@@ -62,10 +62,12 @@ export async function calculateGatheringProfit(actionHrid) {
         return null; // No drop table - nothing to calculate
     }
 
-    // Ensure market data is loaded
-    const marketData = await marketAPI.fetch();
-    if (!marketData) {
-        return null;
+    // Ensure market data is loaded (check in-memory first to avoid storage reads)
+    if (!marketAPI.isLoaded()) {
+        const marketData = await marketAPI.fetch();
+        if (!marketData) {
+            return null;
+        }
     }
 
     // Get character data
@@ -227,11 +229,19 @@ export async function calculateGatheringProfit(actionHrid) {
         const baseAvgAmount = (drop.minCount + drop.maxCount) / 2;
         const avgAmountPerAction = baseAvgAmount * (1 + totalGathering);
 
-        // Check if this item has a Processing conversion (look up dynamically from crafting recipes)
-        // Find a crafting action where this raw item is the input
+        // Check if this item has a Processing Tea conversion
+        // Processing Tea only applies to: Milk→Cheese, Log→Lumber, Cotton/Flax/Bamboo/Cocoon/Radiant→Fabric
+        // These are Cheesesmithing, Crafting (lumber), and Tailoring (fabric) actions
+        const validProcessingTypes = [
+            '/action_types/cheesesmithing',  // Milk → Cheese conversions
+            '/action_types/crafting',         // Log → Lumber conversions
+            '/action_types/tailoring'         // Cotton/Flax/Bamboo/Cocoon/Radiant → Fabric conversions
+        ];
+
         const processingActionHrid = Object.keys(gameData.actionDetailMap).find(actionHrid => {
             const action = gameData.actionDetailMap[actionHrid];
-            return action.inputItems?.[0]?.itemHrid === drop.itemHrid &&
+            return validProcessingTypes.includes(action.type) &&
+                   action.inputItems?.[0]?.itemHrid === drop.itemHrid &&
                    action.outputItems?.[0]?.itemHrid; // Has an output
         });
 

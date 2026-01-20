@@ -19,8 +19,10 @@ class HouseCostCalculator {
     async initialize() {
         if (this.isInitialized) return;
 
-        // Ensure market data is loaded
-        await marketAPI.fetch();
+        // Ensure market data is loaded (check in-memory first to avoid storage reads)
+        if (!marketAPI.isLoaded()) {
+            await marketAPI.fetch();
+        }
 
         this.isInitialized = true;
     }

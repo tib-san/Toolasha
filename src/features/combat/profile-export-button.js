@@ -10,9 +10,22 @@ import config from '../../core/config.js';
 import storage from '../../core/storage.js';
 
 /**
+ * Check if running on Steam client (no extension manager)
+ * @returns {boolean} True if on Steam client
+ */
+function isSteamClient() {
+    return typeof GM === 'undefined' && typeof GM_setValue === 'undefined';
+}
+
+/**
  * Initialize profile export button
  */
 export function initialize() {
+    // Don't inject export button on Steam client (no cross-domain storage)
+    if (isSteamClient()) {
+        return;
+    }
+
     waitForProfilePage();
     observeProfileClosure();
 }

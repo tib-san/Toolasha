@@ -31,6 +31,7 @@ import combatScore from '../features/profile/combat-score.js';
 import equipmentLevelDisplay from '../features/ui/equipment-level-display.js';
 import alchemyItemDimming from '../features/ui/alchemy-item-dimming.js';
 import skillExperiencePercentage from '../features/ui/skill-experience-percentage.js';
+import externalLinks from '../features/ui/external-links.js';
 import taskProfitDisplay from '../features/tasks/task-profit-display.js';
 import taskRerollTracker from '../features/tasks/task-reroll-tracker.js';
 import taskSorter from '../features/tasks/task-sorter.js';
@@ -334,6 +335,14 @@ const featureRegistry = [
         initialize: () => skillExperiencePercentage.initialize(),
         async: false
     },
+    {
+        key: 'ui_externalLinks',
+        name: 'External Links',
+        category: 'UI',
+        initialize: () => externalLinks.initialize(),
+        disable: () => externalLinks.disable(),
+        async: false
+    },
 
     // Task Features
     {
@@ -634,6 +643,7 @@ function getFeatureInstance(key) {
         'equipmentLevelDisplay': equipmentLevelDisplay,
         'alchemyItemDimming': alchemyItemDimming,
         'skillExperiencePercentage': skillExperiencePercentage,
+        'ui_externalLinks': externalLinks,
         'taskProfitDisplay': taskProfitDisplay,
         'taskRerollTracker': taskRerollTracker,
         'taskSorter': taskSorter,
