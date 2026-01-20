@@ -1813,6 +1813,7 @@
             this.characterSkills = null;
             this.characterItems = null;
             this.characterActions = [];
+            this.characterQuests = [];  // Active quests including tasks
             this.characterEquipment = new Map();
             this.characterHouseRooms = new Map();  // House room HRID -> {houseRoomHrid, level}
             this.actionTypeDrinkSlotsMap = new Map();  // Action type HRID -> array of drink items
@@ -1996,6 +1997,7 @@
                     this.characterSkills = null;
                     this.characterItems = null;
                     this.characterActions = [];
+                    this.characterQuests = [];
                     this.characterEquipment.clear();
                     this.characterHouseRooms.clear();
                     this.actionTypeDrinkSlotsMap.clear();
@@ -2019,6 +2021,7 @@
                 this.characterSkills = data.characterSkills;
                 this.characterItems = data.characterItems;
                 this.characterActions = [...data.characterActions];
+                this.characterQuests = data.characterQuests || [];
 
                 // Build equipment map
                 this.updateEquipmentMap(data.characterItems);
@@ -2376,6 +2379,74 @@
          */
         getMarketListings() {
             return this.characterData?.myMarketListings ? [...this.characterData.myMarketListings] : [];
+        }
+
+        /**
+         * Get active task action HRIDs
+         * @returns {Array<string>} Array of action HRIDs that are currently active tasks
+         */
+        getActiveTaskActionHrids() {
+            if (!this.characterQuests || this.characterQuests.length === 0) {
+                return [];
+            }
+
+            return this.characterQuests
+                .filter(quest =>
+                    quest.category === '/quest_category/random_task' &&
+                    quest.status === '/quest_status/in_progress' &&
+                    quest.actionHrid
+                )
+                .map(quest => quest.actionHrid);
+        }
+
+        /**
+         * Check if an action is currently an active task
+         * @param {string} actionHrid - Action HRID to check
+         * @returns {boolean} True if action is an active task
+         */
+        isTaskAction(actionHrid) {
+            const activeTasks = this.getActiveTaskActionHrids();
+            return activeTasks.includes(actionHrid);
+        }
+
+        /**
+         * Get task speed bonus from equipped task badges
+         * @returns {number} Task speed percentage (e.g., 15 for 15%)
+         */
+        getTaskSpeedBonus() {
+            if (!this.characterEquipment || !this.initClientData) {
+                return 0;
+            }
+
+            let totalTaskSpeed = 0;
+
+            // Task badges are in trinket slot
+            const trinketLocation = '/item_locations/trinket';
+            const equippedItem = this.characterEquipment.get(trinketLocation);
+
+            if (!equippedItem || !equippedItem.itemHrid) {
+                return 0;
+            }
+
+            const itemDetail = this.initClientData.itemDetailMap[equippedItem.itemHrid];
+            if (!itemDetail || !itemDetail.equipmentDetail) {
+                return 0;
+            }
+
+            const taskSpeed = itemDetail.equipmentDetail.noncombatStats?.taskSpeed || 0;
+            if (taskSpeed === 0) {
+                return 0;
+            }
+
+            // Calculate enhancement bonus (trinket has 5× multiplier)
+            const enhancementLevel = equippedItem.enhancementLevel || 0;
+            const enhancementBonus = itemDetail.equipmentDetail.noncombatEnhancementBonuses?.taskSpeed || 0;
+            const totalEnhancementBonus = enhancementBonus * enhancementLevel * 5; // Trinket 5× multiplier
+
+            // Total taskSpeed = base + enhancement
+            totalTaskSpeed = (taskSpeed + totalEnhancementBonus) * 100; // Convert to percentage
+
+            return totalTaskSpeed;
         }
 
         /**
