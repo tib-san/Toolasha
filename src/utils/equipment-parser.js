@@ -37,21 +37,89 @@ function getFieldForActionType(actionTypeHrid, suffix, validFields) {
 }
 
 /**
+ * Enhancement percentage table (based on game mechanics)
+ * Each enhancement level provides a percentage boost to base stats
+ */
+const ENHANCEMENT_PERCENTAGES = {
+    0: 0.00,
+    1: 0.020,  // 2.0%
+    2: 0.042,  // 4.2%
+    3: 0.066,  // 6.6%
+    4: 0.092,  // 9.2%
+    5: 0.120,  // 12.0%
+    6: 0.150,  // 15.0%
+    7: 0.182,  // 18.2%
+    8: 0.216,  // 21.6%
+    9: 0.252,  // 25.2%
+    10: 0.290, // 29.0%
+    11: 0.334, // 33.4%
+    12: 0.384, // 38.4%
+    13: 0.440, // 44.0%
+    14: 0.502, // 50.2%
+    15: 0.570, // 57.0%
+    16: 0.644, // 64.4%
+    17: 0.724, // 72.4%
+    18: 0.810, // 81.0%
+    19: 0.902, // 90.2%
+    20: 1.000  // 100.0%
+};
+
+/**
+ * Slot multipliers for enhancement bonuses
+ * Accessories get 5× bonus, weapons/armor get 1× bonus
+ * Keys use item_locations (not equipment_types) to match characterEquipment map keys
+ */
+const SLOT_MULTIPLIERS = {
+    '/item_locations/neck': 5,      // Necklace
+    '/item_locations/ring': 5,      // Ring
+    '/item_locations/earrings': 5,  // Earrings
+    '/item_locations/back': 5,      // Back/Cape
+    '/item_locations/trinket': 5,   // Trinket
+    '/item_locations/charm': 5,     // Charm
+    '/item_locations/main_hand': 1, // Main hand weapon
+    '/item_locations/two_hand': 1,  // Two-handed weapon
+    '/item_locations/off_hand': 1,  // Off-hand/shield
+    '/item_locations/head': 1,      // Head armor
+    '/item_locations/body': 1,      // Body armor
+    '/item_locations/legs': 1,      // Leg armor
+    '/item_locations/hands': 1,     // Hand armor
+    '/item_locations/feet': 1,      // Feet armor
+    '/item_locations/pouch': 1      // Pouch
+};
+
+/**
  * Calculate enhancement scaling for equipment stats
- * Uses item-specific enhancement bonus from noncombatEnhancementBonuses
- * @param {number} baseValue - Base stat value from item
- * @param {number} enhancementBonus - Enhancement bonus per level from item data
+ * Uses percentage-based enhancement system with slot multipliers
+ *
+ * Formula: base × (1 + enhancementPercentage × slotMultiplier)
+ *
+ * @param {number} baseValue - Base stat value from item data
  * @param {number} enhancementLevel - Enhancement level (0-20)
+ * @param {string} slotHrid - Equipment slot HRID (e.g., "/equipment_types/neck")
  * @returns {number} Scaled stat value
  *
  * @example
- * calculateEnhancementScaling(0.15, 0.003, 0) // 0.15
- * calculateEnhancementScaling(0.15, 0.003, 10) // 0.18
- * calculateEnhancementScaling(0.3, 0.006, 10) // 0.36
+ * // Philosopher's Necklace +4 (4% base speed, neck slot 5×)
+ * calculateEnhancementScaling(0.04, 4, '/equipment_types/neck')
+ * // = 0.04 × (1 + 0.092 × 5) = 0.04 × 1.46 = 0.0584 (5.84%)
+ *
+ * // Lumberjack's Top +10 (10% base efficiency, body slot 1×)
+ * calculateEnhancementScaling(0.10, 10, '/equipment_types/body')
+ * // = 0.10 × (1 + 0.290 × 1) = 0.10 × 1.29 = 0.129 (12.9%)
  */
-function calculateEnhancementScaling(baseValue, enhancementBonus, enhancementLevel) {
-    // Formula: base + (enhancementBonus × enhancementLevel)
-    return baseValue + (enhancementBonus * enhancementLevel);
+function calculateEnhancementScaling(baseValue, enhancementLevel, slotHrid) {
+    if (enhancementLevel === 0) {
+        return baseValue;
+    }
+
+    // Get enhancement percentage from table
+    const enhancementPercentage = ENHANCEMENT_PERCENTAGES[enhancementLevel] || 0;
+
+    // Get slot multiplier (default to 1× if slot not found)
+    const slotMultiplier = SLOT_MULTIPLIERS[slotHrid] || 1;
+
+    // Apply formula: base × (1 + percentage × multiplier)
+    return baseValue * (1 + enhancementPercentage * slotMultiplier);
 }
 
 /**
@@ -104,16 +172,12 @@ function parseEquipmentStat(characterEquipment, itemDetailMap, config) {
         // Get enhancement level from equipped item
         const enhancementLevel = equippedItem.enhancementLevel || 0;
 
-        // Get enhancement bonuses for this item
-        const enhancementBonuses = itemDetails.equipmentDetail.noncombatEnhancementBonuses;
-
         // Check for skill-specific stat (e.g., brewingSpeed, brewingEfficiency, brewingRareFind)
         if (skillSpecificField) {
             const baseValue = noncombatStats[skillSpecificField];
 
             if (baseValue && baseValue > 0) {
-                const enhancementBonus = (enhancementBonuses && enhancementBonuses[skillSpecificField]) || 0;
-                const scaledValue = calculateEnhancementScaling(baseValue, enhancementBonus, enhancementLevel);
+                const scaledValue = calculateEnhancementScaling(baseValue, enhancementLevel, slotHrid);
                 totalBonus += scaledValue;
             }
         }
@@ -123,8 +187,7 @@ function parseEquipmentStat(characterEquipment, itemDetailMap, config) {
             const baseValue = noncombatStats[genericField];
 
             if (baseValue && baseValue > 0) {
-                const enhancementBonus = (enhancementBonuses && enhancementBonuses[genericField]) || 0;
-                const scaledValue = calculateEnhancementScaling(baseValue, enhancementBonus, enhancementLevel);
+                const scaledValue = calculateEnhancementScaling(baseValue, enhancementLevel, slotHrid);
                 totalBonus += scaledValue;
             }
         }
@@ -302,12 +365,7 @@ export function debugEquipmentSpeedBonuses(characterEquipment, itemDetailMap) {
         for (const [statName, value] of Object.entries(noncombatStats)) {
             if (statName.endsWith('Speed') && value > 0) {
                 const enhancementLevel = equippedItem.enhancementLevel || 0;
-
-                // Get enhancement bonus from item data
-                const enhancementBonuses = itemDetails.equipmentDetail.noncombatEnhancementBonuses;
-                const enhancementBonus = (enhancementBonuses && enhancementBonuses[statName]) || 0;
-
-                const scaledValue = calculateEnhancementScaling(value, enhancementBonus, enhancementLevel);
+                const scaledValue = calculateEnhancementScaling(value, enhancementLevel, slotHrid);
 
                 bonuses.push({
                     itemName: itemDetails.name,
@@ -315,7 +373,6 @@ export function debugEquipmentSpeedBonuses(characterEquipment, itemDetailMap) {
                     slot: slotHrid,
                     speedType: statName,
                     baseBonus: value,
-                    enhancementBonus,
                     enhancementLevel,
                     scaledBonus: scaledValue
                 });
