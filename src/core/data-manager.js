@@ -646,10 +646,11 @@ class DataManager {
             return 0;
         }
 
-        // Calculate enhancement bonus (trinket has 5× multiplier)
+        // Calculate enhancement bonus
+        // Note: noncombatEnhancementBonuses already includes slot multiplier (5× for trinket)
         const enhancementLevel = equippedItem.enhancementLevel || 0;
         const enhancementBonus = itemDetail.equipmentDetail.noncombatEnhancementBonuses?.taskSpeed || 0;
-        const totalEnhancementBonus = enhancementBonus * enhancementLevel * 5; // Trinket 5× multiplier
+        const totalEnhancementBonus = enhancementBonus * enhancementLevel;
 
         // Total taskSpeed = base + enhancement
         totalTaskSpeed = (taskSpeed + totalEnhancementBonus) * 100; // Convert to percentage

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.955
+// @version      0.4.956
 // @downloadURL  https://greasyfork.org/scripts/562662-toolasha/code/Toolasha.user.js
 // @updateURL    https://greasyfork.org/scripts/562662-toolasha/code/Toolasha.meta.js
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
@@ -2438,10 +2438,11 @@
                 return 0;
             }
 
-            // Calculate enhancement bonus (trinket has 5× multiplier)
+            // Calculate enhancement bonus
+            // Note: noncombatEnhancementBonuses already includes slot multiplier (5× for trinket)
             const enhancementLevel = equippedItem.enhancementLevel || 0;
             const enhancementBonus = itemDetail.equipmentDetail.noncombatEnhancementBonuses?.taskSpeed || 0;
-            const totalEnhancementBonus = enhancementBonus * enhancementLevel * 5; // Trinket 5× multiplier
+            const totalEnhancementBonus = enhancementBonus * enhancementLevel;
 
             // Total taskSpeed = base + enhancement
             totalTaskSpeed = (taskSpeed + totalEnhancementBonus) * 100; // Convert to percentage
@@ -15628,6 +15629,7 @@
      * @param {Array} options.skills - Character skills array
      * @param {Array} options.equipment - Character equipment array
      * @param {Object} options.itemDetailMap - Item detail map from game data
+     * @param {string} options.actionHrid - Action HRID for task detection (optional)
      * @param {boolean} options.includeCommunityBuff - Include community buff in efficiency (default: false)
      * @param {boolean} options.includeBreakdown - Include detailed breakdown data (default: false)
      * @param {boolean} options.floorActionLevel - Floor Action Level bonus for requirement calculation (default: true)
@@ -15638,6 +15640,7 @@
             skills,
             equipment,
             itemDetailMap,
+            actionHrid,
             includeCommunityBuff = false,
             includeBreakdown = false,
             floorActionLevel = true
@@ -15648,14 +15651,20 @@
             const baseTime = actionDetails.baseTimeCost / 1e9; // nanoseconds to seconds
 
             // Get equipment speed bonus
-            const speedBonus = parseEquipmentSpeedBonuses(
+            let speedBonus = parseEquipmentSpeedBonuses(
                 equipment,
                 actionDetails.type,
                 itemDetailMap
             );
 
-            // Calculate actual action time with speed
-            const actionTime = baseTime / (1 + speedBonus);
+            // Calculate action time with equipment speed
+            let actionTime = baseTime / (1 + speedBonus);
+
+            // Apply task speed multiplicatively (if action is an active task)
+            if (actionHrid && dataManager.isTaskAction(actionHrid)) {
+                const taskSpeedBonus = dataManager.getTaskSpeedBonus(); // Returns percentage (e.g., 15 for 15%)
+                actionTime = actionTime / (1 + taskSpeedBonus / 100); // Apply multiplicatively
+            }
 
             // Calculate efficiency
             const skillLevel = getSkillLevel$1(skills, actionDetails.type);
@@ -16157,6 +16166,7 @@
                 skills,
                 equipment,
                 itemDetailMap,
+                actionHrid: action.actionHrid, // Pass action HRID for task detection
                 includeCommunityBuff: true,
                 includeBreakdown: false,
                 floorActionLevel: true
@@ -16418,9 +16428,10 @@
         /**
          * Calculate action time for a given action
          * @param {Object} actionDetails - Action details from data manager
+         * @param {string} actionHrid - Action HRID for task detection (optional)
          * @returns {Object} {actionTime, totalEfficiency} or null if calculation fails
          */
-        calculateActionTime(actionDetails) {
+        calculateActionTime(actionDetails, actionHrid = null) {
             const skills = dataManager.getSkills();
             const equipment = dataManager.getEquipment();
             const itemDetailMap = dataManager.getInitClientData()?.itemDetailMap || {};
@@ -16430,6 +16441,7 @@
                 skills,
                 equipment,
                 itemDetailMap,
+                actionHrid, // Pass action HRID for task detection
                 includeCommunityBuff: true,
                 includeBreakdown: false,
                 floorActionLevel: true
@@ -16701,7 +16713,7 @@
                                 const artisanBonus = parseArtisanBonus(activeDrinks, itemDetailMap, drinkConcentration);
 
                                 // Calculate action stats to get efficiency
-                                const timeData = this.calculateActionTime(actionDetails);
+                                const timeData = this.calculateActionTime(actionDetails, currentAction.actionHrid);
                                 if (timeData) {
                                     const { actionTime, totalEfficiency } = timeData;
                                     const materialLimit = this.calculateMaterialLimit(actionDetails, inventory, artisanBonus, totalEfficiency, currentAction);
@@ -16719,7 +16731,7 @@
                                 }
                             } else {
                                 const count = currentAction.maxCount - currentAction.currentCount;
-                                const timeData = this.calculateActionTime(actionDetails);
+                                const timeData = this.calculateActionTime(actionDetails, currentAction.actionHrid);
                                 if (timeData) {
                                     const { actionTime, totalEfficiency } = timeData;
 
@@ -16777,7 +16789,7 @@
                     const isInfinite = !actionObj.hasMaxCount || actionObj.actionHrid.includes('/combat/');
 
                     // Calculate action time first to get efficiency
-                    const timeData = this.calculateActionTime(actionDetails);
+                    const timeData = this.calculateActionTime(actionDetails, actionObj.actionHrid);
                     if (!timeData) continue;
 
                     const { actionTime, totalEfficiency } = timeData;
@@ -17529,11 +17541,19 @@
             `;
 
                 const speedLines = [];
-                speedLines.push(`Base: ${baseTime.toFixed(2)}s → ${actionTime.toFixed(2)}s`);
+
+                // Check if task speed applies (need to calculate before display)
+                const isTaskAction = actionDetails.hrid && dataManager.isTaskAction(actionDetails.hrid);
+                const taskSpeedBonus = isTaskAction ? dataManager.getTaskSpeedBonus() : 0;
+
+                // Calculate intermediate time (after equipment speed, before task speed)
+                const timeAfterEquipment = baseTime / (1 + speedBonus);
+
+                speedLines.push(`Base: ${baseTime.toFixed(2)}s → ${timeAfterEquipment.toFixed(2)}s`);
                 if (speedBonus > 0) {
-                    speedLines.push(`Speed: +${formatPercentage(speedBonus, 1)} | ${(3600 / actionTime).toFixed(0)}/hr`);
+                    speedLines.push(`Speed: +${formatPercentage(speedBonus, 1)} | ${(3600 / timeAfterEquipment).toFixed(0)}/hr`);
                 } else {
-                    speedLines.push(`${(3600 / actionTime).toFixed(0)}/hr`);
+                    speedLines.push(`${(3600 / timeAfterEquipment).toFixed(0)}/hr`);
                 }
 
                 // Add speed breakdown
@@ -17554,6 +17574,33 @@
                             ` (${item.baseSpeed.toFixed(1)}% × ${(1 + item.drinkConcentration / 100).toFixed(2)})` :
                             '';
                         speedLines.push(`  - ${item.name}: +${item.speed.toFixed(1)}%${detailText}`);
+                    }
+                }
+
+                // Task Speed section (multiplicative, separate from equipment speed)
+                if (isTaskAction && taskSpeedBonus > 0) {
+                    speedLines.push(''); // Empty line separator
+                    speedLines.push(`<span style="font-weight: 500;">Task Speed (multiplicative): +${taskSpeedBonus.toFixed(1)}%</span>`);
+                    speedLines.push(`${timeAfterEquipment.toFixed(2)}s → ${actionTime.toFixed(2)}s | ${(3600 / actionTime).toFixed(0)}/hr`);
+
+                    // Find equipped task badge for details
+                    const trinketSlot = equipment.get('/item_locations/trinket');
+                    if (trinketSlot && trinketSlot.itemHrid) {
+                        const itemDetails = itemDetailMap[trinketSlot.itemHrid];
+                        if (itemDetails) {
+                            const enhText = trinketSlot.enhancementLevel > 0 ? ` +${trinketSlot.enhancementLevel}` : '';
+
+                            // Calculate breakdown
+                            const baseTaskSpeed = itemDetails.equipmentDetail?.noncombatStats?.taskSpeed || 0;
+                            const enhancementBonus = itemDetails.equipmentDetail?.noncombatEnhancementBonuses?.taskSpeed || 0;
+                            const enhancementLevel = trinketSlot.enhancementLevel || 0;
+
+                            const detailText = enhancementBonus > 0 ?
+                                ` (${(baseTaskSpeed * 100).toFixed(1)}% + ${(enhancementBonus * enhancementLevel * 100).toFixed(1)}%)` :
+                                '';
+
+                            speedLines.push(`  - ${itemDetails.name}${enhText}: +${taskSpeedBonus.toFixed(1)}%${detailText}`);
+                        }
                     }
                 }
 
@@ -17837,7 +17884,8 @@
             // Find action by matching name
             for (const [hrid, details] of Object.entries(actionDetailMap)) {
                 if (details.name === actionName) {
-                    return details;
+                    // Include hrid in returned object for task detection
+                    return { ...details, hrid };
                 }
             }
 
@@ -17861,6 +17909,7 @@
                 skills,
                 equipment,
                 itemDetailMap,
+                actionHrid: actionDetails.hrid, // Pass action HRID for task detection
                 includeCommunityBuff: true,
                 includeBreakdown: true,
                 floorActionLevel: true
@@ -39404,7 +39453,7 @@
         const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
         targetWindow.Toolasha = {
-            version: '0.4.955',
+            version: '0.4.956',
 
             // Feature toggle API (for users to manage settings via console)
             features: {

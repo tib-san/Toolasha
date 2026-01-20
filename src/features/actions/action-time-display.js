@@ -360,6 +360,7 @@ class ActionTimeDisplay {
             skills,
             equipment,
             itemDetailMap,
+            actionHrid: action.actionHrid, // Pass action HRID for task detection
             includeCommunityBuff: true,
             includeBreakdown: false,
             floorActionLevel: true
@@ -621,9 +622,10 @@ class ActionTimeDisplay {
     /**
      * Calculate action time for a given action
      * @param {Object} actionDetails - Action details from data manager
+     * @param {string} actionHrid - Action HRID for task detection (optional)
      * @returns {Object} {actionTime, totalEfficiency} or null if calculation fails
      */
-    calculateActionTime(actionDetails) {
+    calculateActionTime(actionDetails, actionHrid = null) {
         const skills = dataManager.getSkills();
         const equipment = dataManager.getEquipment();
         const itemDetailMap = dataManager.getInitClientData()?.itemDetailMap || {};
@@ -633,6 +635,7 @@ class ActionTimeDisplay {
             skills,
             equipment,
             itemDetailMap,
+            actionHrid, // Pass action HRID for task detection
             includeCommunityBuff: true,
             includeBreakdown: false,
             floorActionLevel: true
@@ -911,7 +914,7 @@ class ActionTimeDisplay {
                             const artisanBonus = parseArtisanBonus(activeDrinks, itemDetailMap, drinkConcentration);
 
                             // Calculate action stats to get efficiency
-                            const timeData = this.calculateActionTime(actionDetails);
+                            const timeData = this.calculateActionTime(actionDetails, currentAction.actionHrid);
                             if (timeData) {
                                 const { actionTime, totalEfficiency } = timeData;
                                 const materialLimit = this.calculateMaterialLimit(actionDetails, inventory, artisanBonus, totalEfficiency, currentAction);
@@ -929,7 +932,7 @@ class ActionTimeDisplay {
                             }
                         } else {
                             const count = currentAction.maxCount - currentAction.currentCount;
-                            const timeData = this.calculateActionTime(actionDetails);
+                            const timeData = this.calculateActionTime(actionDetails, currentAction.actionHrid);
                             if (timeData) {
                                 const { actionTime, totalEfficiency } = timeData;
 
@@ -987,7 +990,7 @@ class ActionTimeDisplay {
                 const isInfinite = !actionObj.hasMaxCount || actionObj.actionHrid.includes('/combat/');
 
                 // Calculate action time first to get efficiency
-                const timeData = this.calculateActionTime(actionDetails);
+                const timeData = this.calculateActionTime(actionDetails, actionObj.actionHrid);
                 if (!timeData) continue;
 
                 const { actionTime, totalEfficiency } = timeData;

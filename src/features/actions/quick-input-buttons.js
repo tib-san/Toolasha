@@ -157,11 +157,19 @@ class QuickInputButtons {
             `;
 
             const speedLines = [];
-            speedLines.push(`Base: ${baseTime.toFixed(2)}s → ${actionTime.toFixed(2)}s`);
+
+            // Check if task speed applies (need to calculate before display)
+            const isTaskAction = actionDetails.hrid && dataManager.isTaskAction(actionDetails.hrid);
+            const taskSpeedBonus = isTaskAction ? dataManager.getTaskSpeedBonus() : 0;
+
+            // Calculate intermediate time (after equipment speed, before task speed)
+            const timeAfterEquipment = baseTime / (1 + speedBonus);
+
+            speedLines.push(`Base: ${baseTime.toFixed(2)}s → ${timeAfterEquipment.toFixed(2)}s`);
             if (speedBonus > 0) {
-                speedLines.push(`Speed: +${formatPercentage(speedBonus, 1)} | ${(3600 / actionTime).toFixed(0)}/hr`);
+                speedLines.push(`Speed: +${formatPercentage(speedBonus, 1)} | ${(3600 / timeAfterEquipment).toFixed(0)}/hr`);
             } else {
-                speedLines.push(`${(3600 / actionTime).toFixed(0)}/hr`);
+                speedLines.push(`${(3600 / timeAfterEquipment).toFixed(0)}/hr`);
             }
 
             // Add speed breakdown
@@ -182,6 +190,33 @@ class QuickInputButtons {
                         ` (${item.baseSpeed.toFixed(1)}% × ${(1 + item.drinkConcentration / 100).toFixed(2)})` :
                         '';
                     speedLines.push(`  - ${item.name}: +${item.speed.toFixed(1)}%${detailText}`);
+                }
+            }
+
+            // Task Speed section (multiplicative, separate from equipment speed)
+            if (isTaskAction && taskSpeedBonus > 0) {
+                speedLines.push(''); // Empty line separator
+                speedLines.push(`<span style="font-weight: 500;">Task Speed (multiplicative): +${taskSpeedBonus.toFixed(1)}%</span>`);
+                speedLines.push(`${timeAfterEquipment.toFixed(2)}s → ${actionTime.toFixed(2)}s | ${(3600 / actionTime).toFixed(0)}/hr`);
+
+                // Find equipped task badge for details
+                const trinketSlot = equipment.get('/item_locations/trinket');
+                if (trinketSlot && trinketSlot.itemHrid) {
+                    const itemDetails = itemDetailMap[trinketSlot.itemHrid];
+                    if (itemDetails) {
+                        const enhText = trinketSlot.enhancementLevel > 0 ? ` +${trinketSlot.enhancementLevel}` : '';
+
+                        // Calculate breakdown
+                        const baseTaskSpeed = itemDetails.equipmentDetail?.noncombatStats?.taskSpeed || 0;
+                        const enhancementBonus = itemDetails.equipmentDetail?.noncombatEnhancementBonuses?.taskSpeed || 0;
+                        const enhancementLevel = trinketSlot.enhancementLevel || 0;
+
+                        const detailText = enhancementBonus > 0 ?
+                            ` (${(baseTaskSpeed * 100).toFixed(1)}% + ${(enhancementBonus * enhancementLevel * 100).toFixed(1)}%)` :
+                            '';
+
+                        speedLines.push(`  - ${itemDetails.name}${enhText}: +${taskSpeedBonus.toFixed(1)}%${detailText}`);
+                    }
                 }
             }
 
@@ -465,7 +500,8 @@ class QuickInputButtons {
         // Find action by matching name
         for (const [hrid, details] of Object.entries(actionDetailMap)) {
             if (details.name === actionName) {
-                return details;
+                // Include hrid in returned object for task detection
+                return { ...details, hrid };
             }
         }
 
@@ -489,6 +525,7 @@ class QuickInputButtons {
             skills,
             equipment,
             itemDetailMap,
+            actionHrid: actionDetails.hrid, // Pass action HRID for task detection
             includeCommunityBuff: true,
             includeBreakdown: true,
             floorActionLevel: true
