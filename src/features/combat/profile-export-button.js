@@ -12,7 +12,7 @@ import storage from '../../core/storage.js';
 /**
  * Initialize profile export button
  */
-export function initialize() {
+function initialize() {
     waitForProfilePage();
     observeProfileClosure();
 }
@@ -106,8 +106,8 @@ async function handleExport(button) {
         // Get current profile ID (if viewing someone else's profile)
         const currentProfileId = await storage.get('currentProfileId', 'combatExport', null);
 
-        // Get export data (pass profile ID if viewing external profile)
-        const exportData = await constructExportObject(currentProfileId);
+        // Get export data in single-player format (for pasting into "Player 1 import" field)
+        const exportData = await constructExportObject(currentProfileId, true);
 
         if (!exportData) {
             button.textContent = '✗ No Data';
@@ -152,3 +152,8 @@ function resetButton(button) {
     button.textContent = 'Export to Clipboard';
     button.style.backgroundColor = config.COLOR_ACCENT;
 }
+
+// Export module
+export default {
+    initialize
+};

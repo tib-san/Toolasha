@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolasha
 // @namespace    http://tampermonkey.net/
-// @version      0.4.953
+// @version      0.4.954
 // @downloadURL  https://greasyfork.org/scripts/562662-toolasha/code/Toolasha.user.js
 // @updateURL    https://greasyfork.org/scripts/562662-toolasha/code/Toolasha.meta.js
 // @description  Toolasha - Enhanced tools for Milky Way Idle.
@@ -23,7 +23,7 @@
 // @require      https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0/dist/chartjs-plugin-datalabels.min.js
 // @require      https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js
 // ==/UserScript==
-// Note: Combat Sim export requires Tampermonkey for cross-domain storage sharing. Not available on Steam.
+// Note: Combat Sim auto-import requires Tampermonkey for cross-domain storage. Not available on Steam (use manual clipboard copy/paste instead).
 
 (function () {
     'use strict';
@@ -18465,7 +18465,7 @@
         updateOutputTotals(detailPanel, inputBox) {
             const amount = parseFloat(inputBox.value);
 
-            // Remove existing totals (cloned outputs)
+            // Remove existing totals (cloned outputs and XP)
             detailPanel.querySelectorAll('.mwi-output-total').forEach(el => el.remove());
 
             // No amount entered - nothing to calculate
@@ -18511,6 +18511,9 @@
                     }
                 }
             });
+
+            // Process XP element
+            this.processXpElement(detailPanel, amount);
         }
 
         /**
@@ -18614,6 +18617,90 @@
             }
 
             return clone;
+        }
+
+        /**
+         * Extract action HRID from detail panel
+         * @param {HTMLElement} detailPanel - The action detail panel element
+         * @returns {string|null} Action HRID or null
+         */
+        getActionHridFromPanel(detailPanel) {
+            // Find action name element
+            const nameElement = detailPanel.querySelector('[class*="SkillActionDetail_name"]');
+
+            if (!nameElement) {
+                return null;
+            }
+
+            const actionName = nameElement.textContent.trim();
+
+            // Look up action by name in game data
+            const initData = dataManager.getInitClientData();
+            if (!initData) {
+                return null;
+            }
+
+            for (const [hrid, action] of Object.entries(initData.actionDetailMap)) {
+                if (action.name === actionName) {
+                    return hrid;
+                }
+            }
+
+            return null;
+        }
+
+        /**
+         * Process XP element and display total XP
+         * @param {HTMLElement} detailPanel - The action detail panel
+         * @param {number} amount - Number of actions
+         */
+        processXpElement(detailPanel, amount) {
+            // Find XP element
+            const xpElement = detailPanel.querySelector('[class*="SkillActionDetail_expGain"]');
+            if (!xpElement) {
+                return;
+            }
+
+            // Get action HRID
+            const actionHrid = this.getActionHridFromPanel(detailPanel);
+            if (!actionHrid) {
+                return;
+            }
+
+            // Get action details
+            const actionDetails = dataManager.getActionDetails(actionHrid);
+            if (!actionDetails || !actionDetails.experienceGain) {
+                return;
+            }
+
+            // Calculate experience multiplier (Wisdom + Charm Experience)
+            const skillHrid = actionDetails.experienceGain.skillHrid;
+            const xpData = calculateExperienceMultiplier(skillHrid, actionDetails.type);
+
+            // Calculate total XP
+            const baseXP = actionDetails.experienceGain.value;
+            const modifiedXP = baseXP * xpData.totalMultiplier;
+            const totalXP = modifiedXP * amount;
+
+            // Create clone for total display
+            const clone = xpElement.cloneNode(true);
+            clone.classList.add('mwi-output-total');
+
+            // Apply blue color for XP
+            clone.style.cssText = `
+            color: ${config.COLOR_INFO};
+            font-weight: 600;
+            margin-top: 2px;
+        `;
+
+            // Set total XP text (formatted with 1 decimal place and thousand separators)
+            clone.childNodes[0].textContent = totalXP.toLocaleString('en-US', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1
+            });
+
+            // Insert after original XP element
+            xpElement.parentNode.insertBefore(clone, xpElement.nextSibling);
         }
 
         /**
@@ -21015,7 +21102,7 @@
 
         // Initialize abilities (5 slots)
         for (let i = 0; i < 5; i++) {
-            playerObj.abilities[i] = { abilityHrid: '', level: '1' };
+            playerObj.abilities[i] = { abilityHrid: '', level: 1 };
         }
 
         // Extract equipped abilities
@@ -21031,13 +21118,13 @@
                 // Special ability goes in slot 0
                 playerObj.abilities[0] = {
                     abilityHrid: ability.abilityHrid,
-                    level: String(ability.level || 1)
+                    level: ability.level || 1
                 };
             } else if (normalAbilityIndex < 5) {
                 // Normal abilities go in slots 1-4
                 playerObj.abilities[normalAbilityIndex++] = {
                     abilityHrid: ability.abilityHrid,
-                    level: String(ability.level || 1)
+                    level: ability.level || 1
                 };
             }
         }
@@ -21147,7 +21234,7 @@
 
         // Initialize abilities (5 slots)
         for (let i = 0; i < 5; i++) {
-            playerObj.abilities[i] = { abilityHrid: '', level: '1' };
+            playerObj.abilities[i] = { abilityHrid: '', level: 1 };
         }
 
         // Extract equipped abilities from profile
@@ -21163,13 +21250,13 @@
                 // Special ability goes in slot 0
                 playerObj.abilities[0] = {
                     abilityHrid: ability.abilityHrid,
-                    level: String(ability.level || 1)
+                    level: ability.level || 1
                 };
             } else if (normalAbilityIndex < 5) {
                 // Normal abilities go in slots 1-4
                 playerObj.abilities[normalAbilityIndex++] = {
                     abilityHrid: ability.abilityHrid,
-                    level: String(ability.level || 1)
+                    level: ability.level || 1
                 };
             }
         }
@@ -21203,9 +21290,10 @@
     /**
      * Construct full export object (solo or party)
      * @param {string|null} externalProfileId - Optional profile ID (for viewing other players' profiles)
+     * @param {boolean} singlePlayerFormat - If true, returns player object instead of multi-player format
      * @returns {Object} Export object with player data, IDs, positions, and zone info
      */
-    async function constructExportObject(externalProfileId = null) {
+    async function constructExportObject(externalProfileId = null, singlePlayerFormat = false) {
         const characterObj = await getCharacterData$1();
         if (!characterObj) {
             return null;
@@ -21216,7 +21304,7 @@
         const profileList = await getProfileList();
 
         // Blank player template (as string, like MCS)
-        const BLANK = '{"player":{"attackLevel":1,"magicLevel":1,"meleeLevel":1,"rangedLevel":1,"defenseLevel":1,"staminaLevel":1,"intelligenceLevel":1,"equipment":[]},"food":{"/action_types/combat":[{"itemHrid":""},{"itemHrid":""},{"itemHrid":""}]},"drinks":{"/action_types/combat":[{"itemHrid":""},{"itemHrid":""},{"itemHrid":""}]},"abilities":[{"abilityHrid":"","level":"1"},{"abilityHrid":"","level":"1"},{"abilityHrid":"","level":"1"},{"abilityHrid":"","level":"1"},{"abilityHrid":"","level":"1"}],"triggerMap":{},"houseRooms":{"/house_rooms/dairy_barn":0,"/house_rooms/garden":0,"/house_rooms/log_shed":0,"/house_rooms/forge":0,"/house_rooms/workshop":0,"/house_rooms/sewing_parlor":0,"/house_rooms/kitchen":0,"/house_rooms/brewery":0,"/house_rooms/laboratory":0,"/house_rooms/observatory":0,"/house_rooms/dining_room":0,"/house_rooms/library":0,"/house_rooms/dojo":0,"/house_rooms/gym":0,"/house_rooms/armory":0,"/house_rooms/archery_range":0,"/house_rooms/mystical_study":0},"achievements":{}}';
+        const BLANK = '{"player":{"attackLevel":1,"magicLevel":1,"meleeLevel":1,"rangedLevel":1,"defenseLevel":1,"staminaLevel":1,"intelligenceLevel":1,"equipment":[]},"food":{"/action_types/combat":[{"itemHrid":""},{"itemHrid":""},{"itemHrid":""}]},"drinks":{"/action_types/combat":[{"itemHrid":""},{"itemHrid":""},{"itemHrid":""}]},"abilities":[{"abilityHrid":"","level":1},{"abilityHrid":"","level":1},{"abilityHrid":"","level":1},{"abilityHrid":"","level":1},{"abilityHrid":"","level":1}],"triggerMap":{},"zone":"/actions/combat/fly","simulationTime":"100","houseRooms":{"/house_rooms/dairy_barn":0,"/house_rooms/garden":0,"/house_rooms/log_shed":0,"/house_rooms/forge":0,"/house_rooms/workshop":0,"/house_rooms/sewing_parlor":0,"/house_rooms/kitchen":0,"/house_rooms/brewery":0,"/house_rooms/laboratory":0,"/house_rooms/observatory":0,"/house_rooms/dining_room":0,"/house_rooms/library":0,"/house_rooms/dojo":0,"/house_rooms/gym":0,"/house_rooms/armory":0,"/house_rooms/archery_range":0,"/house_rooms/mystical_study":0},"achievements":{}}';
 
         // Check if exporting another player's profile
         if (externalProfileId && externalProfileId !== characterObj.character.id) {
@@ -21227,9 +21315,30 @@
                 return null; // Profile not in cache
             }
 
-            // Export the other player as a solo player
+            // Construct the player object
+            const playerObj = constructPartyPlayer(profile, clientObj, battleObj);
+
+            // If single-player format requested, return player object directly
+            if (singlePlayerFormat) {
+                // Add name field and remove zone/simulationTime for single-player format
+                playerObj.name = profile.characterName;
+                delete playerObj.zone;
+                delete playerObj.simulationTime;
+
+                return {
+                    exportObj: playerObj,
+                    playerIDs: [profile.characterName, 'Player 2', 'Player 3', 'Player 4', 'Player 5'],
+                    importedPlayerPositions: [true, false, false, false, false],
+                    zone: '/actions/combat/fly',
+                    isZoneDungeon: false,
+                    difficultyTier: 0,
+                    isParty: false
+                };
+            }
+
+            // Multi-player format (for auto-import storage)
             const exportObj = {};
-            exportObj[1] = JSON.stringify(constructPartyPlayer(profile, clientObj, battleObj));
+            exportObj[1] = JSON.stringify(playerObj);
 
             // Fill other slots with blanks
             for (let i = 2; i <= 5; i++) {
@@ -21310,6 +21419,27 @@
             zone = characterObj.partyInfo?.party?.actionHrid || '/actions/combat/fly';
             difficultyTier = characterObj.partyInfo?.party?.difficultyTier || 0;
             isZoneDungeon = clientObj?.actionDetailMap?.[zone]?.combatZoneInfo?.isDungeon || false;
+        }
+
+        // If single-player format requested, return just the player object
+        if (singlePlayerFormat && exportObj[1]) {
+            // Parse the player JSON string back to an object
+            const playerObj = JSON.parse(exportObj[1]);
+
+            // Add name field and remove zone/simulationTime for single-player format
+            playerObj.name = playerIDs[0];
+            delete playerObj.zone;
+            delete playerObj.simulationTime;
+
+            return {
+                exportObj: playerObj,  // Single player object instead of multi-player format
+                playerIDs,
+                importedPlayerPositions,
+                zone,
+                isZoneDungeon,
+                difficultyTier,
+                isParty: false  // Single player export is never party format
+            };
         }
 
         return {
@@ -22127,8 +22257,8 @@
                 // Get current profile ID (if viewing someone else's profile)
                 const currentProfileId = await storage.get('currentProfileId', 'combatExport', null);
 
-                // Get export data (pass profile ID if viewing external profile)
-                const exportData = await constructExportObject(currentProfileId);
+                // Get export data in single-player format (for pasting into "Player 1 import" field)
+                const exportData = await constructExportObject(currentProfileId, true);
                 if (!exportData) {
                     button.textContent = '✗ No Data';
                     button.style.background = '${config.COLOR_LOSS}';
@@ -39119,7 +39249,7 @@
         const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
         targetWindow.Toolasha = {
-            version: '0.4.953',
+            version: '0.4.954',
 
             // Feature toggle API (for users to manage settings via console)
             features: {

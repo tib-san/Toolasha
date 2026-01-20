@@ -163,7 +163,7 @@ function constructSelfPlayer(characterObj, clientObj) {
 
     // Initialize abilities (5 slots)
     for (let i = 0; i < 5; i++) {
-        playerObj.abilities[i] = { abilityHrid: '', level: '1' };
+        playerObj.abilities[i] = { abilityHrid: '', level: 1 };
     }
 
     // Extract equipped abilities
@@ -179,13 +179,13 @@ function constructSelfPlayer(characterObj, clientObj) {
             // Special ability goes in slot 0
             playerObj.abilities[0] = {
                 abilityHrid: ability.abilityHrid,
-                level: String(ability.level || 1)
+                level: ability.level || 1
             };
         } else if (normalAbilityIndex < 5) {
             // Normal abilities go in slots 1-4
             playerObj.abilities[normalAbilityIndex++] = {
                 abilityHrid: ability.abilityHrid,
-                level: String(ability.level || 1)
+                level: ability.level || 1
             };
         }
     }
@@ -295,7 +295,7 @@ function constructPartyPlayer(profile, clientObj, battleObj) {
 
     // Initialize abilities (5 slots)
     for (let i = 0; i < 5; i++) {
-        playerObj.abilities[i] = { abilityHrid: '', level: '1' };
+        playerObj.abilities[i] = { abilityHrid: '', level: 1 };
     }
 
     // Extract equipped abilities from profile
@@ -311,13 +311,13 @@ function constructPartyPlayer(profile, clientObj, battleObj) {
             // Special ability goes in slot 0
             playerObj.abilities[0] = {
                 abilityHrid: ability.abilityHrid,
-                level: String(ability.level || 1)
+                level: ability.level || 1
             };
         } else if (normalAbilityIndex < 5) {
             // Normal abilities go in slots 1-4
             playerObj.abilities[normalAbilityIndex++] = {
                 abilityHrid: ability.abilityHrid,
-                level: String(ability.level || 1)
+                level: ability.level || 1
             };
         }
     }
@@ -351,9 +351,10 @@ function constructPartyPlayer(profile, clientObj, battleObj) {
 /**
  * Construct full export object (solo or party)
  * @param {string|null} externalProfileId - Optional profile ID (for viewing other players' profiles)
+ * @param {boolean} singlePlayerFormat - If true, returns player object instead of multi-player format
  * @returns {Object} Export object with player data, IDs, positions, and zone info
  */
-export async function constructExportObject(externalProfileId = null) {
+export async function constructExportObject(externalProfileId = null, singlePlayerFormat = false) {
     const characterObj = await getCharacterData();
     if (!characterObj) {
         return null;
@@ -364,7 +365,7 @@ export async function constructExportObject(externalProfileId = null) {
     const profileList = await getProfileList();
 
     // Blank player template (as string, like MCS)
-    const BLANK = '{"player":{"attackLevel":1,"magicLevel":1,"meleeLevel":1,"rangedLevel":1,"defenseLevel":1,"staminaLevel":1,"intelligenceLevel":1,"equipment":[]},"food":{"/action_types/combat":[{"itemHrid":""},{"itemHrid":""},{"itemHrid":""}]},"drinks":{"/action_types/combat":[{"itemHrid":""},{"itemHrid":""},{"itemHrid":""}]},"abilities":[{"abilityHrid":"","level":"1"},{"abilityHrid":"","level":"1"},{"abilityHrid":"","level":"1"},{"abilityHrid":"","level":"1"},{"abilityHrid":"","level":"1"}],"triggerMap":{},"zone":"/actions/combat/fly","simulationTime":"100","houseRooms":{"/house_rooms/dairy_barn":0,"/house_rooms/garden":0,"/house_rooms/log_shed":0,"/house_rooms/forge":0,"/house_rooms/workshop":0,"/house_rooms/sewing_parlor":0,"/house_rooms/kitchen":0,"/house_rooms/brewery":0,"/house_rooms/laboratory":0,"/house_rooms/observatory":0,"/house_rooms/dining_room":0,"/house_rooms/library":0,"/house_rooms/dojo":0,"/house_rooms/gym":0,"/house_rooms/armory":0,"/house_rooms/archery_range":0,"/house_rooms/mystical_study":0},"achievements":{}}';
+    const BLANK = '{"player":{"attackLevel":1,"magicLevel":1,"meleeLevel":1,"rangedLevel":1,"defenseLevel":1,"staminaLevel":1,"intelligenceLevel":1,"equipment":[]},"food":{"/action_types/combat":[{"itemHrid":""},{"itemHrid":""},{"itemHrid":""}]},"drinks":{"/action_types/combat":[{"itemHrid":""},{"itemHrid":""},{"itemHrid":""}]},"abilities":[{"abilityHrid":"","level":1},{"abilityHrid":"","level":1},{"abilityHrid":"","level":1},{"abilityHrid":"","level":1},{"abilityHrid":"","level":1}],"triggerMap":{},"zone":"/actions/combat/fly","simulationTime":"100","houseRooms":{"/house_rooms/dairy_barn":0,"/house_rooms/garden":0,"/house_rooms/log_shed":0,"/house_rooms/forge":0,"/house_rooms/workshop":0,"/house_rooms/sewing_parlor":0,"/house_rooms/kitchen":0,"/house_rooms/brewery":0,"/house_rooms/laboratory":0,"/house_rooms/observatory":0,"/house_rooms/dining_room":0,"/house_rooms/library":0,"/house_rooms/dojo":0,"/house_rooms/gym":0,"/house_rooms/armory":0,"/house_rooms/archery_range":0,"/house_rooms/mystical_study":0},"achievements":{}}';
 
     // Check if exporting another player's profile
     if (externalProfileId && externalProfileId !== characterObj.character.id) {
@@ -375,9 +376,30 @@ export async function constructExportObject(externalProfileId = null) {
             return null; // Profile not in cache
         }
 
-        // Export the other player as a solo player
+        // Construct the player object
+        const playerObj = constructPartyPlayer(profile, clientObj, battleObj);
+
+        // If single-player format requested, return player object directly
+        if (singlePlayerFormat) {
+            // Add name field and remove zone/simulationTime for single-player format
+            playerObj.name = profile.characterName;
+            delete playerObj.zone;
+            delete playerObj.simulationTime;
+
+            return {
+                exportObj: playerObj,
+                playerIDs: [profile.characterName, 'Player 2', 'Player 3', 'Player 4', 'Player 5'],
+                importedPlayerPositions: [true, false, false, false, false],
+                zone: '/actions/combat/fly',
+                isZoneDungeon: false,
+                difficultyTier: 0,
+                isParty: false
+            };
+        }
+
+        // Multi-player format (for auto-import storage)
         const exportObj = {};
-        exportObj[1] = JSON.stringify(constructPartyPlayer(profile, clientObj, battleObj));
+        exportObj[1] = JSON.stringify(playerObj);
 
         // Fill other slots with blanks
         for (let i = 2; i <= 5; i++) {
@@ -458,6 +480,27 @@ export async function constructExportObject(externalProfileId = null) {
         zone = characterObj.partyInfo?.party?.actionHrid || '/actions/combat/fly';
         difficultyTier = characterObj.partyInfo?.party?.difficultyTier || 0;
         isZoneDungeon = clientObj?.actionDetailMap?.[zone]?.combatZoneInfo?.isDungeon || false;
+    }
+
+    // If single-player format requested, return just the player object
+    if (singlePlayerFormat && exportObj[1]) {
+        // Parse the player JSON string back to an object
+        const playerObj = JSON.parse(exportObj[1]);
+
+        // Add name field and remove zone/simulationTime for single-player format
+        playerObj.name = playerIDs[0];
+        delete playerObj.zone;
+        delete playerObj.simulationTime;
+
+        return {
+            exportObj: playerObj,  // Single player object instead of multi-player format
+            playerIDs,
+            importedPlayerPositions,
+            zone,
+            isZoneDungeon,
+            difficultyTier,
+            isParty: false  // Single player export is never party format
+        };
     }
 
     return {

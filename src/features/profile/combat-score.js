@@ -402,8 +402,8 @@ class CombatScore {
             // Get current profile ID (if viewing someone else's profile)
             const currentProfileId = await storage.get('currentProfileId', 'combatExport', null);
 
-            // Get export data (pass profile ID if viewing external profile)
-            const exportData = await constructExportObject(currentProfileId);
+            // Get export data in single-player format (for pasting into "Player 1 import" field)
+            const exportData = await constructExportObject(currentProfileId, true);
             if (!exportData) {
                 button.textContent = '✗ No Data';
                 button.style.background = '${config.COLOR_LOSS}';
