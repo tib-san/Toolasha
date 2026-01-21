@@ -358,9 +358,14 @@ class DungeonTracker {
                 for (const msg of messages) {
                     const text = msg.textContent || '';
 
-                    // FILTER: Skip player messages (format: "username: [timestamp] message")
-                    // System messages start directly with timestamp (format: "[timestamp] message")
-                    // Check if text starts with non-timestamp text followed by colon (username pattern)
+                    // FILTER: Skip player messages
+                    // Check for username element (player messages have a username child element)
+                    const hasUsername = msg.querySelector('[class*="ChatMessage_username"]') !== null;
+                    if (hasUsername) {
+                        continue; // Skip player messages
+                    }
+
+                    // FALLBACK: Check if text starts with non-timestamp text followed by colon
                     if (/^[^\[]+:/.test(text)) {
                         continue; // Skip player messages
                     }
@@ -1264,9 +1269,14 @@ class DungeonTracker {
             for (const msg of messages) {
                 const text = msg.textContent || '';
 
-                // FILTER: Skip player messages (format: "username: [timestamp] message")
-                // System messages start directly with timestamp (format: "[timestamp] message")
-                // Check if text starts with non-timestamp text followed by colon (username pattern)
+                // FILTER: Skip player messages
+                // Check for username element (player messages have a username child element)
+                const hasUsername = msg.querySelector('[class*="ChatMessage_username"]') !== null;
+                if (hasUsername) {
+                    continue; // Skip player messages
+                }
+
+                // FALLBACK: Check if text starts with non-timestamp text followed by colon
                 if (/^[^\[]+:/.test(text)) {
                     continue; // Skip player messages
                 }
