@@ -28,8 +28,17 @@ async function getCharacterData() {
             return JSON.parse(data);
         }
 
-        // Steam: Use dataManager (RAM only, no GM storage available)
-        const characterData = dataManager.characterData;
+        // Steam: Try dataManager first
+        let characterData = dataManager.characterData;
+
+        // Fallback: Read directly from localStorage if dataManager is null
+        if (!characterData && typeof LZString !== 'undefined') {
+            const rawData = localStorage.getItem('character');
+            if (rawData) {
+                characterData = JSON.parse(LZString.decompressFromUTF16(rawData));
+            }
+        }
+
         if (!characterData) {
             console.error('[Combat Sim Export] No character data found. Please refresh game page.');
             return null;

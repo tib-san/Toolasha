@@ -21253,8 +21253,17 @@
                 return JSON.parse(data);
             }
 
-            // Steam: Use dataManager (RAM only, no GM storage available)
-            const characterData = dataManager.characterData;
+            // Steam: Try dataManager first
+            let characterData = dataManager.characterData;
+
+            // Fallback: Read directly from localStorage if dataManager is null
+            if (!characterData && typeof LZString !== 'undefined') {
+                const rawData = localStorage.getItem('character');
+                if (rawData) {
+                    characterData = JSON.parse(LZString.decompressFromUTF16(rawData));
+                }
+            }
+
             if (!characterData) {
                 console.error('[Combat Sim Export] No character data found. Please refresh game page.');
                 return null;
@@ -37073,18 +37082,13 @@
                     communityEfficiency = communityBonus * 100; // Convert to percentage
                 }
 
-                // Get achievement buffs (Adept tier: +2% efficiency per tier)
-                const achievementBuffs = dataManager.getAchievementBuffs(actionTypeHrid);
-                const achievementEfficiency = (achievementBuffs.efficiency || 0) * 100; // Convert to percentage
-
                 // Stack all efficiency bonuses additively
                 const totalEfficiency = stackAdditive(
                     levelEfficiency,
                     houseEfficiency,
                     teaEfficiency,
                     equipmentEfficiency,
-                    communityEfficiency,
-                    achievementEfficiency
+                    communityEfficiency
                 );
 
                 return {
@@ -37093,12 +37097,11 @@
                     house: houseEfficiency,
                     tea: teaEfficiency,
                     equipment: equipmentEfficiency,
-                    community: communityEfficiency,
-                    achievement: achievementEfficiency
+                    community: communityEfficiency
                 };
             } catch (error) {
                 console.error('[AlchemyProfit] Failed to extract efficiency:', error);
-                return { total: 0, level: 0, house: 0, tea: 0, equipment: 0, community: 0, achievement: 0 };
+                return { total: 0, level: 0, house: 0, tea: 0, equipment: 0, community: 0 };
             }
         }
 
@@ -37503,31 +37506,15 @@
                 if (itemHrid === '/items/coin') {
                     ask = bid = 1;
                 } else {
-                    // Check if this is an openable container (loot crate)
-                    const itemDetails = dataManager.getItemDetails(itemHrid);
-                    if (itemDetails?.isOpenable) {
-                        // Use expected value calculator for openable containers
-                        const containerValue = expectedValueCalculator.getCachedValue(itemHrid);
-                        if (containerValue !== null && containerValue > 0) {
-                            ask = bid = containerValue;
-                        } else {
-                            // Fallback to marketplace if EV not available
-                            const priceData = marketAPI.getPrice(itemHrid, enhancementLevel);
-                            ask = priceData?.ask || 0;
-                            bid = priceData?.bid || 0;
-                        }
+                    const priceData = marketAPI.getPrice(itemHrid, enhancementLevel);
+                    if (priceData && (priceData.ask > 0 || priceData.bid > 0)) {
+                        // Market data exists for this specific enhancement level
+                        ask = priceData.ask || 0;
+                        bid = priceData.bid || 0;
                     } else {
-                        // Regular item - use marketplace price
-                        const priceData = marketAPI.getPrice(itemHrid, enhancementLevel);
-                        if (priceData && (priceData.ask > 0 || priceData.bid > 0)) {
-                            // Market data exists for this specific enhancement level
-                            ask = priceData.ask || 0;
-                            bid = priceData.bid || 0;
-                        } else {
-                            // No market data for this enhancement level - calculate cost
-                            ask = this.calculateEnhancementCost(itemHrid, enhancementLevel, 'ask');
-                            bid = this.calculateEnhancementCost(itemHrid, enhancementLevel, 'bid');
-                        }
+                        // No market data for this enhancement level - calculate cost
+                        ask = this.calculateEnhancementCost(itemHrid, enhancementLevel, 'ask');
+                        bid = this.calculateEnhancementCost(itemHrid, enhancementLevel, 'bid');
                     }
                 }
 
@@ -37642,13 +37629,7 @@
 
                 // Calculate income per attempt
                 const incomePerAttempt = data.drops.reduce((sum, drop, index) => {
-                    // Special handling for coins (no marketplace price)
-                    let price;
-                    if (drop.itemHrid === '/items/coin') {
-                        price = 1; // Coins are worth 1 coin each
-                    } else {
-                        price = sellType === 'ask' ? drop.ask : drop.bid;
-                    }
+                    const price = sellType === 'ask' ? drop.ask : drop.bid;
 
                     // Identify drop type
                     const isEssence = (index === data.drops.length - 2); // Second-to-last
@@ -37727,13 +37708,7 @@
 
                 // Build detailed drop revenues breakdown
                 const dropRevenues = data.drops.map((drop, index) => {
-                    // Special handling for coins (no marketplace price)
-                    let price;
-                    if (drop.itemHrid === '/items/coin') {
-                        price = 1; // Coins are worth 1 coin each
-                    } else {
-                        price = sellType === 'ask' ? drop.ask : drop.bid;
-                    }
+                    const price = sellType === 'ask' ? drop.ask : drop.bid;
                     const isEssence = (index === data.drops.length - 2);
                     const isRare = (index === data.drops.length - 1);
 
@@ -38403,13 +38378,6 @@
                     const line = document.createElement('div');
                     line.style.marginLeft = '8px';
                     line.textContent = `• Community Buff: +${effBreakdown.community.toFixed(1)}%`;
-                    effContent.appendChild(line);
-                }
-
-                if (effBreakdown.achievement > 0) {
-                    const line = document.createElement('div');
-                    line.style.marginLeft = '8px';
-                    line.textContent = `• Achievement Bonus: +${effBreakdown.achievement.toFixed(1)}%`;
                     effContent.appendChild(line);
                 }
 
